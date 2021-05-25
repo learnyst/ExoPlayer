@@ -18,6 +18,7 @@ package com.google.android.exoplayer2.drm;
 import android.annotation.TargetApi;
 import android.net.Uri;
 import android.text.TextUtils;
+import android.util.Base64;
 import androidx.annotation.Nullable;
 import com.google.android.exoplayer2.C;
 import com.google.android.exoplayer2.drm.ExoMediaDrm.KeyRequest;
@@ -133,7 +134,20 @@ public final class HttpMediaDrmCallback implements MediaDrmCallback {
     synchronized (keyRequestProperties) {
       requestProperties.putAll(keyRequestProperties);
     }
-    return executePost(dataSourceFactory, url, request.getData(), requestProperties);
+
+    //Sridhar - start
+    String base64Data = Base64.encodeToString(request.getData(), Base64.DEFAULT);
+    byte[] utf8Base64Data = Util.getUtf8Bytes(base64Data);
+
+    byte[] executeKeyResult = executePost(dataSourceFactory, url, utf8Base64Data, requestProperties);
+    if (executeKeyResult != null) {
+      String base64Key = Util.fromUtf8Bytes(executeKeyResult);
+      executeKeyResult = Base64.decode(base64Key, Base64.DEFAULT);
+    }
+
+    System.out.println("Exoplayer: executeKeyResult completed");
+    return executeKeyResult;
+    //Sridhar - end
   }
 
   private static byte[] executePost(

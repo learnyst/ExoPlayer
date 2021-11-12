@@ -71,7 +71,9 @@
     <attr name="hide_on_touch" format="boolean"/>
     <attr name="hide_during_ads" format="boolean"/>
     <attr name="auto_show" format="boolean"/>
-    <attr name="show_buffering" format="enum">
+
+    <!-- Sridhar: //Name changed to resolve collosion with zoom sdk-->
+    <attr name="ex_show_buffering" format="enum">
       <enum name="never" value="0"/>
       <enum name="when_playing" value="1"/>
       <enum name="always" value="2"/>

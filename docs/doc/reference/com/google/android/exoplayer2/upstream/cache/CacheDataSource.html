@@ -266,20 +266,20 @@ implements <a href="../DataSource.html" title="interface in com.google.android.e
 </td>
 </tr>
 <tr class="rowColor">
-<th class="colConstructorName" scope="row"><code><span class="memberNameLink"><a href="#%3Cinit%3E(com.google.android.exoplayer2.upstream.cache.Cache,com.google.android.exoplayer2.upstream.DataSource,int)">CacheDataSource</a></span>&#8203;(<a href="Cache.html" title="interface in com.google.android.exoplayer2.upstream.cache">Cache</a>&nbsp;cache,
+<th class="colConstructorName" scope="row"><code><span class="memberNameLink"><a href="#%3Cinit%3E(com.google.android.exoplayer2.upstream.cache.Cache,com.google.android.exoplayer2.upstream.DataSource,@com.google.android.exoplayer2.upstream.cache.CacheDataSource.Flagsint)">CacheDataSource</a></span>&#8203;(<a href="Cache.html" title="interface in com.google.android.exoplayer2.upstream.cache">Cache</a>&nbsp;cache,
                <a href="../DataSource.html" title="interface in com.google.android.exoplayer2.upstream">DataSource</a>&nbsp;upstreamDataSource,
-               int&nbsp;flags)</code></th>
+               @com.google.android.exoplayer2.upstream.cache.CacheDataSource.Flags int&nbsp;flags)</code></th>
 <td class="colLast">
 <div class="block">Constructs an instance with default <a href="../DataSource.html" title="interface in com.google.android.exoplayer2.upstream"><code>DataSource</code></a> and <a href="../DataSink.html" title="interface in com.google.android.exoplayer2.upstream"><code>DataSink</code></a> instances for
  reading and writing the cache.</div>
 </td>
 </tr>
 <tr class="altColor">
-<th class="colConstructorName" scope="row"><code><span class="memberNameLink"><a href="#%3Cinit%3E(com.google.android.exoplayer2.upstream.cache.Cache,com.google.android.exoplayer2.upstream.DataSource,com.google.android.exoplayer2.upstream.DataSource,com.google.android.exoplayer2.upstream.DataSink,int,com.google.android.exoplayer2.upstream.cache.CacheDataSource.EventListener)">CacheDataSource</a></span>&#8203;(<a href="Cache.html" title="interface in com.google.android.exoplayer2.upstream.cache">Cache</a>&nbsp;cache,
+<th class="colConstructorName" scope="row"><code><span class="memberNameLink"><a href="#%3Cinit%3E(com.google.android.exoplayer2.upstream.cache.Cache,com.google.android.exoplayer2.upstream.DataSource,com.google.android.exoplayer2.upstream.DataSource,com.google.android.exoplayer2.upstream.DataSink,@com.google.android.exoplayer2.upstream.cache.CacheDataSource.Flagsint,com.google.android.exoplayer2.upstream.cache.CacheDataSource.EventListener)">CacheDataSource</a></span>&#8203;(<a href="Cache.html" title="interface in com.google.android.exoplayer2.upstream.cache">Cache</a>&nbsp;cache,
                <a href="../DataSource.html" title="interface in com.google.android.exoplayer2.upstream">DataSource</a>&nbsp;upstreamDataSource,
                <a href="../DataSource.html" title="interface in com.google.android.exoplayer2.upstream">DataSource</a>&nbsp;cacheReadDataSource,
                <a href="../DataSink.html" title="interface in com.google.android.exoplayer2.upstream">DataSink</a>&nbsp;cacheWriteDataSink,
-               int&nbsp;flags,
+               @com.google.android.exoplayer2.upstream.cache.CacheDataSource.Flags int&nbsp;flags,
                <a href="CacheDataSource.EventListener.html" title="interface in com.google.android.exoplayer2.upstream.cache">CacheDataSource.EventListener</a>&nbsp;eventListener)</code></th>
 <td class="colLast">
 <div class="block">Constructs an instance with arbitrary <a href="../DataSource.html" title="interface in com.google.android.exoplayer2.upstream"><code>DataSource</code></a> and <a href="../DataSink.html" title="interface in com.google.android.exoplayer2.upstream"><code>DataSink</code></a> instances for
@@ -287,11 +287,11 @@ implements <a href="../DataSource.html" title="interface in com.google.android.e
 </td>
 </tr>
 <tr class="rowColor">
-<th class="colConstructorName" scope="row"><code><span class="memberNameLink"><a href="#%3Cinit%3E(com.google.android.exoplayer2.upstream.cache.Cache,com.google.android.exoplayer2.upstream.DataSource,com.google.android.exoplayer2.upstream.DataSource,com.google.android.exoplayer2.upstream.DataSink,int,com.google.android.exoplayer2.upstream.cache.CacheDataSource.EventListener,com.google.android.exoplayer2.upstream.cache.CacheKeyFactory)">CacheDataSource</a></span>&#8203;(<a href="Cache.html" title="interface in com.google.android.exoplayer2.upstream.cache">Cache</a>&nbsp;cache,
+<th class="colConstructorName" scope="row"><code><span class="memberNameLink"><a href="#%3Cinit%3E(com.google.android.exoplayer2.upstream.cache.Cache,com.google.android.exoplayer2.upstream.DataSource,com.google.android.exoplayer2.upstream.DataSource,com.google.android.exoplayer2.upstream.DataSink,@com.google.android.exoplayer2.upstream.cache.CacheDataSource.Flagsint,com.google.android.exoplayer2.upstream.cache.CacheDataSource.EventListener,com.google.android.exoplayer2.upstream.cache.CacheKeyFactory)">CacheDataSource</a></span>&#8203;(<a href="Cache.html" title="interface in com.google.android.exoplayer2.upstream.cache">Cache</a>&nbsp;cache,
                <a href="../DataSource.html" title="interface in com.google.android.exoplayer2.upstream">DataSource</a>&nbsp;upstreamDataSource,
                <a href="../DataSource.html" title="interface in com.google.android.exoplayer2.upstream">DataSource</a>&nbsp;cacheReadDataSource,
                <a href="../DataSink.html" title="interface in com.google.android.exoplayer2.upstream">DataSink</a>&nbsp;cacheWriteDataSink,
-               int&nbsp;flags,
+               @com.google.android.exoplayer2.upstream.cache.CacheDataSource.Flags int&nbsp;flags,
                <a href="CacheDataSource.EventListener.html" title="interface in com.google.android.exoplayer2.upstream.cache">CacheDataSource.EventListener</a>&nbsp;eventListener,
                <a href="CacheKeyFactory.html" title="interface in com.google.android.exoplayer2.upstream.cache">CacheKeyFactory</a>&nbsp;cacheKeyFactory)</code></th>
 <td class="colLast">
@@ -371,7 +371,7 @@ implements <a href="../DataSource.html" title="interface in com.google.android.e
 <td class="colFirst"><code>int</code></td>
 <th class="colSecond" scope="row"><code><span class="memberNameLink"><a href="#read(byte%5B%5D,int,int)">read</a></span>&#8203;(byte[]&nbsp;buffer,
     int&nbsp;offset,
-    int&nbsp;readLength)</code></th>
+    int&nbsp;length)</code></th>
 <td class="colLast">
 <div class="block">Reads up to <code>length</code> bytes of data from the input.</div>
 </td>
@@ -422,9 +422,9 @@ implements <a href="../DataSource.html" title="interface in com.google.android.e
 <li class="blockList">
 <h4>FLAG_IGNORE_CACHE_ON_ERROR</h4>
 <pre>public static final&nbsp;int FLAG_IGNORE_CACHE_ON_ERROR</pre>
-<div class="block">A flag indicating whether the cache is bypassed following any cache related error. If set
- then cache related exceptions may be thrown for one cycle of open, read and close calls.
- Subsequent cycles of these calls will then bypass the cache.</div>
+<div class="block">A flag indicating whether the cache is bypassed following any cache related error. If set then
+ cache related exceptions may be thrown for one cycle of open, read and close calls. Subsequent
+ cycles of these calls will then bypass the cache.</div>
 <dl>
 <dt><span class="seeLabel">See Also:</span></dt>
 <dd><a href="../../../../../../constant-values.html#com.google.android.exoplayer2.upstream.cache.CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR">Constant Field Values</a></dd>
@@ -503,7 +503,7 @@ implements <a href="../DataSource.html" title="interface in com.google.android.e
 </dl>
 </li>
 </ul>
-<a id="&lt;init&gt;(com.google.android.exoplayer2.upstream.cache.Cache,com.google.android.exoplayer2.upstream.DataSource,int)">
+<a id="&lt;init&gt;(com.google.android.exoplayer2.upstream.cache.Cache,com.google.android.exoplayer2.upstream.DataSource,@com.google.android.exoplayer2.upstream.cache.CacheDataSource.Flagsint)">
 <!--   -->
 </a>
 <ul class="blockList">
@@ -512,8 +512,7 @@ implements <a href="../DataSource.html" title="interface in com.google.android.e
 <pre>public&nbsp;CacheDataSource&#8203;(<a href="Cache.html" title="interface in com.google.android.exoplayer2.upstream.cache">Cache</a>&nbsp;cache,
                        @Nullable
                        <a href="../DataSource.html" title="interface in com.google.android.exoplayer2.upstream">DataSource</a>&nbsp;upstreamDataSource,
-                       <a href="CacheDataSource.Flags.html" title="annotation in com.google.android.exoplayer2.upstream.cache">@Flags</a>
-                       int&nbsp;flags)</pre>
+                       @com.google.android.exoplayer2.upstream.cache.CacheDataSource.Flags int&nbsp;flags)</pre>
 <div class="block">Constructs an instance with default <a href="../DataSource.html" title="interface in com.google.android.exoplayer2.upstream"><code>DataSource</code></a> and <a href="../DataSink.html" title="interface in com.google.android.exoplayer2.upstream"><code>DataSink</code></a> instances for
  reading and writing the cache.</div>
 <dl>
@@ -526,7 +525,7 @@ implements <a href="../DataSource.html" title="interface in com.google.android.e
 </dl>
 </li>
 </ul>
-<a id="&lt;init&gt;(com.google.android.exoplayer2.upstream.cache.Cache,com.google.android.exoplayer2.upstream.DataSource,com.google.android.exoplayer2.upstream.DataSource,com.google.android.exoplayer2.upstream.DataSink,int,com.google.android.exoplayer2.upstream.cache.CacheDataSource.EventListener)">
+<a id="&lt;init&gt;(com.google.android.exoplayer2.upstream.cache.Cache,com.google.android.exoplayer2.upstream.DataSource,com.google.android.exoplayer2.upstream.DataSource,com.google.android.exoplayer2.upstream.DataSink,@com.google.android.exoplayer2.upstream.cache.CacheDataSource.Flagsint,com.google.android.exoplayer2.upstream.cache.CacheDataSource.EventListener)">
 <!--   -->
 </a>
 <ul class="blockList">
@@ -538,8 +537,7 @@ implements <a href="../DataSource.html" title="interface in com.google.android.e
                        <a href="../DataSource.html" title="interface in com.google.android.exoplayer2.upstream">DataSource</a>&nbsp;cacheReadDataSource,
                        @Nullable
                        <a href="../DataSink.html" title="interface in com.google.android.exoplayer2.upstream">DataSink</a>&nbsp;cacheWriteDataSink,
-                       <a href="CacheDataSource.Flags.html" title="annotation in com.google.android.exoplayer2.upstream.cache">@Flags</a>
-                       int&nbsp;flags,
+                       @com.google.android.exoplayer2.upstream.cache.CacheDataSource.Flags int&nbsp;flags,
                        @Nullable
                        <a href="CacheDataSource.EventListener.html" title="interface in com.google.android.exoplayer2.upstream.cache">CacheDataSource.EventListener</a>&nbsp;eventListener)</pre>
 <div class="block">Constructs an instance with arbitrary <a href="../DataSource.html" title="interface in com.google.android.exoplayer2.upstream"><code>DataSource</code></a> and <a href="../DataSink.html" title="interface in com.google.android.exoplayer2.upstream"><code>DataSink</code></a> instances for
@@ -559,7 +557,7 @@ implements <a href="../DataSource.html" title="interface in com.google.android.e
 </dl>
 </li>
 </ul>
-<a id="&lt;init&gt;(com.google.android.exoplayer2.upstream.cache.Cache,com.google.android.exoplayer2.upstream.DataSource,com.google.android.exoplayer2.upstream.DataSource,com.google.android.exoplayer2.upstream.DataSink,int,com.google.android.exoplayer2.upstream.cache.CacheDataSource.EventListener,com.google.android.exoplayer2.upstream.cache.CacheKeyFactory)">
+<a id="&lt;init&gt;(com.google.android.exoplayer2.upstream.cache.Cache,com.google.android.exoplayer2.upstream.DataSource,com.google.android.exoplayer2.upstream.DataSource,com.google.android.exoplayer2.upstream.DataSink,@com.google.android.exoplayer2.upstream.cache.CacheDataSource.Flagsint,com.google.android.exoplayer2.upstream.cache.CacheDataSource.EventListener,com.google.android.exoplayer2.upstream.cache.CacheKeyFactory)">
 <!--   -->
 </a>
 <ul class="blockListLast">
@@ -571,8 +569,7 @@ implements <a href="../DataSource.html" title="interface in com.google.android.e
                        <a href="../DataSource.html" title="interface in com.google.android.exoplayer2.upstream">DataSource</a>&nbsp;cacheReadDataSource,
                        @Nullable
                        <a href="../DataSink.html" title="interface in com.google.android.exoplayer2.upstream">DataSink</a>&nbsp;cacheWriteDataSink,
-                       <a href="CacheDataSource.Flags.html" title="annotation in com.google.android.exoplayer2.upstream.cache">@Flags</a>
-                       int&nbsp;flags,
+                       @com.google.android.exoplayer2.upstream.cache.CacheDataSource.Flags int&nbsp;flags,
                        @Nullable
                        <a href="CacheDataSource.EventListener.html" title="interface in com.google.android.exoplayer2.upstream.cache">CacheDataSource.EventListener</a>&nbsp;eventListener,
                        @Nullable
@@ -693,7 +690,7 @@ implements <a href="../DataSource.html" title="interface in com.google.android.e
 <h4>read</h4>
 <pre class="methodSignature">public&nbsp;int&nbsp;read&#8203;(byte[]&nbsp;buffer,
                 int&nbsp;offset,
-                int&nbsp;readLength)
+                int&nbsp;length)
          throws <a href="https://developer.android.com/reference/java/io/IOException.html" title="class or interface in java.io" class="externalLink" target="_top">IOException</a></pre>
 <div class="block"><span class="descfrmTypeLabel">Description copied from interface:&nbsp;<code><a href="../DataReader.html#read(byte%5B%5D,int,int)">DataReader</a></code></span></div>
 <div class="block">Reads up to <code>length</code> bytes of data from the input.
@@ -708,7 +705,7 @@ implements <a href="../DataSource.html" title="interface in com.google.android.e
 <dt><span class="paramLabel">Parameters:</span></dt>
 <dd><code>buffer</code> - A target array into which data should be written.</dd>
 <dd><code>offset</code> - The offset into the target array at which to write.</dd>
-<dd><code>readLength</code> - The maximum number of bytes to read from the input.</dd>
+<dd><code>length</code> - The maximum number of bytes to read from the input.</dd>
 <dt><span class="returnLabel">Returns:</span></dt>
 <dd>The number of bytes read, or <a href="../../C.html#RESULT_END_OF_INPUT"><code>C.RESULT_END_OF_INPUT</code></a> if the input has ended. This
      may be less than <code>length</code> because the end of the input (or available data) was

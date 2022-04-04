@@ -150,6 +150,85 @@ public class SessionDescriptionTest {
   }
 
   @Test
+  public void parse_sdpStringWithDuplicatedMediaAttribute_recordsTheMostRecentValue()
+      throws Exception {
+    String testMediaSdpInfo =
+        "v=0\r\n"
+            + "o=MNobody 2890844526 2890842807 IN IP4 192.0.2.46\r\n"
+            + "s=SDP Seminar\r\n"
+            + "t=0 0\r\n"
+            + "i=A Seminar on the session description protocol\r\n"
+            + "m=audio 3456 RTP/AVP 0\r\n"
+            + "a=control:video\r\n"
+            + "a=rtpmap:97 AC3/44100\r\n"
+            // Duplicate attribute.
+            + "a=control:audio\r\n";
+
+    SessionDescription sessionDescription = SessionDescriptionParser.parse(testMediaSdpInfo);
+
+    assertThat(sessionDescription.mediaDescriptionList.get(0).attributes)
+        .containsEntry(ATTR_CONTROL, "audio");
+  }
+
+  @Test
+  public void parse_sdpStringWithSpecialAttributeField_succeeds() throws Exception {
+    String testMediaSdpInfo =
+        "v=0\r\n"
+            + "o=MNobody 2890844526 2890842807 IN IP4 192.0.2.46\r\n"
+            + "s=SDP Seminar\r\n"
+            + "t=0 0\r\n"
+            + "i=A Seminar on the session description protocol\r\n"
+            + "m=audio 3456 RTP/AVP 0\r\n"
+            + "a=rtpmap:97 AC3/44100\r\n"
+            + "a=A!#$%&'*+-.^_`{|}~:special\r\n";
+
+    SessionDescription sessionDescription = SessionDescriptionParser.parse(testMediaSdpInfo);
+
+    assertThat(sessionDescription.mediaDescriptionList.get(0).attributes)
+        .containsEntry("A!#$%&'*+-.^_`{|}~", "special");
+  }
+
+  @Test
+  public void parse_sdpStringWithDuplicatedSessionAttribute_recordsTheMostRecentValue()
+      throws Exception {
+    String testMediaSdpInfo =
+        "v=0\r\n"
+            + "o=MNobody 2890844526 2890842807 IN IP4 192.0.2.46\r\n"
+            + "s=SDP Seminar\r\n"
+            + "t=0 0\r\n"
+            + "a=control:*\r\n"
+            // Duplicate attribute.
+            + "a=control:session1\r\n"
+            + "i=A Seminar on the session description protocol\r\n"
+            + "m=audio 3456 RTP/AVP 0\r\n"
+            + "a=rtpmap:97 AC3/44100\r\n"
+            + "a=control:audio\r\n";
+
+    SessionDescription sessionDescription = SessionDescriptionParser.parse(testMediaSdpInfo);
+
+    assertThat(sessionDescription.attributes).containsEntry(ATTR_CONTROL, "session1");
+  }
+
+  @Test
+  public void parse_sdpStringWithExtraSpaceInRtpMapAttribute_succeeds() throws Exception {
+    String testMediaSdpInfo =
+        "v=0\r\n"
+            + "o=MNobody 2890844526 2890842807 IN IP4 192.0.2.46\r\n"
+            + "s=SDP Seminar\r\n"
+            + "t=0 0\r\n"
+            + "a=control:*\r\n"
+            + "m=audio 3456 RTP/AVP 0\r\n"
+            + "a=rtpmap:97 AC3/44100  \r\n";
+
+    SessionDescription sessionDescription = SessionDescriptionParser.parse(testMediaSdpInfo);
+    MediaDescription.RtpMapAttribute rtpMapAttribute =
+        sessionDescription.mediaDescriptionList.get(0).rtpMapAttribute;
+    assertThat(rtpMapAttribute.payloadType).isEqualTo(97);
+    assertThat(rtpMapAttribute.mediaEncoding).isEqualTo("AC3");
+    assertThat(rtpMapAttribute.clockRate).isEqualTo(44100);
+  }
+
+  @Test
   public void buildMediaDescription_withInvalidRtpmapAttribute_throwsIllegalStateException() {
     assertThrows(
         IllegalStateException.class,

@@ -253,7 +253,7 @@ $('.navPadding').css('padding-top', $('.fixedNav').css("height"));
 </td>
 </tr>
 <tr id="i3" class="rowColor">
-<td class="colFirst"><code>int</code></td>
+<td class="colFirst"><code>@com.google.android.exoplayer2.extractor.mkv.EbmlProcessor.ElementType int</code></td>
 <th class="colSecond" scope="row"><code><span class="memberNameLink"><a href="#getElementType(int)">getElementType</a></span>&#8203;(int&nbsp;id)</code></th>
 <td class="colLast">
 <div class="block">Maps an element ID to a corresponding type.</div>
@@ -408,8 +408,7 @@ $('.navPadding').css('padding-top', $('.fixedNav').css("height"));
 <ul class="blockList">
 <li class="blockList">
 <h4>getElementType</h4>
-<pre class="methodSignature"><a href="EbmlProcessor.ElementType.html" title="annotation in com.google.android.exoplayer2.extractor.mkv">@ElementType</a>
-int&nbsp;getElementType&#8203;(int&nbsp;id)</pre>
+<pre class="methodSignature">@com.google.android.exoplayer2.extractor.mkv.EbmlProcessor.ElementType int&nbsp;getElementType&#8203;(int&nbsp;id)</pre>
 <div class="block">Maps an element ID to a corresponding type.
 
  <p>If <a href="#ELEMENT_TYPE_UNKNOWN"><code>ELEMENT_TYPE_UNKNOWN</code></a> is returned then the element is skipped. Note that all
@@ -450,12 +449,12 @@ int&nbsp;getElementType&#8203;(int&nbsp;id)</pre>
                         long&nbsp;contentSize)
                  throws <a href="../../ParserException.html" title="class in com.google.android.exoplayer2">ParserException</a></pre>
 <div class="block">Called when the start of a master element is encountered.
- <p>
- Following events should be considered as taking place within this element until a matching call
- to <a href="#endMasterElement(int)"><code>endMasterElement(int)</code></a> is made.
- <p>
- Note that it is possible for another master element of the same element ID to be nested within
- itself.</div>
+
+ <p>Following events should be considered as taking place within this element until a matching
+ call to <a href="#endMasterElement(int)"><code>endMasterElement(int)</code></a> is made.
+
+ <p>Note that it is possible for another master element of the same element ID to be nested
+ within itself.</div>
 <dl>
 <dt><span class="paramLabel">Parameters:</span></dt>
 <dd><code>id</code> - The element ID.</dd>

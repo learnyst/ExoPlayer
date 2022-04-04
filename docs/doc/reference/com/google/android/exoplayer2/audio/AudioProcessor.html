@@ -122,7 +122,7 @@ $('.navPadding').css('padding-top', $('.fixedNav').css("height"));
 <li class="blockList">
 <dl>
 <dt>All Known Implementing Classes:</dt>
-<dd><code><a href="BaseAudioProcessor.html" title="class in com.google.android.exoplayer2.audio">BaseAudioProcessor</a></code>, <code><a href="../ext/gvr/GvrAudioProcessor.html" title="class in com.google.android.exoplayer2.ext.gvr">GvrAudioProcessor</a></code>, <code><a href="SilenceSkippingAudioProcessor.html" title="class in com.google.android.exoplayer2.audio">SilenceSkippingAudioProcessor</a></code>, <code><a href="SonicAudioProcessor.html" title="class in com.google.android.exoplayer2.audio">SonicAudioProcessor</a></code>, <code><a href="TeeAudioProcessor.html" title="class in com.google.android.exoplayer2.audio">TeeAudioProcessor</a></code></dd>
+<dd><code><a href="BaseAudioProcessor.html" title="class in com.google.android.exoplayer2.audio">BaseAudioProcessor</a></code>, <code><a href="SilenceSkippingAudioProcessor.html" title="class in com.google.android.exoplayer2.audio">SilenceSkippingAudioProcessor</a></code>, <code><a href="SonicAudioProcessor.html" title="class in com.google.android.exoplayer2.audio">SonicAudioProcessor</a></code>, <code><a href="TeeAudioProcessor.html" title="class in com.google.android.exoplayer2.audio">TeeAudioProcessor</a></code></dd>
 </dl>
 <hr>
 <pre>public interface <span class="typeNameLabel">AudioProcessor</span></pre>
@@ -253,9 +253,9 @@ $('.navPadding').css('padding-top', $('.fixedNav').css("height"));
 </tr>
 <tr id="i6" class="altColor">
 <td class="colFirst"><code>void</code></td>
-<th class="colSecond" scope="row"><code><span class="memberNameLink"><a href="#queueInput(java.nio.ByteBuffer)">queueInput</a></span>&#8203;(<a href="https://developer.android.com/reference/java/nio/ByteBuffer.html" title="class or interface in java.nio" class="externalLink" target="_top">ByteBuffer</a>&nbsp;buffer)</code></th>
+<th class="colSecond" scope="row"><code><span class="memberNameLink"><a href="#queueInput(java.nio.ByteBuffer)">queueInput</a></span>&#8203;(<a href="https://developer.android.com/reference/java/nio/ByteBuffer.html" title="class or interface in java.nio" class="externalLink" target="_top">ByteBuffer</a>&nbsp;inputBuffer)</code></th>
 <td class="colLast">
-<div class="block">Queues audio data between the position and limit of the input <code>buffer</code> for processing.</div>
+<div class="block">Queues audio data between the position and limit of the <code>inputBuffer</code> for processing.</div>
 </td>
 </tr>
 <tr id="i7" class="rowColor">
@@ -344,15 +344,16 @@ $('.navPadding').css('padding-top', $('.fixedNav').css("height"));
 <ul class="blockList">
 <li class="blockList">
 <h4>queueInput</h4>
-<pre class="methodSignature">void&nbsp;queueInput&#8203;(<a href="https://developer.android.com/reference/java/nio/ByteBuffer.html" title="class or interface in java.nio" class="externalLink" target="_top">ByteBuffer</a>&nbsp;buffer)</pre>
-<div class="block">Queues audio data between the position and limit of the input <code>buffer</code> for processing.
- <code>buffer</code> must be a direct byte buffer with native byte order. Its contents are treated as
- read-only. Its position will be advanced by the number of bytes consumed (which may be zero).
- The caller retains ownership of the provided buffer. Calling this method invalidates any
- previous buffer returned by <a href="#getOutput()"><code>getOutput()</code></a>.</div>
+<pre class="methodSignature">void&nbsp;queueInput&#8203;(<a href="https://developer.android.com/reference/java/nio/ByteBuffer.html" title="class or interface in java.nio" class="externalLink" target="_top">ByteBuffer</a>&nbsp;inputBuffer)</pre>
+<div class="block">Queues audio data between the position and limit of the <code>inputBuffer</code> for processing.
+ After calling this method, processed output may be available via <a href="#getOutput()"><code>getOutput()</code></a>. Calling
+ <code>queueInput(ByteBuffer)</code> again invalidates any pending output.</div>
 <dl>
 <dt><span class="paramLabel">Parameters:</span></dt>
-<dd><code>buffer</code> - The input buffer to process.</dd>
+<dd><code>inputBuffer</code> - The input buffer to process. It must be a direct byte buffer with native
+     byte order. Its contents are treated as read-only. Its position will be advanced by the
+     number of bytes consumed (which may be zero). The caller retains ownership of the provided
+     buffer.</dd>
 </dl>
 </li>
 </ul>
@@ -363,11 +364,10 @@ $('.navPadding').css('padding-top', $('.fixedNav').css("height"));
 <li class="blockList">
 <h4>queueEndOfStream</h4>
 <pre class="methodSignature">void&nbsp;queueEndOfStream()</pre>
-<div class="block">Queues an end of stream signal. After this method has been called,
- <a href="#queueInput(java.nio.ByteBuffer)"><code>queueInput(ByteBuffer)</code></a> may not be called until after the next call to
- <a href="#flush()"><code>flush()</code></a>. Calling <a href="#getOutput()"><code>getOutput()</code></a> will return any remaining output data. Multiple
- calls may be required to read all of the remaining output data. <a href="#isEnded()"><code>isEnded()</code></a> will return
- <code>true</code> once all remaining output data has been read.</div>
+<div class="block">Queues an end of stream signal. After this method has been called, <a href="#queueInput(java.nio.ByteBuffer)"><code>queueInput(ByteBuffer)</code></a> may not be called until after the next call to <a href="#flush()"><code>flush()</code></a>.
+ Calling <a href="#getOutput()"><code>getOutput()</code></a> will return any remaining output data. Multiple calls may be
+ required to read all of the remaining output data. <a href="#isEnded()"><code>isEnded()</code></a> will return <code>true</code>
+ once all remaining output data has been read.</div>
 </li>
 </ul>
 <a id="getOutput()">

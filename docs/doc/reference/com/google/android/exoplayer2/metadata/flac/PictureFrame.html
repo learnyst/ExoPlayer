@@ -25,8 +25,8 @@
     catch(err) {
     }
 //-->
-var data = {"i0":10,"i1":10,"i2":10,"i3":10,"i4":10};
-var tabs = {65535:["t0","All Methods"],2:["t2","Instance Methods"],8:["t4","Concrete Methods"]};
+var data = {"i0":10,"i1":10,"i2":9,"i3":10,"i4":10,"i5":10,"i6":10};
+var tabs = {65535:["t0","All Methods"],1:["t1","Static Methods"],2:["t2","Instance Methods"],8:["t4","Concrete Methods"]};
 var altColor = "altColor";
 var rowColor = "rowColor";
 var tableTab = "tableTab";
@@ -136,7 +136,7 @@ $('.navPadding').css('padding-top', $('.fixedNav').css("height"));
 <pre>public final class <span class="typeNameLabel">PictureFrame</span>
 extends <a href="https://developer.android.com/reference/java/lang/Object.html" title="class or interface in java.lang" class="externalLink" target="_top">Object</a>
 implements <a href="../Metadata.Entry.html" title="interface in com.google.android.exoplayer2.metadata">Metadata.Entry</a></pre>
-<div class="block">A picture parsed from a FLAC file.</div>
+<div class="block">A picture parsed from a Vorbis Comment or a FLAC picture block.</div>
 </li>
 </ul>
 </div>
@@ -282,7 +282,7 @@ implements <a href="../Metadata.Entry.html" title="interface in com.google.andro
 </a>
 <h3>Method Summary</h3>
 <table class="memberSummary">
-<caption><span id="t0" class="activeTableTab"><span>All Methods</span><span class="tabEnd">&nbsp;</span></span><span id="t2" class="tableTab"><span><a href="javascript:show(2);">Instance Methods</a></span><span class="tabEnd">&nbsp;</span></span><span id="t4" class="tableTab"><span><a href="javascript:show(8);">Concrete Methods</a></span><span class="tabEnd">&nbsp;</span></span></caption>
+<caption><span id="t0" class="activeTableTab"><span>All Methods</span><span class="tabEnd">&nbsp;</span></span><span id="t1" class="tableTab"><span><a href="javascript:show(1);">Static Methods</a></span><span class="tabEnd">&nbsp;</span></span><span id="t2" class="tableTab"><span><a href="javascript:show(2);">Instance Methods</a></span><span class="tabEnd">&nbsp;</span></span><span id="t4" class="tableTab"><span><a href="javascript:show(8);">Concrete Methods</a></span><span class="tabEnd">&nbsp;</span></span></caption>
 <tr>
 <th class="colFirst" scope="col">Modifier and Type</th>
 <th class="colSecond" scope="col">Method</th>
@@ -299,16 +299,30 @@ implements <a href="../Metadata.Entry.html" title="interface in com.google.andro
 <td class="colLast">&nbsp;</td>
 </tr>
 <tr id="i2" class="altColor">
+<td class="colFirst"><code>static <a href="PictureFrame.html" title="class in com.google.android.exoplayer2.metadata.flac">PictureFrame</a></code></td>
+<th class="colSecond" scope="row"><code><span class="memberNameLink"><a href="#fromPictureBlock(com.google.android.exoplayer2.util.ParsableByteArray)">fromPictureBlock</a></span>&#8203;(<a href="../../util/ParsableByteArray.html" title="class in com.google.android.exoplayer2.util">ParsableByteArray</a>&nbsp;pictureBlock)</code></th>
+<td class="colLast">
+<div class="block">Parses a <code>METADATA_BLOCK_PICTURE</code> into a <code>PictureFrame</code> instance.</div>
+</td>
+</tr>
+<tr id="i3" class="rowColor">
 <td class="colFirst"><code>int</code></td>
 <th class="colSecond" scope="row"><code><span class="memberNameLink"><a href="#hashCode()">hashCode</a></span>()</code></th>
 <td class="colLast">&nbsp;</td>
 </tr>
-<tr id="i3" class="rowColor">
+<tr id="i4" class="altColor">
+<td class="colFirst"><code>void</code></td>
+<th class="colSecond" scope="row"><code><span class="memberNameLink"><a href="#populateMediaMetadata(com.google.android.exoplayer2.MediaMetadata.Builder)">populateMediaMetadata</a></span>&#8203;(<a href="../../MediaMetadata.Builder.html" title="class in com.google.android.exoplayer2">MediaMetadata.Builder</a>&nbsp;builder)</code></th>
+<td class="colLast">
+<div class="block">Updates the <a href="../../MediaMetadata.Builder.html" title="class in com.google.android.exoplayer2"><code>MediaMetadata.Builder</code></a> with the type specific values stored in this Entry.</div>
+</td>
+</tr>
+<tr id="i5" class="rowColor">
 <td class="colFirst"><code><a href="https://developer.android.com/reference/java/lang/String.html" title="class or interface in java.lang" class="externalLink" target="_top">String</a></code></td>
 <th class="colSecond" scope="row"><code><span class="memberNameLink"><a href="#toString()">toString</a></span>()</code></th>
 <td class="colLast">&nbsp;</td>
 </tr>
-<tr id="i4" class="altColor">
+<tr id="i6" class="altColor">
 <td class="colFirst"><code>void</code></td>
 <th class="colSecond" scope="row"><code><span class="memberNameLink"><a href="#writeToParcel(android.os.Parcel,int)">writeToParcel</a></span>&#8203;(<a href="https://developer.android.com/reference/android/os/Parcel.html" title="class or interface in android.os" class="externalLink" target="_top">Parcel</a>&nbsp;dest,
              int&nbsp;flags)</code></th>
@@ -327,7 +341,7 @@ implements <a href="../Metadata.Entry.html" title="interface in com.google.andro
 <!--   -->
 </a>
 <h3>Methods inherited from interface&nbsp;com.google.android.exoplayer2.metadata.<a href="../Metadata.Entry.html" title="interface in com.google.android.exoplayer2.metadata">Metadata.Entry</a></h3>
-<code><a href="../Metadata.Entry.html#getWrappedMetadataBytes()">getWrappedMetadataBytes</a>, <a href="../Metadata.Entry.html#getWrappedMetadataFormat()">getWrappedMetadataFormat</a>, <a href="../Metadata.Entry.html#populateMediaMetadata(com.google.android.exoplayer2.MediaMetadata.Builder)">populateMediaMetadata</a></code></li>
+<code><a href="../Metadata.Entry.html#getWrappedMetadataBytes()">getWrappedMetadataBytes</a>, <a href="../Metadata.Entry.html#getWrappedMetadataFormat()">getWrappedMetadataFormat</a></code></li>
 </ul>
 </li>
 </ul>
@@ -470,6 +484,26 @@ implements <a href="../Metadata.Entry.html" title="interface in com.google.andro
 <!--   -->
 </a>
 <h3>Method Detail</h3>
+<a id="populateMediaMetadata(com.google.android.exoplayer2.MediaMetadata.Builder)">
+<!--   -->
+</a>
+<ul class="blockList">
+<li class="blockList">
+<h4>populateMediaMetadata</h4>
+<pre class="methodSignature">public&nbsp;void&nbsp;populateMediaMetadata&#8203;(<a href="../../MediaMetadata.Builder.html" title="class in com.google.android.exoplayer2">MediaMetadata.Builder</a>&nbsp;builder)</pre>
+<div class="block"><span class="descfrmTypeLabel">Description copied from interface:&nbsp;<code><a href="../Metadata.Entry.html#populateMediaMetadata(com.google.android.exoplayer2.MediaMetadata.Builder)">Metadata.Entry</a></code></span></div>
+<div class="block">Updates the <a href="../../MediaMetadata.Builder.html" title="class in com.google.android.exoplayer2"><code>MediaMetadata.Builder</code></a> with the type specific values stored in this Entry.
+
+ <p>The order of the <a href="../Metadata.Entry.html" title="interface in com.google.android.exoplayer2.metadata"><code>Metadata.Entry</code></a> objects in the <a href="../Metadata.html" title="class in com.google.android.exoplayer2.metadata"><code>Metadata</code></a> matters. If two <a href="../Metadata.Entry.html" title="interface in com.google.android.exoplayer2.metadata"><code>Metadata.Entry</code></a> entries attempt to populate the same <a href="../../MediaMetadata.html" title="class in com.google.android.exoplayer2"><code>MediaMetadata</code></a> field, then the last one in
+ the list is used.</div>
+<dl>
+<dt><span class="overrideSpecifyLabel">Specified by:</span></dt>
+<dd><code><a href="../Metadata.Entry.html#populateMediaMetadata(com.google.android.exoplayer2.MediaMetadata.Builder)">populateMediaMetadata</a></code>&nbsp;in interface&nbsp;<code><a href="../Metadata.Entry.html" title="interface in com.google.android.exoplayer2.metadata">Metadata.Entry</a></code></dd>
+<dt><span class="paramLabel">Parameters:</span></dt>
+<dd><code>builder</code> - The builder to be updated.</dd>
+</dl>
+</li>
+</ul>
 <a id="toString()">
 <!--   -->
 </a>
@@ -527,13 +561,32 @@ implements <a href="../Metadata.Entry.html" title="interface in com.google.andro
 <a id="describeContents()">
 <!--   -->
 </a>
-<ul class="blockListLast">
+<ul class="blockList">
 <li class="blockList">
 <h4>describeContents</h4>
 <pre class="methodSignature">public&nbsp;int&nbsp;describeContents()</pre>
 <dl>
 <dt><span class="overrideSpecifyLabel">Specified by:</span></dt>
 <dd><code><a href="https://developer.android.com/reference/android/os/Parcelable.html#describeContents()" title="class or interface in android.os" class="externalLink">describeContents</a></code>&nbsp;in interface&nbsp;<code><a href="https://developer.android.com/reference/android/os/Parcelable.html?is-external=true" title="class or interface in android.os" class="externalLink" target="_top">Parcelable</a></code></dd>
+</dl>
+</li>
+</ul>
+<a id="fromPictureBlock(com.google.android.exoplayer2.util.ParsableByteArray)">
+<!--   -->
+</a>
+<ul class="blockListLast">
+<li class="blockList">
+<h4>fromPictureBlock</h4>
+<pre class="methodSignature">public static&nbsp;<a href="PictureFrame.html" title="class in com.google.android.exoplayer2.metadata.flac">PictureFrame</a>&nbsp;fromPictureBlock&#8203;(<a href="../../util/ParsableByteArray.html" title="class in com.google.android.exoplayer2.util">ParsableByteArray</a>&nbsp;pictureBlock)</pre>
+<div class="block">Parses a <code>METADATA_BLOCK_PICTURE</code> into a <code>PictureFrame</code> instance.
+
+ <p><code>pictureBlock</code> may be read directly from a <a href="https://xiph.org/flac/format.html#metadata_block_picture">FLAC file</a>, or decoded from
+ the base64 content of a <a href="https://wiki.xiph.org/VorbisComment#METADATA_BLOCK_PICTURE">Vorbis Comment</a>.</div>
+<dl>
+<dt><span class="paramLabel">Parameters:</span></dt>
+<dd><code>pictureBlock</code> - The data of the <code>METADATA_BLOCK_PICTURE</code>, not including any headers.</dd>
+<dt><span class="returnLabel">Returns:</span></dt>
+<dd>A <code>PictureFrame</code> parsed from <code>pictureBlock</code>.</dd>
 </dl>
 </li>
 </ul>

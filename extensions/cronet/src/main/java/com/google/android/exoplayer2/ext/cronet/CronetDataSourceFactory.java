@@ -15,6 +15,8 @@
  */
 package com.google.android.exoplayer2.ext.cronet;
 
+import static org.chromium.net.UrlRequest.Builder.REQUEST_PRIORITY_MEDIUM;
+
 import androidx.annotation.Nullable;
 import com.google.android.exoplayer2.upstream.DefaultHttpDataSource;
 import com.google.android.exoplayer2.upstream.HttpDataSource;
@@ -27,15 +29,11 @@ import org.chromium.net.CronetEngine;
 @Deprecated
 public final class CronetDataSourceFactory extends BaseFactory {
 
-  /**
-   * The default connection timeout, in milliseconds.
-   */
+  /** The default connection timeout, in milliseconds. */
   public static final int DEFAULT_CONNECT_TIMEOUT_MILLIS =
       CronetDataSource.DEFAULT_CONNECT_TIMEOUT_MILLIS;
 
-  /**
-   * The default read timeout, in milliseconds.
-   */
+  /** The default read timeout, in milliseconds. */
   public static final int DEFAULT_READ_TIMEOUT_MILLIS =
       CronetDataSource.DEFAULT_READ_TIMEOUT_MILLIS;
 
@@ -338,8 +336,8 @@ public final class CronetDataSourceFactory extends BaseFactory {
   }
 
   @Override
-  protected HttpDataSource createDataSourceInternal(HttpDataSource.RequestProperties
-      defaultRequestProperties) {
+  protected HttpDataSource createDataSourceInternal(
+      HttpDataSource.RequestProperties defaultRequestProperties) {
     @Nullable CronetEngine cronetEngine = cronetEngineWrapper.getCronetEngine();
     if (cronetEngine == null) {
       return fallbackFactory.createDataSource();
@@ -348,14 +346,18 @@ public final class CronetDataSourceFactory extends BaseFactory {
         new CronetDataSource(
             cronetEngine,
             executor,
+            REQUEST_PRIORITY_MEDIUM,
             connectTimeoutMs,
             readTimeoutMs,
             resetTimeoutOnRedirects,
-            defaultRequestProperties);
+            /* handleSetCookieRequests= */ false,
+            /* userAgent= */ null,
+            defaultRequestProperties,
+            /* contentTypePredicate= */ null,
+            /* keepPostFor302Redirects */ false);
     if (transferListener != null) {
       dataSource.addTransferListener(transferListener);
     }
     return dataSource;
   }
-
 }

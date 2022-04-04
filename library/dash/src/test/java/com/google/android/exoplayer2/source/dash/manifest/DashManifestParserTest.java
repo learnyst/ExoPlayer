@@ -24,11 +24,14 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.android.exoplayer2.C;
 import com.google.android.exoplayer2.Format;
 import com.google.android.exoplayer2.metadata.emsg.EventMessage;
+import com.google.android.exoplayer2.source.dash.manifest.Representation.MultiSegmentRepresentation;
+import com.google.android.exoplayer2.source.dash.manifest.Representation.SingleSegmentRepresentation;
 import com.google.android.exoplayer2.source.dash.manifest.SegmentBase.SegmentTimelineElement;
 import com.google.android.exoplayer2.testutil.TestUtil;
 import com.google.android.exoplayer2.util.MimeTypes;
 import com.google.android.exoplayer2.util.Util;
 import com.google.common.base.Charsets;
+import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.io.StringReader;
 import java.util.Collections;
@@ -43,16 +46,29 @@ import org.xmlpull.v1.XmlPullParserFactory;
 public class DashManifestParserTest {
 
   private static final String SAMPLE_MPD_LIVE = "media/mpd/sample_mpd_live";
+  private static final String SAMPLE_MPD_LIVE_LOCATION_REDIRECT_RELATIVE =
+      "media/mpd/sample_mpd_live_location_redirect_relative";
+  private static final String SAMPLE_MPD_LIVE_LOCATION_REDIRECT_ABSOLUTE =
+      "media/mpd/sample_mpd_live_location_redirect_absolute";
   private static final String SAMPLE_MPD_UNKNOWN_MIME_TYPE =
       "media/mpd/sample_mpd_unknown_mime_type";
   private static final String SAMPLE_MPD_SEGMENT_TEMPLATE = "media/mpd/sample_mpd_segment_template";
   private static final String SAMPLE_MPD_EVENT_STREAM = "media/mpd/sample_mpd_event_stream";
+  private static final String SAMPLE_MPD_IMAGES = "media/mpd/sample_mpd_images";
   private static final String SAMPLE_MPD_LABELS = "media/mpd/sample_mpd_labels";
   private static final String SAMPLE_MPD_ASSET_IDENTIFIER = "media/mpd/sample_mpd_asset_identifier";
   private static final String SAMPLE_MPD_TEXT = "media/mpd/sample_mpd_text";
   private static final String SAMPLE_MPD_TRICK_PLAY = "media/mpd/sample_mpd_trick_play";
+  private static final String SAMPLE_MPD_ESSENTIAL_SUPPLEMENTAL_PROPERTIES =
+      "media/mpd/sample_mpd_essential_supplemental_properties";
   private static final String SAMPLE_MPD_AVAILABILITY_TIME_OFFSET_BASE_URL =
       "media/mpd/sample_mpd_availabilityTimeOffset_baseUrl";
+  private static final String SAMPLE_MPD_MULTIPLE_BASE_URLS =
+      "media/mpd/sample_mpd_multiple_baseUrls";
+  private static final String SAMPLE_MPD_RELATIVE_BASE_URLS_DVB_PROFILE_NOT_DECLARED =
+      "media/mpd/sample_mpd_relative_baseUrls_dvb_profile_not_declared";
+  private static final String SAMPLE_MPD_RELATIVE_BASE_URLS_DVB_PROFILE_DECLARED =
+      "media/mpd/sample_mpd_relative_baseUrls_dvb_profile_declared";
   private static final String SAMPLE_MPD_AVAILABILITY_TIME_OFFSET_SEGMENT_TEMPLATE =
       "media/mpd/sample_mpd_availabilityTimeOffset_segmentTemplate";
   private static final String SAMPLE_MPD_AVAILABILITY_TIME_OFFSET_SEGMENT_LIST =
@@ -103,10 +119,8 @@ public class DashManifestParserTest {
               (Representation.MultiSegmentRepresentation) representation;
           long firstSegmentIndex = multiSegmentRepresentation.getFirstSegmentNum();
           RangedUri uri = multiSegmentRepresentation.getSegmentUrl(firstSegmentIndex);
-          assertThat(
-                  uri.resolveUriString(representation.baseUrl)
-                      .contains("redirector.googlevideo.com"))
-              .isTrue();
+          assertThat(uri.resolveUriString(representation.baseUrls.get(0).url))
+              .contains("redirector.googlevideo.com");
         }
       }
     }
@@ -192,6 +206,49 @@ public class DashManifestParserTest {
   }
 
   @Test
+  public void parseMediaPresentationDescription_locationRedirectRelative() throws IOException {
+    DashManifestParser parser = new DashManifestParser();
+    DashManifest manifest =
+        parser.parse(
+            Uri.parse("https://example.com/a/b/test.mpd"),
+            TestUtil.getInputStream(
+                ApplicationProvider.getApplicationContext(),
+                SAMPLE_MPD_LIVE_LOCATION_REDIRECT_RELATIVE));
+    Uri expectedLocation = Uri.parse("https://example.com/a/relative/redirect.mpd");
+    assertThat(manifest.location).isEqualTo(expectedLocation);
+  }
+
+  @Test
+  public void parseMediaPresentationDescription_locationRedirectAbsolute() throws IOException {
+    DashManifestParser parser = new DashManifestParser();
+    DashManifest manifest =
+        parser.parse(
+            Uri.parse("https://example.com/a/b/test.mpd"),
+            TestUtil.getInputStream(
+                ApplicationProvider.getApplicationContext(),
+                SAMPLE_MPD_LIVE_LOCATION_REDIRECT_ABSOLUTE));
+    Uri expectedLocation = Uri.parse("https://example2.com/absolute/redirect.mpd");
+    assertThat(manifest.location).isEqualTo(expectedLocation);
+  }
+
+  @Test
+  public void parseMediaPresentationDescription_images() throws IOException {
+    DashManifestParser parser = new DashManifestParser();
+    DashManifest manifest =
+        parser.parse(
+            Uri.parse("https://example.com/test.mpd"),
+            TestUtil.getInputStream(
+                ApplicationProvider.getApplicationContext(), SAMPLE_MPD_IMAGES));
+
+    AdaptationSet adaptationSet = manifest.getPeriod(0).adaptationSets.get(0);
+    Format format = adaptationSet.representations.get(0).format;
+
+    assertThat(format.sampleMimeType).isEqualTo("image/jpeg");
+    assertThat(format.width).isEqualTo(320);
+    assertThat(format.height).isEqualTo(180);
+  }
+
+  @Test
   public void parseMediaPresentationDescription_labels() throws IOException {
     DashManifestParser parser = new DashManifestParser();
     DashManifest manifest =
@@ -220,7 +277,8 @@ public class DashManifestParserTest {
     assertThat(format.containerMimeType).isEqualTo(MimeTypes.APPLICATION_RAWCC);
     assertThat(format.sampleMimeType).isEqualTo(MimeTypes.APPLICATION_CEA608);
     assertThat(format.codecs).isEqualTo("cea608");
-    assertThat(format.roleFlags).isEqualTo(C.ROLE_FLAG_SUBTITLE);
+    assertThat(format.roleFlags).isEqualTo(C.ROLE_FLAG_SUBTITLE | C.ROLE_FLAG_MAIN);
+    assertThat(format.selectionFlags).isEqualTo(0);
     assertThat(adaptationSets.get(0).type).isEqualTo(C.TRACK_TYPE_TEXT);
 
     format = adaptationSets.get(1).representations.get(0).format;
@@ -231,7 +289,13 @@ public class DashManifestParserTest {
     assertThat(format.selectionFlags).isEqualTo(C.SELECTION_FLAG_FORCED);
     assertThat(adaptationSets.get(1).type).isEqualTo(C.TRACK_TYPE_TEXT);
 
+    // Ensure that forced-subtitle and forced_subtitle are both parsed as a 'forced' text track.
+    // https://github.com/google/ExoPlayer/issues/9727
     format = adaptationSets.get(2).representations.get(0).format;
+    assertThat(format.roleFlags).isEqualTo(C.ROLE_FLAG_SUBTITLE);
+    assertThat(format.selectionFlags).isEqualTo(C.SELECTION_FLAG_FORCED);
+
+    format = adaptationSets.get(3).representations.get(0).format;
     assertThat(format.containerMimeType).isEqualTo(MimeTypes.APPLICATION_TTML);
     assertThat(format.sampleMimeType).isEqualTo(MimeTypes.APPLICATION_TTML);
     assertThat(format.codecs).isNull();
@@ -486,6 +550,74 @@ public class DashManifestParserTest {
   }
 
   @Test
+  public void parseEssentialAndSupplementalProperties() throws IOException {
+    DashManifestParser parser = new DashManifestParser();
+    DashManifest manifest =
+        parser.parse(
+            Uri.parse("https://example.com/test.mpd"),
+            TestUtil.getInputStream(
+                ApplicationProvider.getApplicationContext(),
+                SAMPLE_MPD_ESSENTIAL_SUPPLEMENTAL_PROPERTIES));
+
+    // Verify test setup.
+    assertThat(manifest.getPeriodCount()).isEqualTo(1);
+    assertThat(manifest.getPeriod(0).adaptationSets).hasSize(1);
+    AdaptationSet adaptationSet = manifest.getPeriod(0).adaptationSets.get(0);
+    assertThat(adaptationSet.representations).hasSize(2);
+    Representation representation0 = adaptationSet.representations.get(0);
+    Representation representation1 = adaptationSet.representations.get(1);
+    assertThat(representation0).isInstanceOf(SingleSegmentRepresentation.class);
+    assertThat(representation1).isInstanceOf(MultiSegmentRepresentation.class);
+
+    // Verify parsed properties.
+    assertThat(adaptationSet.essentialProperties).hasSize(1);
+    assertThat(adaptationSet.essentialProperties.get(0).schemeIdUri)
+        .isEqualTo("urn:mpeg:dash:essential-scheme:2050");
+    assertThat(adaptationSet.essentialProperties.get(0).value).isEqualTo("adaptationEssential");
+    assertThat(adaptationSet.supplementalProperties).hasSize(1);
+    assertThat(adaptationSet.supplementalProperties.get(0).schemeIdUri)
+        .isEqualTo("urn:mpeg:dash:supplemental-scheme:2050");
+    assertThat(adaptationSet.supplementalProperties.get(0).value)
+        .isEqualTo("adaptationSupplemental");
+
+    assertThat(representation0.essentialProperties).hasSize(2);
+    assertThat(representation0.essentialProperties.get(0).schemeIdUri)
+        .isEqualTo("urn:mpeg:dash:essential-scheme:2050");
+    assertThat(representation0.essentialProperties.get(0).value).isEqualTo("adaptationEssential");
+    assertThat(representation0.essentialProperties.get(1).schemeIdUri)
+        .isEqualTo("urn:mpeg:dash:essential-scheme:2050");
+    assertThat(representation0.essentialProperties.get(1).value)
+        .isEqualTo("representationEssential");
+    assertThat(representation0.supplementalProperties).hasSize(2);
+    assertThat(representation0.supplementalProperties.get(0).schemeIdUri)
+        .isEqualTo("urn:mpeg:dash:supplemental-scheme:2050");
+    assertThat(representation0.supplementalProperties.get(0).value)
+        .isEqualTo("adaptationSupplemental");
+    assertThat(representation0.supplementalProperties.get(1).schemeIdUri)
+        .isEqualTo("urn:mpeg:dash:supplemental-scheme:2050");
+    assertThat(representation0.supplementalProperties.get(1).value)
+        .isEqualTo("representationSupplemental");
+
+    assertThat(representation1.essentialProperties).hasSize(2);
+    assertThat(representation0.essentialProperties.get(0).schemeIdUri)
+        .isEqualTo("urn:mpeg:dash:essential-scheme:2050");
+    assertThat(representation0.essentialProperties.get(0).value).isEqualTo("adaptationEssential");
+    assertThat(representation1.essentialProperties.get(1).schemeIdUri)
+        .isEqualTo("urn:mpeg:dash:essential-scheme:2050");
+    assertThat(representation1.essentialProperties.get(1).value)
+        .isEqualTo("representationEssential");
+    assertThat(representation1.supplementalProperties).hasSize(2);
+    assertThat(representation0.supplementalProperties.get(0).schemeIdUri)
+        .isEqualTo("urn:mpeg:dash:supplemental-scheme:2050");
+    assertThat(representation0.supplementalProperties.get(0).value)
+        .isEqualTo("adaptationSupplemental");
+    assertThat(representation1.supplementalProperties.get(1).schemeIdUri)
+        .isEqualTo("urn:mpeg:dash:supplemental-scheme:2050");
+    assertThat(representation1.supplementalProperties.get(1).value)
+        .isEqualTo("representationSupplemental");
+  }
+
+  @Test
   public void availabilityTimeOffset_staticManifest_setToTimeUnset() throws IOException {
     DashManifestParser parser = new DashManifestParser();
     DashManifest manifest =
@@ -495,10 +627,11 @@ public class DashManifestParserTest {
 
     assertThat(manifest.getPeriodCount()).isEqualTo(1);
     List<AdaptationSet> adaptationSets = manifest.getPeriod(0).adaptationSets;
-    assertThat(adaptationSets).hasSize(3);
+    assertThat(adaptationSets).hasSize(4);
     assertThat(getAvailabilityTimeOffsetUs(adaptationSets.get(0))).isEqualTo(C.TIME_UNSET);
     assertThat(getAvailabilityTimeOffsetUs(adaptationSets.get(1))).isEqualTo(C.TIME_UNSET);
     assertThat(getAvailabilityTimeOffsetUs(adaptationSets.get(2))).isEqualTo(C.TIME_UNSET);
+    assertThat(getAvailabilityTimeOffsetUs(adaptationSets.get(3))).isEqualTo(C.TIME_UNSET);
   }
 
   @Test
@@ -568,6 +701,120 @@ public class DashManifestParserTest {
     assertThat(getAvailabilityTimeOffsetUs(adaptationSets0.get(2))).isEqualTo(1_230_000);
     assertThat(getAvailabilityTimeOffsetUs(adaptationSets0.get(3))).isEqualTo(100_000);
     assertThat(getAvailabilityTimeOffsetUs(adaptationSets1.get(0))).isEqualTo(9_999_000);
+  }
+
+  @Test
+  public void baseUrl_absoluteBaseUrls_usesClosestBaseUrl() throws IOException {
+    DashManifestParser parser = new DashManifestParser();
+    DashManifest manifest =
+        parser.parse(
+            Uri.parse("https://example.com/test.mpd"),
+            TestUtil.getInputStream(
+                ApplicationProvider.getApplicationContext(),
+                SAMPLE_MPD_AVAILABILITY_TIME_OFFSET_BASE_URL));
+
+    List<AdaptationSet> adaptationSets0 = manifest.getPeriod(0).adaptationSets;
+    assertThat(adaptationSets0.get(0).representations.get(0).baseUrls.get(0).serviceLocation)
+        .isEqualTo("period0");
+    assertThat(adaptationSets0.get(0).representations.get(0).baseUrls.get(0).priority).isEqualTo(2);
+    assertThat(adaptationSets0.get(0).representations.get(0).baseUrls.get(0).weight).isEqualTo(20);
+    assertThat(adaptationSets0.get(1).representations.get(0).baseUrls.get(0).serviceLocation)
+        .isEqualTo("adaptationSet1");
+    assertThat(adaptationSets0.get(1).representations.get(0).baseUrls.get(0).priority).isEqualTo(3);
+    assertThat(adaptationSets0.get(1).representations.get(0).baseUrls.get(0).weight).isEqualTo(30);
+    assertThat(adaptationSets0.get(2).representations.get(0).baseUrls.get(0).serviceLocation)
+        .isEqualTo("representation2");
+    assertThat(adaptationSets0.get(2).representations.get(0).baseUrls.get(0).priority).isEqualTo(4);
+    assertThat(adaptationSets0.get(2).representations.get(0).baseUrls.get(0).weight).isEqualTo(40);
+    assertThat(adaptationSets0.get(3).representations.get(0).baseUrls.get(0).serviceLocation)
+        .isEqualTo("http://video-foo.com/baseUrl/adaptationSet3");
+    assertThat(adaptationSets0.get(3).representations.get(0).baseUrls.get(0).priority).isEqualTo(1);
+    assertThat(adaptationSets0.get(3).representations.get(0).baseUrls.get(0).weight).isEqualTo(1);
+    assertThat(adaptationSets0.get(3).representations.get(0).baseUrls.get(0).url)
+        .isEqualTo("http://video-foo.com/baseUrl/representation3");
+  }
+
+  @Test
+  public void baseUrl_multipleBaseUrls_correctParsingAndUnfolding() throws IOException {
+    DashManifestParser parser = new DashManifestParser();
+    DashManifest manifest =
+        parser.parse(
+            Uri.parse("https://example.com/test.mpd"),
+            TestUtil.getInputStream(
+                ApplicationProvider.getApplicationContext(), SAMPLE_MPD_MULTIPLE_BASE_URLS));
+
+    ImmutableList<BaseUrl> audioBaseUrls =
+        manifest.getPeriod(0).adaptationSets.get(0).representations.get(0).baseUrls;
+    assertThat(audioBaseUrls).hasSize(6);
+    assertThat(audioBaseUrls.get(0).url).endsWith("/baseUrl/a/media/audio");
+    assertThat(audioBaseUrls.get(1).url).endsWith("/baseUrl/b/media/audio");
+    assertThat(audioBaseUrls.get(2).url).endsWith("/baseUrl/c/media/audio");
+    assertThat(audioBaseUrls.get(3).url).endsWith("/baseUrl/a/files/audio");
+    assertThat(audioBaseUrls.get(4).url).endsWith("/baseUrl/b/files/audio");
+    assertThat(audioBaseUrls.get(5).url).endsWith("/baseUrl/c/files/audio");
+    assertThat(audioBaseUrls.get(0).serviceLocation).isEqualTo("a");
+    assertThat(audioBaseUrls.get(1).serviceLocation).isEqualTo("b");
+    assertThat(audioBaseUrls.get(2).serviceLocation).isEqualTo("c");
+    assertThat(audioBaseUrls.get(3).serviceLocation).isEqualTo("a");
+    assertThat(audioBaseUrls.get(4).serviceLocation).isEqualTo("b");
+    assertThat(audioBaseUrls.get(5).serviceLocation).isEqualTo("c");
+    ImmutableList<BaseUrl> videoBaseUrls =
+        manifest.getPeriod(0).adaptationSets.get(1).representations.get(0).baseUrls;
+    assertThat(videoBaseUrls).hasSize(7);
+    assertThat(videoBaseUrls.get(0).url).endsWith("/baseUrl/a/media/video");
+    assertThat(videoBaseUrls.get(1).url).endsWith("/baseUrl/b/media/video");
+    assertThat(videoBaseUrls.get(2).url).endsWith("/baseUrl/c/media/video");
+    assertThat(videoBaseUrls.get(3).url).endsWith("/baseUrl/a/files/video");
+    assertThat(videoBaseUrls.get(4).url).endsWith("/baseUrl/b/files/video");
+    assertThat(videoBaseUrls.get(5).url).endsWith("/baseUrl/c/files/video");
+    assertThat(videoBaseUrls.get(6).url).endsWith("/baseUrl/d/alternative/");
+    assertThat(videoBaseUrls.get(0).serviceLocation).isEqualTo("a");
+    assertThat(videoBaseUrls.get(1).serviceLocation).isEqualTo("b");
+    assertThat(videoBaseUrls.get(2).serviceLocation).isEqualTo("c");
+    assertThat(videoBaseUrls.get(3).serviceLocation).isEqualTo("a");
+    assertThat(videoBaseUrls.get(4).serviceLocation).isEqualTo("b");
+    assertThat(videoBaseUrls.get(5).serviceLocation).isEqualTo("c");
+    assertThat(videoBaseUrls.get(6).serviceLocation).isEqualTo("d");
+    ImmutableList<BaseUrl> textBaseUrls =
+        manifest.getPeriod(0).adaptationSets.get(2).representations.get(0).baseUrls;
+    assertThat(textBaseUrls).hasSize(1);
+    assertThat(textBaseUrls.get(0).url).endsWith("/baseUrl/e/text/");
+    assertThat(textBaseUrls.get(0).serviceLocation).isEqualTo("e");
+  }
+
+  @Test
+  public void baseUrl_relativeBaseUrlsNoDvbNamespace_hasDifferentPrioritiesAndServiceLocation()
+      throws IOException {
+    DashManifestParser parser = new DashManifestParser();
+    DashManifest manifest =
+        parser.parse(
+            Uri.parse("https://example.com/test.mpd"),
+            TestUtil.getInputStream(
+                ApplicationProvider.getApplicationContext(),
+                SAMPLE_MPD_RELATIVE_BASE_URLS_DVB_PROFILE_NOT_DECLARED));
+
+    ImmutableList<BaseUrl> baseUrls =
+        manifest.getPeriod(0).adaptationSets.get(0).representations.get(0).baseUrls;
+    assertThat(baseUrls.get(0).priority).isEqualTo(BaseUrl.PRIORITY_UNSET);
+    assertThat(baseUrls.get(1).priority).isEqualTo(BaseUrl.PRIORITY_UNSET);
+    assertThat(baseUrls.get(0).serviceLocation).isNotEqualTo(baseUrls.get(1).serviceLocation);
+  }
+
+  @Test
+  public void baseUrl_relativeBaseUrlsWithDvbNamespace_inheritsPrioritiesAndServiceLocation()
+      throws IOException {
+    DashManifestParser parser = new DashManifestParser();
+    DashManifest manifest =
+        parser.parse(
+            Uri.parse("https://example.com/test.mpd"),
+            TestUtil.getInputStream(
+                ApplicationProvider.getApplicationContext(),
+                SAMPLE_MPD_RELATIVE_BASE_URLS_DVB_PROFILE_DECLARED));
+
+    ImmutableList<BaseUrl> baseUrls =
+        manifest.getPeriod(0).adaptationSets.get(0).representations.get(0).baseUrls;
+    assertThat(baseUrls.get(0).priority).isEqualTo(baseUrls.get(1).priority);
+    assertThat(baseUrls.get(0).serviceLocation).isEqualTo(baseUrls.get(1).serviceLocation);
   }
 
   @Test

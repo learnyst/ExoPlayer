@@ -15,20 +15,27 @@
  */
 package com.google.android.exoplayer2.util;
 
+import static com.google.android.exoplayer2.RendererCapabilities.DECODER_SUPPORT_FALLBACK;
+import static com.google.android.exoplayer2.RendererCapabilities.HARDWARE_ACCELERATION_SUPPORTED;
+import static com.google.android.exoplayer2.RendererCapabilities.getDecoderSupport;
+import static com.google.android.exoplayer2.RendererCapabilities.getFormatSupport;
+import static com.google.android.exoplayer2.RendererCapabilities.getHardwareAccelerationSupport;
+import static com.google.android.exoplayer2.util.Util.getFormatSupportString;
 import static java.lang.Math.min;
 
 import android.os.SystemClock;
 import android.text.TextUtils;
 import androidx.annotation.Nullable;
 import com.google.android.exoplayer2.C;
-import com.google.android.exoplayer2.ExoPlaybackException;
 import com.google.android.exoplayer2.Format;
 import com.google.android.exoplayer2.MediaItem;
+import com.google.android.exoplayer2.PlaybackException;
 import com.google.android.exoplayer2.PlaybackParameters;
 import com.google.android.exoplayer2.Player;
 import com.google.android.exoplayer2.Player.PlaybackSuppressionReason;
 import com.google.android.exoplayer2.RendererCapabilities;
 import com.google.android.exoplayer2.RendererCapabilities.AdaptiveSupport;
+import com.google.android.exoplayer2.RendererCapabilities.Capabilities;
 import com.google.android.exoplayer2.Timeline;
 import com.google.android.exoplayer2.analytics.AnalyticsListener;
 import com.google.android.exoplayer2.audio.AudioAttributes;
@@ -47,7 +54,6 @@ import com.google.android.exoplayer2.trackselection.TrackSelectionArray;
 import com.google.android.exoplayer2.video.VideoSize;
 import java.io.IOException;
 import java.text.NumberFormat;
-import java.util.List;
 import java.util.Locale;
 
 /** Logs events from {@link Player} and other core components using {@link Log}. */
@@ -57,6 +63,7 @@ public class EventLogger implements AnalyticsListener {
   private static final String DEFAULT_TAG = "EventLogger";
   private static final int MAX_TIMELINE_ITEM_LINES = 3;
   private static final NumberFormat TIME_FORMAT;
+
   static {
     TIME_FORMAT = NumberFormat.getInstance(Locale.US);
     TIME_FORMAT.setMinimumFractionDigits(2);
@@ -151,8 +158,8 @@ public class EventLogger implements AnalyticsListener {
         .append("reason=")
         .append(getDiscontinuityReasonString(reason))
         .append(", PositionInfo:old [")
-        .append("window=")
-        .append(oldPosition.windowIndex)
+        .append("mediaItem=")
+        .append(oldPosition.mediaItemIndex)
         .append(", period=")
         .append(oldPosition.periodIndex)
         .append(", pos=")
@@ -168,8 +175,8 @@ public class EventLogger implements AnalyticsListener {
     }
     builder
         .append("], PositionInfo:new [")
-        .append("window=")
-        .append(newPosition.windowIndex)
+        .append("mediaItem=")
+        .append(newPosition.mediaItemIndex)
         .append(", period=")
         .append(newPosition.periodIndex)
         .append(", pos=")
@@ -243,13 +250,13 @@ public class EventLogger implements AnalyticsListener {
   }
 
   @Override
-  public void onPlayerError(EventTime eventTime, ExoPlaybackException e) {
-    loge(eventTime, "playerFailed", e);
+  public void onPlayerError(EventTime eventTime, PlaybackException error) {
+    loge(eventTime, "playerFailed", error);
   }
 
   @Override
   public void onTracksChanged(
-      EventTime eventTime, TrackGroupArray ignored, TrackSelectionArray trackSelections) {
+      EventTime eventTime, TrackGroupArray trackGroups, TrackSelectionArray trackSelections) {
     MappedTrackInfo mappedTrackInfo =
         trackSelector != null ? trackSelector.getCurrentMappedTrackInfo() : null;
     if (mappedTrackInfo == null) {
@@ -273,12 +280,19 @@ public class EventLogger implements AnalyticsListener {
                   trackGroup.length,
                   mappedTrackInfo.getAdaptiveSupport(
                       rendererIndex, groupIndex, /* includeCapabilitiesExceededTracks= */ false));
-          logd("    Group:" + groupIndex + ", adaptive_supported=" + adaptiveSupport + " [");
+          logd("    Group:" + trackGroup.id + ", adaptive_supported=" + adaptiveSupport + " [");
           for (int trackIndex = 0; trackIndex < trackGroup.length; trackIndex++) {
             String status = getTrackStatusString(trackSelection, trackGroup, trackIndex);
-            String formatSupport =
-                C.getFormatSupportString(
-                    mappedTrackInfo.getTrackSupport(rendererIndex, groupIndex, trackIndex));
+            @Capabilities
+            int capabilities =
+                mappedTrackInfo.getCapabilities(rendererIndex, groupIndex, trackIndex);
+            String formatSupport = getFormatSupportString(getFormatSupport(capabilities));
+            String hardwareAccelerationSupport =
+                getHardwareAccelerationSupport(capabilities) == HARDWARE_ACCELERATION_SUPPORTED
+                    ? ", accelerated=YES"
+                    : "";
+            String decoderSupport =
+                getDecoderSupport(capabilities) == DECODER_SUPPORT_FALLBACK ? ", fallback=YES" : "";
             logd(
                 "      "
                     + status
@@ -287,7 +301,9 @@ public class EventLogger implements AnalyticsListener {
                     + ", "
                     + Format.toLogString(trackGroup.getFormat(trackIndex))
                     + ", supported="
-                    + formatSupport);
+                    + formatSupport
+                    + hardwareAccelerationSupport
+                    + decoderSupport);
           }
           logd("    ]");
         }
@@ -315,7 +331,7 @@ public class EventLogger implements AnalyticsListener {
         TrackGroup trackGroup = unassociatedTrackGroups.get(groupIndex);
         for (int trackIndex = 0; trackIndex < trackGroup.length; trackIndex++) {
           String status = getTrackStatusString(false);
-          String formatSupport = C.getFormatSupportString(C.FORMAT_UNSUPPORTED_TYPE);
+          String formatSupport = getFormatSupportString(C.FORMAT_UNSUPPORTED_TYPE);
           logd(
               "      "
                   + status
@@ -334,20 +350,6 @@ public class EventLogger implements AnalyticsListener {
   }
 
   @Override
-  public void onStaticMetadataChanged(EventTime eventTime, List<Metadata> metadataList) {
-    logd("staticMetadata [" + getEventTimeString(eventTime));
-    for (int i = 0; i < metadataList.size(); i++) {
-      Metadata metadata = metadataList.get(i);
-      if (metadata.length() != 0) {
-        logd("  Metadata:" + i + " [");
-        printMetadata(metadata, "    ");
-        logd("  ]");
-      }
-    }
-    logd("]");
-  }
-
-  @Override
   public void onMetadata(EventTime eventTime, Metadata metadata) {
     logd("metadata [" + getEventTimeString(eventTime));
     printMetadata(metadata, "  ");
@@ -355,7 +357,7 @@ public class EventLogger implements AnalyticsListener {
   }
 
   @Override
-  public void onAudioEnabled(EventTime eventTime, DecoderCounters counters) {
+  public void onAudioEnabled(EventTime eventTime, DecoderCounters decoderCounters) {
     logd(eventTime, "audioEnabled");
   }
 
@@ -387,7 +389,7 @@ public class EventLogger implements AnalyticsListener {
   }
 
   @Override
-  public void onAudioDisabled(EventTime eventTime, DecoderCounters counters) {
+  public void onAudioDisabled(EventTime eventTime, DecoderCounters decoderCounters) {
     logd(eventTime, "audioDisabled");
   }
 
@@ -421,7 +423,7 @@ public class EventLogger implements AnalyticsListener {
   }
 
   @Override
-  public void onVideoEnabled(EventTime eventTime, DecoderCounters counters) {
+  public void onVideoEnabled(EventTime eventTime, DecoderCounters decoderCounters) {
     logd(eventTime, "videoEnabled");
   }
 
@@ -438,8 +440,8 @@ public class EventLogger implements AnalyticsListener {
   }
 
   @Override
-  public void onDroppedVideoFrames(EventTime eventTime, int count, long elapsedMs) {
-    logd(eventTime, "droppedFrames", Integer.toString(count));
+  public void onDroppedVideoFrames(EventTime eventTime, int droppedFrames, long elapsedMs) {
+    logd(eventTime, "droppedFrames", Integer.toString(droppedFrames));
   }
 
   @Override
@@ -448,7 +450,7 @@ public class EventLogger implements AnalyticsListener {
   }
 
   @Override
-  public void onVideoDisabled(EventTime eventTime, DecoderCounters counters) {
+  public void onVideoDisabled(EventTime eventTime, DecoderCounters decoderCounters) {
     logd(eventTime, "videoDisabled");
   }
 
@@ -517,8 +519,8 @@ public class EventLogger implements AnalyticsListener {
   }
 
   @Override
-  public void onDrmSessionManagerError(EventTime eventTime, Exception e) {
-    printInternalError(eventTime, "drmSessionManagerError", e);
+  public void onDrmSessionManagerError(EventTime eventTime, Exception error) {
+    printInternalError(eventTime, "drmSessionManagerError", error);
   }
 
   @Override
@@ -597,6 +599,9 @@ public class EventLogger implements AnalyticsListener {
       @Nullable String eventDescription,
       @Nullable Throwable throwable) {
     String eventString = eventName + " [" + getEventTimeString(eventTime);
+    if (throwable instanceof PlaybackException) {
+      eventString += ", errorCode=" + ((PlaybackException) throwable).getErrorCodeName();
+    }
     if (eventDescription != null) {
       eventString += ", " + eventDescription;
     }
@@ -662,13 +667,12 @@ public class EventLogger implements AnalyticsListener {
     }
   }
 
-  // Suppressing reference equality warning because the track group stored in the track selection
-  // must point to the exact track group object to be considered part of it.
-  @SuppressWarnings("ReferenceEquality")
   private static String getTrackStatusString(
       @Nullable TrackSelection selection, TrackGroup group, int trackIndex) {
-    return getTrackStatusString(selection != null && selection.getTrackGroup() == group
-        && selection.indexOf(trackIndex) != C.INDEX_UNSET);
+    return getTrackStatusString(
+        selection != null
+            && selection.getTrackGroup().equals(group)
+            && selection.indexOf(trackIndex) != C.INDEX_UNSET);
   }
 
   private static String getTrackStatusString(boolean enabled) {

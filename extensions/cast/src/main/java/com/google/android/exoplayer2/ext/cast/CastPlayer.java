@@ -15,6 +15,7 @@
  */
 package com.google.android.exoplayer2.ext.cast;
 
+import static com.google.android.exoplayer2.util.Assertions.checkArgument;
 import static com.google.android.exoplayer2.util.Util.castNonNull;
 import static java.lang.Math.min;
 
@@ -23,25 +24,27 @@ import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.TextureView;
+import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import com.google.android.exoplayer2.BasePlayer;
 import com.google.android.exoplayer2.C;
-import com.google.android.exoplayer2.ExoPlaybackException;
+import com.google.android.exoplayer2.DeviceInfo;
 import com.google.android.exoplayer2.ExoPlayerLibraryInfo;
 import com.google.android.exoplayer2.MediaItem;
 import com.google.android.exoplayer2.MediaMetadata;
+import com.google.android.exoplayer2.PlaybackException;
 import com.google.android.exoplayer2.PlaybackParameters;
 import com.google.android.exoplayer2.Player;
 import com.google.android.exoplayer2.Timeline;
+import com.google.android.exoplayer2.TracksInfo;
 import com.google.android.exoplayer2.audio.AudioAttributes;
-import com.google.android.exoplayer2.device.DeviceInfo;
-import com.google.android.exoplayer2.metadata.Metadata;
 import com.google.android.exoplayer2.source.TrackGroup;
 import com.google.android.exoplayer2.source.TrackGroupArray;
 import com.google.android.exoplayer2.text.Cue;
 import com.google.android.exoplayer2.trackselection.TrackSelection;
 import com.google.android.exoplayer2.trackselection.TrackSelectionArray;
+import com.google.android.exoplayer2.trackselection.TrackSelectionParameters;
 import com.google.android.exoplayer2.util.Assertions;
 import com.google.android.exoplayer2.util.Clock;
 import com.google.android.exoplayer2.util.ListenerSet;
@@ -64,6 +67,7 @@ import com.google.android.gms.common.api.PendingResult;
 import com.google.android.gms.common.api.ResultCallback;
 import com.google.common.collect.ImmutableList;
 import java.util.List;
+import org.checkerframework.checker.nullness.compatqual.NullableType;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
 /**
@@ -90,15 +94,22 @@ public final class CastPlayer extends BasePlayer {
       new Commands.Builder()
           .addAll(
               COMMAND_PLAY_PAUSE,
-              COMMAND_PREPARE_STOP,
+              COMMAND_PREPARE,
+              COMMAND_STOP,
               COMMAND_SEEK_TO_DEFAULT_POSITION,
               COMMAND_SEEK_TO_MEDIA_ITEM,
               COMMAND_SET_REPEAT_MODE,
+              COMMAND_SET_SPEED_AND_PITCH,
               COMMAND_GET_CURRENT_MEDIA_ITEM,
-              COMMAND_GET_MEDIA_ITEMS,
+              COMMAND_GET_TIMELINE,
               COMMAND_GET_MEDIA_ITEMS_METADATA,
-              COMMAND_CHANGE_MEDIA_ITEMS)
+              COMMAND_SET_MEDIA_ITEMS_METADATA,
+              COMMAND_CHANGE_MEDIA_ITEMS,
+              COMMAND_GET_TRACK_INFOS)
           .build();
+
+  public static final float MIN_SPEED_SUPPORTED = 0.5f;
+  public static final float MAX_SPEED_SUPPORTED = 2.0f;
 
   private static final String TAG = "CastPlayer";
 
@@ -113,6 +124,8 @@ public final class CastPlayer extends BasePlayer {
 
   private final CastContext castContext;
   private final MediaItemConverter mediaItemConverter;
+  private final long seekBackIncrementMs;
+  private final long seekForwardIncrementMs;
   // TODO: Allow custom implementations of CastTimelineTracker.
   private final CastTimelineTracker timelineTracker;
   private final Timeline.Period period;
@@ -122,18 +135,20 @@ public final class CastPlayer extends BasePlayer {
   private final SeekResultCallback seekResultCallback;
 
   // Listeners and notification.
-  private final ListenerSet<Player.EventListener> listeners;
+  private final ListenerSet<Listener> listeners;
   @Nullable private SessionAvailabilityListener sessionAvailabilityListener;
 
   // Internal state.
   private final StateHolder<Boolean> playWhenReady;
   private final StateHolder<Integer> repeatMode;
+  private final StateHolder<PlaybackParameters> playbackParameters;
   @Nullable private RemoteMediaClient remoteMediaClient;
   private CastTimeline currentTimeline;
   private TrackGroupArray currentTrackGroups;
   private TrackSelectionArray currentTrackSelection;
+  private TracksInfo currentTracksInfo;
   private Commands availableCommands;
-  @Player.State private int playbackState;
+  private @Player.State int playbackState;
   private int currentWindowIndex;
   private long lastReportedPositionMs;
   private int pendingSeekCount;
@@ -142,7 +157,13 @@ public final class CastPlayer extends BasePlayer {
   @Nullable private PositionInfo pendingMediaItemRemovalPosition;
 
   /**
-   * Creates a new cast player that uses a {@link DefaultMediaItemConverter}.
+   * Creates a new cast player.
+   *
+   * <p>The returned player uses a {@link DefaultMediaItemConverter} and
+   *
+   * <p>{@code mediaItemConverter} is set to a {@link DefaultMediaItemConverter}, {@code
+   * seekBackIncrementMs} is set to {@link C#DEFAULT_SEEK_BACK_INCREMENT_MS} and {@code
+   * seekForwardIncrementMs} is set to {@link C#DEFAULT_SEEK_FORWARD_INCREMENT_MS}.
    *
    * @param castContext The context from which the cast session is obtained.
    */
@@ -153,12 +174,40 @@ public final class CastPlayer extends BasePlayer {
   /**
    * Creates a new cast player.
    *
+   * <p>{@code seekBackIncrementMs} is set to {@link C#DEFAULT_SEEK_BACK_INCREMENT_MS} and {@code
+   * seekForwardIncrementMs} is set to {@link C#DEFAULT_SEEK_FORWARD_INCREMENT_MS}.
+   *
    * @param castContext The context from which the cast session is obtained.
    * @param mediaItemConverter The {@link MediaItemConverter} to use.
    */
   public CastPlayer(CastContext castContext, MediaItemConverter mediaItemConverter) {
+    this(
+        castContext,
+        mediaItemConverter,
+        C.DEFAULT_SEEK_BACK_INCREMENT_MS,
+        C.DEFAULT_SEEK_FORWARD_INCREMENT_MS);
+  }
+
+  /**
+   * Creates a new cast player.
+   *
+   * @param castContext The context from which the cast session is obtained.
+   * @param mediaItemConverter The {@link MediaItemConverter} to use.
+   * @param seekBackIncrementMs The {@link #seekBack()} increment, in milliseconds.
+   * @param seekForwardIncrementMs The {@link #seekForward()} increment, in milliseconds.
+   * @throws IllegalArgumentException If {@code seekBackIncrementMs} or {@code
+   *     seekForwardIncrementMs} is non-positive.
+   */
+  public CastPlayer(
+      CastContext castContext,
+      MediaItemConverter mediaItemConverter,
+      @IntRange(from = 1) long seekBackIncrementMs,
+      @IntRange(from = 1) long seekForwardIncrementMs) {
+    checkArgument(seekBackIncrementMs > 0 && seekForwardIncrementMs > 0);
     this.castContext = castContext;
     this.mediaItemConverter = mediaItemConverter;
+    this.seekBackIncrementMs = seekBackIncrementMs;
+    this.seekForwardIncrementMs = seekForwardIncrementMs;
     timelineTracker = new CastTimelineTracker();
     period = new Timeline.Period();
     statusListener = new StatusListener();
@@ -170,10 +219,12 @@ public final class CastPlayer extends BasePlayer {
             (listener, flags) -> listener.onEvents(/* player= */ this, new Events(flags)));
     playWhenReady = new StateHolder<>(false);
     repeatMode = new StateHolder<>(REPEAT_MODE_OFF);
+    playbackParameters = new StateHolder<>(PlaybackParameters.DEFAULT);
     playbackState = STATE_IDLE;
     currentTimeline = CastTimeline.EMPTY_CAST_TIMELINE;
     currentTrackGroups = TrackGroupArray.EMPTY;
     currentTrackSelection = EMPTY_TRACK_SELECTION_ARRAY;
+    currentTracksInfo = TracksInfo.EMPTY;
     availableCommands = new Commands.Builder().addAll(PERMANENT_AVAILABLE_COMMANDS).build();
     pendingSeekWindowIndex = C.INDEX_UNSET;
     pendingSeekPositionMs = C.TIME_UNSET;
@@ -183,67 +234,6 @@ public final class CastPlayer extends BasePlayer {
     CastSession session = sessionManager.getCurrentCastSession();
     setRemoteMediaClient(session != null ? session.getRemoteMediaClient() : null);
     updateInternalStateAndNotifyIfChanged();
-  }
-
-  // Media Queue manipulation methods.
-
-  /** @deprecated Use {@link #setMediaItems(List, int, long)} instead. */
-  @Deprecated
-  @Nullable
-  public PendingResult<MediaChannelResult> loadItem(MediaQueueItem item, long positionMs) {
-    return setMediaItemsInternal(
-        new MediaQueueItem[] {item}, /* startWindowIndex= */ 0, positionMs, repeatMode.value);
-  }
-
-  /**
-   * @deprecated Use {@link #setMediaItems(List, int, long)} and {@link #setRepeatMode(int)}
-   *     instead.
-   */
-  @Deprecated
-  @Nullable
-  public PendingResult<MediaChannelResult> loadItems(
-      MediaQueueItem[] items, int startIndex, long positionMs, @RepeatMode int repeatMode) {
-    return setMediaItemsInternal(items, startIndex, positionMs, repeatMode);
-  }
-
-  /** @deprecated Use {@link #addMediaItems(List)} instead. */
-  @Deprecated
-  @Nullable
-  public PendingResult<MediaChannelResult> addItems(MediaQueueItem... items) {
-    return addMediaItemsInternal(items, MediaQueueItem.INVALID_ITEM_ID);
-  }
-
-  /** @deprecated Use {@link #addMediaItems(int, List)} instead. */
-  @Deprecated
-  @Nullable
-  public PendingResult<MediaChannelResult> addItems(int periodId, MediaQueueItem... items) {
-    if (periodId == MediaQueueItem.INVALID_ITEM_ID
-        || currentTimeline.getIndexOfPeriod(periodId) != C.INDEX_UNSET) {
-      return addMediaItemsInternal(items, periodId);
-    }
-    return null;
-  }
-
-  /** @deprecated Use {@link #removeMediaItem(int)} instead. */
-  @Deprecated
-  @Nullable
-  public PendingResult<MediaChannelResult> removeItem(int periodId) {
-    if (currentTimeline.getIndexOfPeriod(periodId) != C.INDEX_UNSET) {
-      return removeMediaItemsInternal(new int[] {periodId});
-    }
-    return null;
-  }
-
-  /** @deprecated Use {@link #moveMediaItem(int, int)} instead. */
-  @Deprecated
-  @Nullable
-  public PendingResult<MediaChannelResult> moveItem(int periodId, int newIndex) {
-    Assertions.checkArgument(newIndex >= 0 && newIndex < currentTimeline.getWindowCount());
-    int fromIndex = currentTimeline.getIndexOfPeriod(periodId);
-    if (fromIndex != C.INDEX_UNSET && fromIndex != newIndex) {
-      return moveMediaItemsInternal(new int[] {periodId}, fromIndex, newIndex);
-    }
-    return null;
   }
 
   /**
@@ -288,38 +278,25 @@ public final class CastPlayer extends BasePlayer {
 
   @Override
   public void addListener(Listener listener) {
-    EventListener eventListener = listener;
-    addListener(eventListener);
-  }
-
-  @Override
-  public void addListener(EventListener listener) {
     listeners.add(listener);
   }
 
   @Override
   public void removeListener(Listener listener) {
-    EventListener eventListener = listener;
-    removeListener(eventListener);
-  }
-
-  @Override
-  public void removeListener(EventListener listener) {
     listeners.remove(listener);
   }
 
   @Override
   public void setMediaItems(List<MediaItem> mediaItems, boolean resetPosition) {
-    int windowIndex = resetPosition ? 0 : getCurrentWindowIndex();
+    int mediaItemIndex = resetPosition ? 0 : getCurrentMediaItemIndex();
     long startPositionMs = resetPosition ? C.TIME_UNSET : getContentPosition();
-    setMediaItems(mediaItems, windowIndex, startPositionMs);
+    setMediaItems(mediaItems, mediaItemIndex, startPositionMs);
   }
 
   @Override
-  public void setMediaItems(
-      List<MediaItem> mediaItems, int startWindowIndex, long startPositionMs) {
+  public void setMediaItems(List<MediaItem> mediaItems, int startIndex, long startPositionMs) {
     setMediaItemsInternal(
-        toMediaQueueItems(mediaItems), startWindowIndex, startPositionMs, repeatMode.value);
+        toMediaQueueItems(mediaItems), startIndex, startPositionMs, repeatMode.value);
   }
 
   @Override
@@ -378,20 +355,18 @@ public final class CastPlayer extends BasePlayer {
   }
 
   @Override
-  @Player.State
-  public int getPlaybackState() {
+  public @Player.State int getPlaybackState() {
     return playbackState;
   }
 
   @Override
-  @PlaybackSuppressionReason
-  public int getPlaybackSuppressionReason() {
+  public @PlaybackSuppressionReason int getPlaybackSuppressionReason() {
     return Player.PLAYBACK_SUPPRESSION_REASON_NONE;
   }
 
   @Override
   @Nullable
-  public ExoPlaybackException getPlayerError() {
+  public PlaybackException getPlayerError() {
     return null;
   }
 
@@ -430,23 +405,23 @@ public final class CastPlayer extends BasePlayer {
   // don't implement onPositionDiscontinuity().
   @SuppressWarnings("deprecation")
   @Override
-  public void seekTo(int windowIndex, long positionMs) {
+  public void seekTo(int mediaItemIndex, long positionMs) {
     MediaStatus mediaStatus = getMediaStatus();
     // We assume the default position is 0. There is no support for seeking to the default position
     // in RemoteMediaClient.
     positionMs = positionMs != C.TIME_UNSET ? positionMs : 0;
     if (mediaStatus != null) {
-      if (getCurrentWindowIndex() != windowIndex) {
+      if (getCurrentMediaItemIndex() != mediaItemIndex) {
         remoteMediaClient
             .queueJumpToItem(
-                (int) currentTimeline.getPeriod(windowIndex, period).uid, positionMs, null)
+                (int) currentTimeline.getPeriod(mediaItemIndex, period).uid, positionMs, null)
             .setResultCallback(seekResultCallback);
       } else {
         remoteMediaClient.seek(positionMs).setResultCallback(seekResultCallback);
       }
       PositionInfo oldPosition = getCurrentPositionInfo();
       pendingSeekCount++;
-      pendingSeekWindowIndex = windowIndex;
+      pendingSeekWindowIndex = mediaItemIndex;
       pendingSeekPositionMs = positionMs;
       PositionInfo newPosition = getCurrentPositionInfo();
       listeners.queueEvent(
@@ -455,10 +430,10 @@ public final class CastPlayer extends BasePlayer {
             listener.onPositionDiscontinuity(DISCONTINUITY_REASON_SEEK);
             listener.onPositionDiscontinuity(oldPosition, newPosition, DISCONTINUITY_REASON_SEEK);
           });
-      if (oldPosition.windowIndex != newPosition.windowIndex) {
+      if (oldPosition.mediaItemIndex != newPosition.mediaItemIndex) {
         // TODO(internal b/182261884): queue `onMediaItemTransition` event when the media item is
         // repeated.
-        MediaItem mediaItem = getCurrentTimeline().getWindow(windowIndex, window).mediaItem;
+        MediaItem mediaItem = getCurrentTimeline().getWindow(mediaItemIndex, window).mediaItem;
         listeners.queueEvent(
             Player.EVENT_MEDIA_ITEM_TRANSITION,
             listener ->
@@ -466,21 +441,37 @@ public final class CastPlayer extends BasePlayer {
       }
       updateAvailableCommandsAndNotifyIfChanged();
     } else if (pendingSeekCount == 0) {
-      listeners.queueEvent(/* eventFlag= */ C.INDEX_UNSET, EventListener::onSeekProcessed);
+      listeners.queueEvent(/* eventFlag= */ C.INDEX_UNSET, Listener::onSeekProcessed);
     }
     listeners.flushEvents();
   }
 
   @Override
-  public void setPlaybackParameters(PlaybackParameters playbackParameters) {
-    // Unsupported by the RemoteMediaClient API. Do nothing.
+  public long getSeekBackIncrement() {
+    return seekBackIncrementMs;
+  }
+
+  @Override
+  public long getSeekForwardIncrement() {
+    return seekForwardIncrementMs;
+  }
+
+  @Override
+  public long getMaxSeekToPreviousPosition() {
+    return C.DEFAULT_MAX_SEEK_TO_PREVIOUS_POSITION_MS;
   }
 
   @Override
   public PlaybackParameters getPlaybackParameters() {
-    return PlaybackParameters.DEFAULT;
+    return playbackParameters.value;
   }
 
+  @Override
+  public void stop() {
+    stop(/* reset= */ false);
+  }
+
+  @Deprecated
   @Override
   public void stop(boolean reset) {
     playbackState = STATE_IDLE;
@@ -498,6 +489,32 @@ public final class CastPlayer extends BasePlayer {
   }
 
   @Override
+  public void setPlaybackParameters(PlaybackParameters playbackParameters) {
+    if (remoteMediaClient == null) {
+      return;
+    }
+    PlaybackParameters actualPlaybackParameters =
+        new PlaybackParameters(
+            Util.constrainValue(
+                playbackParameters.speed, MIN_SPEED_SUPPORTED, MAX_SPEED_SUPPORTED));
+    setPlaybackParametersAndNotifyIfChanged(actualPlaybackParameters);
+    listeners.flushEvents();
+    PendingResult<MediaChannelResult> pendingResult =
+        remoteMediaClient.setPlaybackRate(actualPlaybackParameters.speed, /* customData= */ null);
+    this.playbackParameters.pendingResultCallback =
+        new ResultCallback<MediaChannelResult>() {
+          @Override
+          public void onResult(MediaChannelResult mediaChannelResult) {
+            if (remoteMediaClient != null) {
+              updatePlaybackRateAndNotifyIfChanged(this);
+              listeners.flushEvents();
+            }
+          }
+        };
+    pendingResult.setResultCallback(this.playbackParameters.pendingResultCallback);
+  }
+
+  @Override
   public void setRepeatMode(@RepeatMode int repeatMode) {
     if (remoteMediaClient == null) {
       return;
@@ -508,7 +525,7 @@ public final class CastPlayer extends BasePlayer {
     setRepeatModeAndNotifyIfChanged(repeatMode);
     listeners.flushEvents();
     PendingResult<MediaChannelResult> pendingResult =
-        remoteMediaClient.queueSetRepeatMode(getCastRepeatMode(repeatMode), /* jsonObject= */ null);
+        remoteMediaClient.queueSetRepeatMode(getCastRepeatMode(repeatMode), /* customData= */ null);
     this.repeatMode.pendingResultCallback =
         new ResultCallback<MediaChannelResult>() {
           @Override
@@ -523,8 +540,7 @@ public final class CastPlayer extends BasePlayer {
   }
 
   @Override
-  @RepeatMode
-  public int getRepeatMode() {
+  public @RepeatMode int getRepeatMode() {
     return repeatMode.value;
   }
 
@@ -540,25 +556,44 @@ public final class CastPlayer extends BasePlayer {
   }
 
   @Override
-  public TrackSelectionArray getCurrentTrackSelections() {
-    return currentTrackSelection;
-  }
-
-  @Override
   public TrackGroupArray getCurrentTrackGroups() {
     return currentTrackGroups;
   }
 
   @Override
-  public ImmutableList<Metadata> getCurrentStaticMetadata() {
-    // CastPlayer does not currently support metadata.
-    return ImmutableList.of();
+  public TrackSelectionArray getCurrentTrackSelections() {
+    return currentTrackSelection;
   }
+
+  @Override
+  public TracksInfo getCurrentTracksInfo() {
+    return currentTracksInfo;
+  }
+
+  @Override
+  public TrackSelectionParameters getTrackSelectionParameters() {
+    return TrackSelectionParameters.DEFAULT_WITHOUT_CONTEXT;
+  }
+
+  @Override
+  public void setTrackSelectionParameters(TrackSelectionParameters parameters) {}
 
   @Override
   public MediaMetadata getMediaMetadata() {
     // CastPlayer does not currently support metadata.
     return MediaMetadata.EMPTY;
+  }
+
+  @Override
+  public MediaMetadata getPlaylistMetadata() {
+    // CastPlayer does not currently support metadata.
+    return MediaMetadata.EMPTY;
+  }
+
+  /** This method is not supported and does nothing. */
+  @Override
+  public void setPlaylistMetadata(MediaMetadata mediaMetadata) {
+    // CastPlayer does not currently support metadata.
   }
 
   @Override
@@ -568,11 +603,11 @@ public final class CastPlayer extends BasePlayer {
 
   @Override
   public int getCurrentPeriodIndex() {
-    return getCurrentWindowIndex();
+    return getCurrentMediaItemIndex();
   }
 
   @Override
-  public int getCurrentWindowIndex() {
+  public int getCurrentMediaItemIndex() {
     return pendingSeekWindowIndex != C.INDEX_UNSET ? pendingSeekWindowIndex : currentWindowIndex;
   }
 
@@ -644,7 +679,7 @@ public final class CastPlayer extends BasePlayer {
 
   /** This method is not supported and does nothing. */
   @Override
-  public void setVolume(float audioVolume) {}
+  public void setVolume(float volume) {}
 
   /** This method is not supported and returns 1. */
   @Override
@@ -748,14 +783,9 @@ public final class CastPlayer extends BasePlayer {
         !getCurrentTimeline().isEmpty()
             ? getCurrentTimeline().getPeriod(oldWindowIndex, period, /* setIds= */ true).uid
             : null;
-    boolean wasPlaying = playbackState == Player.STATE_READY && playWhenReady.value;
     updatePlayerStateAndNotifyIfChanged(/* resultCallback= */ null);
-    boolean isPlaying = playbackState == Player.STATE_READY && playWhenReady.value;
-    if (wasPlaying != isPlaying) {
-      listeners.queueEvent(
-          Player.EVENT_IS_PLAYING_CHANGED, listener -> listener.onIsPlayingChanged(isPlaying));
-    }
     updateRepeatModeAndNotifyIfChanged(/* resultCallback= */ null);
+    updatePlaybackRateAndNotifyIfChanged(/* resultCallback= */ null);
     boolean playingPeriodChangedByTimelineChange = updateTimelineAndNotifyIfChanged();
     Timeline currentTimeline = getCurrentTimeline();
     currentWindowIndex = fetchCurrentWindowIndex(remoteMediaClient, currentTimeline);
@@ -775,6 +805,7 @@ public final class CastPlayer extends BasePlayer {
           new PositionInfo(
               window.uid,
               period.windowIndex,
+              window.mediaItem,
               period.uid,
               period.windowIndex,
               /* positionMs= */ windowDurationMs,
@@ -787,6 +818,7 @@ public final class CastPlayer extends BasePlayer {
           new PositionInfo(
               window.uid,
               period.windowIndex,
+              window.mediaItem,
               period.uid,
               period.windowIndex,
               /* positionMs= */ window.getDefaultPositionMs(),
@@ -810,6 +842,8 @@ public final class CastPlayer extends BasePlayer {
       listeners.queueEvent(
           Player.EVENT_TRACKS_CHANGED,
           listener -> listener.onTracksChanged(currentTrackGroups, currentTrackSelection));
+      listeners.queueEvent(
+          Player.EVENT_TRACKS_CHANGED, listener -> listener.onTracksInfoChanged(currentTracksInfo));
     }
     updateAvailableCommandsAndNotifyIfChanged();
     listeners.flushEvents();
@@ -840,6 +874,22 @@ public final class CastPlayer extends BasePlayer {
   }
 
   @RequiresNonNull("remoteMediaClient")
+  private void updatePlaybackRateAndNotifyIfChanged(@Nullable ResultCallback<?> resultCallback) {
+    if (playbackParameters.acceptsUpdate(resultCallback)) {
+      @Nullable MediaStatus mediaStatus = remoteMediaClient.getMediaStatus();
+      float speed =
+          mediaStatus != null
+              ? (float) mediaStatus.getPlaybackRate()
+              : PlaybackParameters.DEFAULT.speed;
+      if (speed > 0.0f) {
+        // Set the speed if not paused.
+        setPlaybackParametersAndNotifyIfChanged(new PlaybackParameters(speed));
+      }
+      playbackParameters.clearPendingResultCallback();
+    }
+  }
+
+  @RequiresNonNull("remoteMediaClient")
   private void updateRepeatModeAndNotifyIfChanged(@Nullable ResultCallback<?> resultCallback) {
     if (repeatMode.acceptsUpdate(resultCallback)) {
       setRepeatModeAndNotifyIfChanged(fetchRepeatMode(remoteMediaClient));
@@ -864,11 +914,8 @@ public final class CastPlayer extends BasePlayer {
       // Call onTimelineChanged.
       listeners.queueEvent(
           Player.EVENT_TIMELINE_CHANGED,
-          listener -> {
-            listener.onTimelineChanged(
-                timeline, /* manifest= */ null, Player.TIMELINE_CHANGE_REASON_SOURCE_UPDATE);
-            listener.onTimelineChanged(timeline, Player.TIMELINE_CHANGE_REASON_SOURCE_UPDATE);
-          });
+          listener ->
+              listener.onTimelineChanged(timeline, Player.TIMELINE_CHANGE_REASON_SOURCE_UPDATE));
 
       // Call onPositionDiscontinuity if required.
       Timeline currentTimeline = getCurrentTimeline();
@@ -892,6 +939,7 @@ public final class CastPlayer extends BasePlayer {
               new PositionInfo(
                   window.uid,
                   period.windowIndex,
+                  window.mediaItem,
                   period.uid,
                   period.windowIndex,
                   getCurrentPosition(),
@@ -957,6 +1005,7 @@ public final class CastPlayer extends BasePlayer {
       boolean hasChanged = !currentTrackGroups.isEmpty();
       currentTrackGroups = TrackGroupArray.EMPTY;
       currentTrackSelection = EMPTY_TRACK_SELECTION_ARRAY;
+      currentTracksInfo = TracksInfo.EMPTY;
       return hasChanged;
     }
     long[] activeTrackIds = mediaStatus.getActiveTrackIds();
@@ -965,27 +1014,39 @@ public final class CastPlayer extends BasePlayer {
     }
 
     TrackGroup[] trackGroups = new TrackGroup[castMediaTracks.size()];
-    TrackSelection[] trackSelections = new TrackSelection[RENDERER_COUNT];
+    @NullableType TrackSelection[] trackSelections = new TrackSelection[RENDERER_COUNT];
+    TracksInfo.TrackGroupInfo[] trackGroupInfos =
+        new TracksInfo.TrackGroupInfo[castMediaTracks.size()];
     for (int i = 0; i < castMediaTracks.size(); i++) {
       MediaTrack mediaTrack = castMediaTracks.get(i);
-      trackGroups[i] = new TrackGroup(CastUtils.mediaTrackToFormat(mediaTrack));
+      trackGroups[i] =
+          new TrackGroup(/* id= */ Integer.toString(i), CastUtils.mediaTrackToFormat(mediaTrack));
 
       long id = mediaTrack.getId();
-      int trackType = MimeTypes.getTrackType(mediaTrack.getContentType());
+      @C.TrackType int trackType = MimeTypes.getTrackType(mediaTrack.getContentType());
       int rendererIndex = getRendererIndexForTrackType(trackType);
-      if (isTrackActive(id, activeTrackIds)
-          && rendererIndex != C.INDEX_UNSET
-          && trackSelections[rendererIndex] == null) {
+      boolean supported = rendererIndex != C.INDEX_UNSET;
+      boolean selected =
+          isTrackActive(id, activeTrackIds) && supported && trackSelections[rendererIndex] == null;
+      if (selected) {
         trackSelections[rendererIndex] = new CastTrackSelection(trackGroups[i]);
       }
+      @C.FormatSupport
+      int[] trackSupport = new int[] {supported ? C.FORMAT_HANDLED : C.FORMAT_UNSUPPORTED_TYPE};
+      final boolean[] trackSelected = new boolean[] {selected};
+      trackGroupInfos[i] =
+          new TracksInfo.TrackGroupInfo(trackGroups[i], trackSupport, trackType, trackSelected);
     }
     TrackGroupArray newTrackGroups = new TrackGroupArray(trackGroups);
     TrackSelectionArray newTrackSelections = new TrackSelectionArray(trackSelections);
+    TracksInfo newTracksInfo = new TracksInfo(ImmutableList.copyOf(trackGroupInfos));
 
     if (!newTrackGroups.equals(currentTrackGroups)
-        || !newTrackSelections.equals(currentTrackSelection)) {
-      currentTrackSelection = new TrackSelectionArray(trackSelections);
-      currentTrackGroups = new TrackGroupArray(trackGroups);
+        || !newTrackSelections.equals(currentTrackSelection)
+        || !newTracksInfo.equals(currentTracksInfo)) {
+      currentTrackSelection = newTrackSelections;
+      currentTrackGroups = newTrackGroups;
+      currentTracksInfo = newTracksInfo;
       return true;
     }
     return false;
@@ -993,7 +1054,7 @@ public final class CastPlayer extends BasePlayer {
 
   private void updateAvailableCommandsAndNotifyIfChanged() {
     Commands previousAvailableCommands = availableCommands;
-    availableCommands = getAvailableCommands(PERMANENT_AVAILABLE_COMMANDS);
+    availableCommands = Util.getAvailableCommands(/* player= */ this, PERMANENT_AVAILABLE_COMMANDS);
     if (!availableCommands.equals(previousAvailableCommands)) {
       listeners.queueEvent(
           Player.EVENT_AVAILABLE_COMMANDS_CHANGED,
@@ -1004,15 +1065,15 @@ public final class CastPlayer extends BasePlayer {
   @Nullable
   private PendingResult<MediaChannelResult> setMediaItemsInternal(
       MediaQueueItem[] mediaQueueItems,
-      int startWindowIndex,
+      int startIndex,
       long startPositionMs,
       @RepeatMode int repeatMode) {
     if (remoteMediaClient == null || mediaQueueItems.length == 0) {
       return null;
     }
     startPositionMs = startPositionMs == C.TIME_UNSET ? 0 : startPositionMs;
-    if (startWindowIndex == C.INDEX_UNSET) {
-      startWindowIndex = getCurrentWindowIndex();
+    if (startIndex == C.INDEX_UNSET) {
+      startIndex = getCurrentMediaItemIndex();
       startPositionMs = getCurrentPosition();
     }
     Timeline currentTimeline = getCurrentTimeline();
@@ -1021,7 +1082,7 @@ public final class CastPlayer extends BasePlayer {
     }
     return remoteMediaClient.queueLoad(
         mediaQueueItems,
-        min(startWindowIndex, mediaQueueItems.length - 1),
+        min(startIndex, mediaQueueItems.length - 1),
         getCastRepeatMode(repeatMode),
         startPositionMs,
         /* customData= */ null);
@@ -1070,17 +1131,19 @@ public final class CastPlayer extends BasePlayer {
 
   private PositionInfo getCurrentPositionInfo() {
     Timeline currentTimeline = getCurrentTimeline();
-    @Nullable
-    Object newPeriodUid =
-        !currentTimeline.isEmpty()
-            ? currentTimeline.getPeriod(getCurrentPeriodIndex(), period, /* setIds= */ true).uid
-            : null;
-    @Nullable
-    Object newWindowUid =
-        newPeriodUid != null ? currentTimeline.getWindow(period.windowIndex, window).uid : null;
+    @Nullable Object newPeriodUid = null;
+    @Nullable Object newWindowUid = null;
+    @Nullable MediaItem newMediaItem = null;
+    if (!currentTimeline.isEmpty()) {
+      newPeriodUid =
+          currentTimeline.getPeriod(getCurrentPeriodIndex(), period, /* setIds= */ true).uid;
+      newWindowUid = currentTimeline.getWindow(period.windowIndex, window).uid;
+      newMediaItem = window.mediaItem;
+    }
     return new PositionInfo(
         newWindowUid,
-        getCurrentWindowIndex(),
+        getCurrentMediaItemIndex(),
+        newMediaItem,
         newPeriodUid,
         getCurrentPeriodIndex(),
         getCurrentPosition(),
@@ -1098,11 +1161,23 @@ public final class CastPlayer extends BasePlayer {
     }
   }
 
+  private void setPlaybackParametersAndNotifyIfChanged(PlaybackParameters playbackParameters) {
+    if (this.playbackParameters.value.equals(playbackParameters)) {
+      return;
+    }
+    this.playbackParameters.value = playbackParameters;
+    listeners.queueEvent(
+        Player.EVENT_PLAYBACK_PARAMETERS_CHANGED,
+        listener -> listener.onPlaybackParametersChanged(playbackParameters));
+    updateAvailableCommandsAndNotifyIfChanged();
+  }
+
   @SuppressWarnings("deprecation")
   private void setPlayerStateAndNotifyIfChanged(
       boolean playWhenReady,
       @Player.PlayWhenReadyChangeReason int playWhenReadyChangeReason,
       @Player.State int playbackState) {
+    boolean wasPlaying = this.playbackState == Player.STATE_READY && this.playWhenReady.value;
     boolean playWhenReadyChanged = this.playWhenReady.value != playWhenReady;
     boolean playbackStateChanged = this.playbackState != playbackState;
     if (playWhenReadyChanged || playbackStateChanged) {
@@ -1120,6 +1195,11 @@ public final class CastPlayer extends BasePlayer {
         listeners.queueEvent(
             Player.EVENT_PLAY_WHEN_READY_CHANGED,
             listener -> listener.onPlayWhenReadyChanged(playWhenReady, playWhenReadyChangeReason));
+      }
+      boolean isPlaying = playbackState == Player.STATE_READY && playWhenReady;
+      if (wasPlaying != isPlaying) {
+        listeners.queueEvent(
+            Player.EVENT_IS_PLAYING_CHANGED, listener -> listener.onIsPlayingChanged(isPlaying));
       }
     }
   }
@@ -1177,8 +1257,7 @@ public final class CastPlayer extends BasePlayer {
    * Retrieves the repeat mode from {@code remoteMediaClient} and maps it into a {@link
    * Player.RepeatMode}.
    */
-  @RepeatMode
-  private static int fetchRepeatMode(RemoteMediaClient remoteMediaClient) {
+  private static @RepeatMode int fetchRepeatMode(RemoteMediaClient remoteMediaClient) {
     MediaStatus mediaStatus = remoteMediaClient.getMediaStatus();
     if (mediaStatus == null) {
       // No media session active, yet.
@@ -1210,7 +1289,7 @@ public final class CastPlayer extends BasePlayer {
       currentWindowIndex = timeline.getIndexOfPeriod(currentItem.getItemId());
     }
     if (currentWindowIndex == C.INDEX_UNSET) {
-      // The timeline is empty. Fall back to index 0, which is what ExoPlayer would do.
+      // The timeline is empty. Fall back to index 0.
       currentWindowIndex = 0;
     }
     return currentWindowIndex;
@@ -1225,7 +1304,7 @@ public final class CastPlayer extends BasePlayer {
     return false;
   }
 
-  private static int getRendererIndexForTrackType(int trackType) {
+  private static int getRendererIndexForTrackType(@C.TrackType int trackType) {
     return trackType == C.TRACK_TYPE_VIDEO
         ? RENDERER_INDEX_VIDEO
         : trackType == C.TRACK_TYPE_AUDIO
@@ -1366,7 +1445,7 @@ public final class CastPlayer extends BasePlayer {
         currentWindowIndex = pendingSeekWindowIndex;
         pendingSeekWindowIndex = C.INDEX_UNSET;
         pendingSeekPositionMs = C.TIME_UNSET;
-        listeners.sendEvent(/* eventFlag= */ C.INDEX_UNSET, EventListener::onSeekProcessed);
+        listeners.sendEvent(/* eventFlag= */ C.INDEX_UNSET, Listener::onSeekProcessed);
       }
     }
   }

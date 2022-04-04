@@ -25,8 +25,8 @@
     catch(err) {
     }
 //-->
-var data = {"i0":10,"i1":10,"i2":10,"i3":10,"i4":10,"i5":10,"i6":10,"i7":10,"i8":10,"i9":10,"i10":10,"i11":10,"i12":42,"i13":10,"i14":10,"i15":10,"i16":10,"i17":10,"i18":10,"i19":10,"i20":42,"i21":10};
-var tabs = {65535:["t0","All Methods"],2:["t2","Instance Methods"],8:["t4","Concrete Methods"],32:["t6","Deprecated Methods"]};
+var data = {"i0":10,"i1":10,"i2":10,"i3":10,"i4":10,"i5":10,"i6":10,"i7":10,"i8":10,"i9":10,"i10":10,"i11":10,"i12":10,"i13":10,"i14":10,"i15":10,"i16":10,"i17":10,"i18":10,"i19":10,"i20":10,"i21":10,"i22":10};
+var tabs = {65535:["t0","All Methods"],2:["t2","Instance Methods"],8:["t4","Concrete Methods"]};
 var altColor = "altColor";
 var rowColor = "rowColor";
 var tableTab = "tableTab";
@@ -278,24 +278,17 @@ extends <a href="https://developer.android.com/reference/java/lang/Object.html" 
 </tr>
 <tr class="altColor">
 <td class="colFirst"><code>static long</code></td>
-<th class="colSecond" scope="row"><code><span class="memberNameLink"><a href="#ACTION_SET_PLAYBACK_SPEED">ACTION_SET_PLAYBACK_SPEED</a></span></code></th>
-<td class="colLast">
-<div class="block">Indicates this session supports the set playback speed command.</div>
-</td>
-</tr>
-<tr class="rowColor">
-<td class="colFirst"><code>static long</code></td>
 <th class="colSecond" scope="row"><code><span class="memberNameLink"><a href="#ALL_PLAYBACK_ACTIONS">ALL_PLAYBACK_ACTIONS</a></span></code></th>
 <td class="colLast">&nbsp;</td>
 </tr>
-<tr class="altColor">
+<tr class="rowColor">
 <td class="colFirst"><code>static long</code></td>
 <th class="colSecond" scope="row"><code><span class="memberNameLink"><a href="#DEFAULT_PLAYBACK_ACTIONS">DEFAULT_PLAYBACK_ACTIONS</a></span></code></th>
 <td class="colLast">
 <div class="block">The default playback actions.</div>
 </td>
 </tr>
-<tr class="rowColor">
+<tr class="altColor">
 <td class="colFirst"><code>static <a href="https://developer.android.com/reference/java/lang/String.html" title="class or interface in java.lang" class="externalLink" target="_top">String</a></code></td>
 <th class="colSecond" scope="row"><code><span class="memberNameLink"><a href="#EXTRAS_SPEED">EXTRAS_SPEED</a></span></code></th>
 <td class="colLast">
@@ -303,7 +296,7 @@ extends <a href="https://developer.android.com/reference/java/lang/Object.html" 
  Player.getPlaybackParameters().speed</code>.</div>
 </td>
 </tr>
-<tr class="altColor">
+<tr class="rowColor">
 <td class="colFirst"><code>android.support.v4.media.session.MediaSessionCompat</code></td>
 <th class="colSecond" scope="row"><code><span class="memberNameLink"><a href="#mediaSession">mediaSession</a></span></code></th>
 <td class="colLast">
@@ -345,7 +338,7 @@ extends <a href="https://developer.android.com/reference/java/lang/Object.html" 
 </a>
 <h3>Method Summary</h3>
 <table class="memberSummary">
-<caption><span id="t0" class="activeTableTab"><span>All Methods</span><span class="tabEnd">&nbsp;</span></span><span id="t2" class="tableTab"><span><a href="javascript:show(2);">Instance Methods</a></span><span class="tabEnd">&nbsp;</span></span><span id="t4" class="tableTab"><span><a href="javascript:show(8);">Concrete Methods</a></span><span class="tabEnd">&nbsp;</span></span><span id="t6" class="tableTab"><span><a href="javascript:show(32);">Deprecated Methods</a></span><span class="tabEnd">&nbsp;</span></span></caption>
+<caption><span id="t0" class="activeTableTab"><span>All Methods</span><span class="tabEnd">&nbsp;</span></span><span id="t2" class="tableTab"><span><a href="javascript:show(2);">Instance Methods</a></span><span class="tabEnd">&nbsp;</span></span><span id="t4" class="tableTab"><span><a href="javascript:show(8);">Concrete Methods</a></span><span class="tabEnd">&nbsp;</span></span></caption>
 <tr>
 <th class="colFirst" scope="col">Modifier and Type</th>
 <th class="colSecond" scope="col">Method</th>
@@ -388,9 +381,9 @@ extends <a href="https://developer.android.com/reference/java/lang/Object.html" 
 </tr>
 <tr id="i5" class="rowColor">
 <td class="colFirst"><code>void</code></td>
-<th class="colSecond" scope="row"><code><span class="memberNameLink"><a href="#setControlDispatcher(com.google.android.exoplayer2.ControlDispatcher)">setControlDispatcher</a></span>&#8203;(<a href="../../ControlDispatcher.html" title="interface in com.google.android.exoplayer2">ControlDispatcher</a>&nbsp;controlDispatcher)</code></th>
+<th class="colSecond" scope="row"><code><span class="memberNameLink"><a href="#setClearMediaItemsOnStop(boolean)">setClearMediaItemsOnStop</a></span>&#8203;(boolean&nbsp;clearMediaItemsOnStop)</code></th>
 <td class="colLast">
-<div class="block">Sets the <a href="../../ControlDispatcher.html" title="interface in com.google.android.exoplayer2"><code>ControlDispatcher</code></a>.</div>
+<div class="block">Sets whether media items are cleared from the playlist when a client sends a <code>MediaControllerCompat.TransportControls.stop()</code> command.</div>
 </td>
 </tr>
 <tr id="i6" class="altColor">
@@ -426,63 +419,77 @@ extends <a href="https://developer.android.com/reference/java/lang/Object.html" 
 </tr>
 <tr id="i10" class="altColor">
 <td class="colFirst"><code>void</code></td>
+<th class="colSecond" scope="row"><code><span class="memberNameLink"><a href="#setDispatchUnsupportedActionsEnabled(boolean)">setDispatchUnsupportedActionsEnabled</a></span>&#8203;(boolean&nbsp;dispatchUnsupportedActionsEnabled)</code></th>
+<td class="colLast">
+<div class="block">Sets whether actions that are not advertised to the <code>MediaSessionCompat</code> will be
+ dispatched either way.</div>
+</td>
+</tr>
+<tr id="i11" class="rowColor">
+<td class="colFirst"><code>void</code></td>
 <th class="colSecond" scope="row"><code><span class="memberNameLink"><a href="#setEnabledPlaybackActions(long)">setEnabledPlaybackActions</a></span>&#8203;(long&nbsp;enabledPlaybackActions)</code></th>
 <td class="colLast">
 <div class="block">Sets the enabled playback actions.</div>
 </td>
 </tr>
-<tr id="i11" class="rowColor">
+<tr id="i12" class="altColor">
 <td class="colFirst"><code>void</code></td>
-<th class="colSecond" scope="row"><code><span class="memberNameLink"><a href="#setErrorMessageProvider(com.google.android.exoplayer2.util.ErrorMessageProvider)">setErrorMessageProvider</a></span>&#8203;(<a href="../../util/ErrorMessageProvider.html" title="interface in com.google.android.exoplayer2.util">ErrorMessageProvider</a>&lt;? super <a href="../../ExoPlaybackException.html" title="class in com.google.android.exoplayer2">ExoPlaybackException</a>&gt;&nbsp;errorMessageProvider)</code></th>
+<th class="colSecond" scope="row"><code><span class="memberNameLink"><a href="#setErrorMessageProvider(com.google.android.exoplayer2.util.ErrorMessageProvider)">setErrorMessageProvider</a></span>&#8203;(<a href="../../util/ErrorMessageProvider.html" title="interface in com.google.android.exoplayer2.util">ErrorMessageProvider</a>&lt;? super <a href="../../PlaybackException.html" title="class in com.google.android.exoplayer2">PlaybackException</a>&gt;&nbsp;errorMessageProvider)</code></th>
 <td class="colLast">
 <div class="block">Sets the optional <a href="../../util/ErrorMessageProvider.html" title="interface in com.google.android.exoplayer2.util"><code>ErrorMessageProvider</code></a>.</div>
 </td>
 </tr>
-<tr id="i12" class="altColor">
+<tr id="i13" class="rowColor">
 <td class="colFirst"><code>void</code></td>
-<th class="colSecond" scope="row"><code><span class="memberNameLink"><a href="#setFastForwardIncrementMs(int)">setFastForwardIncrementMs</a></span>&#8203;(int&nbsp;fastForwardMs)</code></th>
+<th class="colSecond" scope="row"><code><span class="memberNameLink"><a href="#setMapStateIdleToSessionStateStopped(boolean)">setMapStateIdleToSessionStateStopped</a></span>&#8203;(boolean&nbsp;mapIdleToStopped)</code></th>
 <td class="colLast">
-<div class="block"><span class="deprecatedLabel">Deprecated.</span>
-<div class="deprecationComment">Use <a href="#setControlDispatcher(com.google.android.exoplayer2.ControlDispatcher)"><code>setControlDispatcher(ControlDispatcher)</code></a> with <a href="../../DefaultControlDispatcher.html#%3Cinit%3E(long,long)"><code>DefaultControlDispatcher(long, long)</code></a> instead.</div>
-</div>
+<div class="block">Sets whether <a href="../../Player.html#STATE_IDLE"><code>Player.STATE_IDLE</code></a> should be mapped to <code>PlaybackStateCompat.STATE_STOPPED</code>.</div>
 </td>
 </tr>
-<tr id="i13" class="rowColor">
+<tr id="i14" class="altColor">
 <td class="colFirst"><code>void</code></td>
 <th class="colSecond" scope="row"><code><span class="memberNameLink"><a href="#setMediaButtonEventHandler(com.google.android.exoplayer2.ext.mediasession.MediaSessionConnector.MediaButtonEventHandler)">setMediaButtonEventHandler</a></span>&#8203;(<a href="MediaSessionConnector.MediaButtonEventHandler.html" title="interface in com.google.android.exoplayer2.ext.mediasession">MediaSessionConnector.MediaButtonEventHandler</a>&nbsp;mediaButtonEventHandler)</code></th>
 <td class="colLast">
 <div class="block">Sets the <a href="MediaSessionConnector.MediaButtonEventHandler.html" title="interface in com.google.android.exoplayer2.ext.mediasession"><code>MediaSessionConnector.MediaButtonEventHandler</code></a>.</div>
 </td>
 </tr>
-<tr id="i14" class="altColor">
+<tr id="i15" class="rowColor">
 <td class="colFirst"><code>void</code></td>
 <th class="colSecond" scope="row"><code><span class="memberNameLink"><a href="#setMediaMetadataProvider(com.google.android.exoplayer2.ext.mediasession.MediaSessionConnector.MediaMetadataProvider)">setMediaMetadataProvider</a></span>&#8203;(<a href="MediaSessionConnector.MediaMetadataProvider.html" title="interface in com.google.android.exoplayer2.ext.mediasession">MediaSessionConnector.MediaMetadataProvider</a>&nbsp;mediaMetadataProvider)</code></th>
 <td class="colLast">
 <div class="block">Sets a provider of metadata to be published to the media session.</div>
 </td>
 </tr>
-<tr id="i15" class="rowColor">
+<tr id="i16" class="altColor">
+<td class="colFirst"><code>void</code></td>
+<th class="colSecond" scope="row"><code><span class="memberNameLink"><a href="#setMetadataDeduplicationEnabled(boolean)">setMetadataDeduplicationEnabled</a></span>&#8203;(boolean&nbsp;metadataDeduplicationEnabled)</code></th>
+<td class="colLast">
+<div class="block">Sets whether <a href="MediaSessionConnector.MediaMetadataProvider.html#sameAs(android.support.v4.media.MediaMetadataCompat,android.support.v4.media.MediaMetadataCompat)"><code>MediaSessionConnector.MediaMetadataProvider.sameAs(MediaMetadataCompat, MediaMetadataCompat)</code></a>
+ should be consulted before calling <code>MediaSessionCompat.setMetadata(MediaMetadataCompat)</code>.</div>
+</td>
+</tr>
+<tr id="i17" class="rowColor">
 <td class="colFirst"><code>void</code></td>
 <th class="colSecond" scope="row"><code><span class="memberNameLink"><a href="#setPlaybackPreparer(com.google.android.exoplayer2.ext.mediasession.MediaSessionConnector.PlaybackPreparer)">setPlaybackPreparer</a></span>&#8203;(<a href="MediaSessionConnector.PlaybackPreparer.html" title="interface in com.google.android.exoplayer2.ext.mediasession">MediaSessionConnector.PlaybackPreparer</a>&nbsp;playbackPreparer)</code></th>
 <td class="colLast">
 <div class="block">Sets the <a href="MediaSessionConnector.PlaybackPreparer.html" title="interface in com.google.android.exoplayer2.ext.mediasession"><code>MediaSessionConnector.PlaybackPreparer</code></a>.</div>
 </td>
 </tr>
-<tr id="i16" class="altColor">
+<tr id="i18" class="altColor">
 <td class="colFirst"><code>void</code></td>
 <th class="colSecond" scope="row"><code><span class="memberNameLink"><a href="#setPlayer(com.google.android.exoplayer2.Player)">setPlayer</a></span>&#8203;(<a href="../../Player.html" title="interface in com.google.android.exoplayer2">Player</a>&nbsp;player)</code></th>
 <td class="colLast">
 <div class="block">Sets the player to be connected to the media session.</div>
 </td>
 </tr>
-<tr id="i17" class="rowColor">
+<tr id="i19" class="rowColor">
 <td class="colFirst"><code>void</code></td>
 <th class="colSecond" scope="row"><code><span class="memberNameLink"><a href="#setQueueEditor(com.google.android.exoplayer2.ext.mediasession.MediaSessionConnector.QueueEditor)">setQueueEditor</a></span>&#8203;(<a href="MediaSessionConnector.QueueEditor.html" title="interface in com.google.android.exoplayer2.ext.mediasession">MediaSessionConnector.QueueEditor</a>&nbsp;queueEditor)</code></th>
 <td class="colLast">
 <div class="block">Sets the <a href="MediaSessionConnector.QueueEditor.html" title="interface in com.google.android.exoplayer2.ext.mediasession"><code>MediaSessionConnector.QueueEditor</code></a> to handle queue edits sent by the media controller.</div>
 </td>
 </tr>
-<tr id="i18" class="altColor">
+<tr id="i20" class="altColor">
 <td class="colFirst"><code>void</code></td>
 <th class="colSecond" scope="row"><code><span class="memberNameLink"><a href="#setQueueNavigator(com.google.android.exoplayer2.ext.mediasession.MediaSessionConnector.QueueNavigator)">setQueueNavigator</a></span>&#8203;(<a href="MediaSessionConnector.QueueNavigator.html" title="interface in com.google.android.exoplayer2.ext.mediasession">MediaSessionConnector.QueueNavigator</a>&nbsp;queueNavigator)</code></th>
 <td class="colLast">
@@ -490,23 +497,14 @@ extends <a href="https://developer.android.com/reference/java/lang/Object.html" 
  <code>ACTION_SKIP_TO_PREVIOUS</code> and <code>ACTION_SKIP_TO_QUEUE_ITEM</code>.</div>
 </td>
 </tr>
-<tr id="i19" class="rowColor">
+<tr id="i21" class="rowColor">
 <td class="colFirst"><code>void</code></td>
 <th class="colSecond" scope="row"><code><span class="memberNameLink"><a href="#setRatingCallback(com.google.android.exoplayer2.ext.mediasession.MediaSessionConnector.RatingCallback)">setRatingCallback</a></span>&#8203;(<a href="MediaSessionConnector.RatingCallback.html" title="interface in com.google.android.exoplayer2.ext.mediasession">MediaSessionConnector.RatingCallback</a>&nbsp;ratingCallback)</code></th>
 <td class="colLast">
 <div class="block">Sets the <a href="MediaSessionConnector.RatingCallback.html" title="interface in com.google.android.exoplayer2.ext.mediasession"><code>MediaSessionConnector.RatingCallback</code></a> to handle user ratings.</div>
 </td>
 </tr>
-<tr id="i20" class="altColor">
-<td class="colFirst"><code>void</code></td>
-<th class="colSecond" scope="row"><code><span class="memberNameLink"><a href="#setRewindIncrementMs(int)">setRewindIncrementMs</a></span>&#8203;(int&nbsp;rewindMs)</code></th>
-<td class="colLast">
-<div class="block"><span class="deprecatedLabel">Deprecated.</span>
-<div class="deprecationComment">Use <a href="#setControlDispatcher(com.google.android.exoplayer2.ControlDispatcher)"><code>setControlDispatcher(ControlDispatcher)</code></a> with <a href="../../DefaultControlDispatcher.html#%3Cinit%3E(long,long)"><code>DefaultControlDispatcher(long, long)</code></a> instead.</div>
-</div>
-</td>
-</tr>
-<tr id="i21" class="rowColor">
+<tr id="i22" class="altColor">
 <td class="colFirst"><code>void</code></td>
 <th class="colSecond" scope="row"><code><span class="memberNameLink"><a href="#unregisterCustomCommandReceiver(com.google.android.exoplayer2.ext.mediasession.MediaSessionConnector.CommandReceiver)">unregisterCustomCommandReceiver</a></span>&#8203;(<a href="MediaSessionConnector.CommandReceiver.html" title="interface in com.google.android.exoplayer2.ext.mediasession">MediaSessionConnector.CommandReceiver</a>&nbsp;commandReceiver)</code></th>
 <td class="colLast">
@@ -537,20 +535,6 @@ extends <a href="https://developer.android.com/reference/java/lang/Object.html" 
 <!--   -->
 </a>
 <h3>Field Detail</h3>
-<a id="ACTION_SET_PLAYBACK_SPEED">
-<!--   -->
-</a>
-<ul class="blockList">
-<li class="blockList">
-<h4>ACTION_SET_PLAYBACK_SPEED</h4>
-<pre>public static final&nbsp;long ACTION_SET_PLAYBACK_SPEED</pre>
-<div class="block">Indicates this session supports the set playback speed command.</div>
-<dl>
-<dt><span class="seeLabel">See Also:</span></dt>
-<dd><a href="../../../../../../constant-values.html#com.google.android.exoplayer2.ext.mediasession.MediaSessionConnector.ACTION_SET_PLAYBACK_SPEED">Constant Field Values</a></dd>
-</dl>
-</li>
-</ul>
 <a id="ALL_PLAYBACK_ACTIONS">
 <!--   -->
 </a>
@@ -669,20 +653,6 @@ extends <a href="https://developer.android.com/reference/java/lang/Object.html" 
 </dl>
 </li>
 </ul>
-<a id="setControlDispatcher(com.google.android.exoplayer2.ControlDispatcher)">
-<!--   -->
-</a>
-<ul class="blockList">
-<li class="blockList">
-<h4>setControlDispatcher</h4>
-<pre class="methodSignature">public&nbsp;void&nbsp;setControlDispatcher&#8203;(<a href="../../ControlDispatcher.html" title="interface in com.google.android.exoplayer2">ControlDispatcher</a>&nbsp;controlDispatcher)</pre>
-<div class="block">Sets the <a href="../../ControlDispatcher.html" title="interface in com.google.android.exoplayer2"><code>ControlDispatcher</code></a>.</div>
-<dl>
-<dt><span class="paramLabel">Parameters:</span></dt>
-<dd><code>controlDispatcher</code> - The <a href="../../ControlDispatcher.html" title="interface in com.google.android.exoplayer2"><code>ControlDispatcher</code></a>.</dd>
-</dl>
-</li>
-</ul>
 <a id="setMediaButtonEventHandler(com.google.android.exoplayer2.ext.mediasession.MediaSessionConnector.MediaButtonEventHandler)">
 <!--   -->
 </a>
@@ -722,32 +692,6 @@ extends <a href="https://developer.android.com/reference/java/lang/Object.html" 
 </dl>
 </li>
 </ul>
-<a id="setRewindIncrementMs(int)">
-<!--   -->
-</a>
-<ul class="blockList">
-<li class="blockList">
-<h4>setRewindIncrementMs</h4>
-<pre class="methodSignature"><a href="https://developer.android.com/reference/java/lang/Deprecated.html" title="class or interface in java.lang" class="externalLink" target="_top">@Deprecated</a>
-public&nbsp;void&nbsp;setRewindIncrementMs&#8203;(int&nbsp;rewindMs)</pre>
-<div class="deprecationBlock"><span class="deprecatedLabel">Deprecated.</span>
-<div class="deprecationComment">Use <a href="#setControlDispatcher(com.google.android.exoplayer2.ControlDispatcher)"><code>setControlDispatcher(ControlDispatcher)</code></a> with <a href="../../DefaultControlDispatcher.html#%3Cinit%3E(long,long)"><code>DefaultControlDispatcher(long, long)</code></a> instead.</div>
-</div>
-</li>
-</ul>
-<a id="setFastForwardIncrementMs(int)">
-<!--   -->
-</a>
-<ul class="blockList">
-<li class="blockList">
-<h4>setFastForwardIncrementMs</h4>
-<pre class="methodSignature"><a href="https://developer.android.com/reference/java/lang/Deprecated.html" title="class or interface in java.lang" class="externalLink" target="_top">@Deprecated</a>
-public&nbsp;void&nbsp;setFastForwardIncrementMs&#8203;(int&nbsp;fastForwardMs)</pre>
-<div class="deprecationBlock"><span class="deprecatedLabel">Deprecated.</span>
-<div class="deprecationComment">Use <a href="#setControlDispatcher(com.google.android.exoplayer2.ControlDispatcher)"><code>setControlDispatcher(ControlDispatcher)</code></a> with <a href="../../DefaultControlDispatcher.html#%3Cinit%3E(long,long)"><code>DefaultControlDispatcher(long, long)</code></a> instead.</div>
-</div>
-</li>
-</ul>
 <a id="setErrorMessageProvider(com.google.android.exoplayer2.util.ErrorMessageProvider)">
 <!--   -->
 </a>
@@ -755,7 +699,7 @@ public&nbsp;void&nbsp;setFastForwardIncrementMs&#8203;(int&nbsp;fastForwardMs)</
 <li class="blockList">
 <h4>setErrorMessageProvider</h4>
 <pre class="methodSignature">public&nbsp;void&nbsp;setErrorMessageProvider&#8203;(@Nullable
-                                    <a href="../../util/ErrorMessageProvider.html" title="interface in com.google.android.exoplayer2.util">ErrorMessageProvider</a>&lt;? super <a href="../../ExoPlaybackException.html" title="class in com.google.android.exoplayer2">ExoPlaybackException</a>&gt;&nbsp;errorMessageProvider)</pre>
+                                    <a href="../../util/ErrorMessageProvider.html" title="interface in com.google.android.exoplayer2.util">ErrorMessageProvider</a>&lt;? super <a href="../../PlaybackException.html" title="class in com.google.android.exoplayer2">PlaybackException</a>&gt;&nbsp;errorMessageProvider)</pre>
 <div class="block">Sets the optional <a href="../../util/ErrorMessageProvider.html" title="interface in com.google.android.exoplayer2.util"><code>ErrorMessageProvider</code></a>.</div>
 <dl>
 <dt><span class="paramLabel">Parameters:</span></dt>
@@ -910,6 +854,56 @@ public&nbsp;void&nbsp;setFastForwardIncrementMs&#8203;(int&nbsp;fastForwardMs)</
 <dt><span class="paramLabel">Parameters:</span></dt>
 <dd><code>mediaMetadataProvider</code> - The provider of metadata to publish, or <code>null</code> if no
      metadata should be published.</dd>
+</dl>
+</li>
+</ul>
+<a id="setDispatchUnsupportedActionsEnabled(boolean)">
+<!--   -->
+</a>
+<ul class="blockList">
+<li class="blockList">
+<h4>setDispatchUnsupportedActionsEnabled</h4>
+<pre class="methodSignature">public&nbsp;void&nbsp;setDispatchUnsupportedActionsEnabled&#8203;(boolean&nbsp;dispatchUnsupportedActionsEnabled)</pre>
+<div class="block">Sets whether actions that are not advertised to the <code>MediaSessionCompat</code> will be
+ dispatched either way. Default value is false.</div>
+</li>
+</ul>
+<a id="setClearMediaItemsOnStop(boolean)">
+<!--   -->
+</a>
+<ul class="blockList">
+<li class="blockList">
+<h4>setClearMediaItemsOnStop</h4>
+<pre class="methodSignature">public&nbsp;void&nbsp;setClearMediaItemsOnStop&#8203;(boolean&nbsp;clearMediaItemsOnStop)</pre>
+<div class="block">Sets whether media items are cleared from the playlist when a client sends a <code>MediaControllerCompat.TransportControls.stop()</code> command.</div>
+</li>
+</ul>
+<a id="setMapStateIdleToSessionStateStopped(boolean)">
+<!--   -->
+</a>
+<ul class="blockList">
+<li class="blockList">
+<h4>setMapStateIdleToSessionStateStopped</h4>
+<pre class="methodSignature">public&nbsp;void&nbsp;setMapStateIdleToSessionStateStopped&#8203;(boolean&nbsp;mapIdleToStopped)</pre>
+<div class="block">Sets whether <a href="../../Player.html#STATE_IDLE"><code>Player.STATE_IDLE</code></a> should be mapped to <code>PlaybackStateCompat.STATE_STOPPED</code>. The default is false <a href="../../Player.html#STATE_IDLE"><code>Player.STATE_IDLE</code></a> which maps
+ to <code>PlaybackStateCompat.STATE_NONE</code>.</div>
+</li>
+</ul>
+<a id="setMetadataDeduplicationEnabled(boolean)">
+<!--   -->
+</a>
+<ul class="blockList">
+<li class="blockList">
+<h4>setMetadataDeduplicationEnabled</h4>
+<pre class="methodSignature">public&nbsp;void&nbsp;setMetadataDeduplicationEnabled&#8203;(boolean&nbsp;metadataDeduplicationEnabled)</pre>
+<div class="block">Sets whether <a href="MediaSessionConnector.MediaMetadataProvider.html#sameAs(android.support.v4.media.MediaMetadataCompat,android.support.v4.media.MediaMetadataCompat)"><code>MediaSessionConnector.MediaMetadataProvider.sameAs(MediaMetadataCompat, MediaMetadataCompat)</code></a>
+ should be consulted before calling <code>MediaSessionCompat.setMetadata(MediaMetadataCompat)</code>.
+
+ <p>Note that this comparison is normally only required when you are using media sources that
+ may introduce duplicate updates of the metadata for the same media item (e.g. live streams).</div>
+<dl>
+<dt><span class="paramLabel">Parameters:</span></dt>
+<dd><code>metadataDeduplicationEnabled</code> - Whether to deduplicate metadata objects on invalidation.</dd>
 </dl>
 </li>
 </ul>

@@ -102,15 +102,11 @@ $('.navPadding').css('padding-top', $('.fixedNav').css("height"));
 <li class="blockList"><a id="com.google.android.exoplayer2.ExoPlaybackException">
 <!--   -->
 </a>
-<h3>Class <a href="com/google/android/exoplayer2/ExoPlaybackException.html" title="class in com.google.android.exoplayer2">com.google.android.exoplayer2.ExoPlaybackException</a> extends <a href="https://developer.android.com/reference/java/lang/Exception.html" title="class or interface in java.lang" class="externalLink" target="_top">Exception</a> implements Serializable</h3>
+<h3>Class <a href="com/google/android/exoplayer2/ExoPlaybackException.html" title="class in com.google.android.exoplayer2">com.google.android.exoplayer2.ExoPlaybackException</a> extends <a href="com/google/android/exoplayer2/PlaybackException.html" title="class in com.google.android.exoplayer2">PlaybackException</a> implements Serializable</h3>
 <ul class="blockList">
 <li class="blockList">
 <h3>Serialized Fields</h3>
 <ul class="blockList">
-<li class="blockList">
-<h4>cause</h4>
-<pre><a href="https://developer.android.com/reference/java/lang/Throwable.html" title="class or interface in java.lang" class="externalLink" target="_top">Throwable</a> cause</pre>
-</li>
 <li class="blockList">
 <h4>isRecoverable</h4>
 <pre>boolean isRecoverable</pre>
@@ -131,29 +127,23 @@ $('.navPadding').css('padding-top', $('.fixedNav').css("height"));
 </li>
 <li class="blockList">
 <h4>rendererFormatSupport</h4>
-<pre>int rendererFormatSupport</pre>
+<pre>@com.google.android.exoplayer2.C.FormatSupport int rendererFormatSupport</pre>
 <div class="block">If <a href="com/google/android/exoplayer2/ExoPlaybackException.html#type"><code>ExoPlaybackException.type</code></a> is <a href="com/google/android/exoplayer2/ExoPlaybackException.html#TYPE_RENDERER"><code>ExoPlaybackException.TYPE_RENDERER</code></a>, this is the level of <a href="com/google/android/exoplayer2/C.FormatSupport.html" title="annotation in com.google.android.exoplayer2"><code>C.FormatSupport</code></a> of the
  renderer for <a href="com/google/android/exoplayer2/ExoPlaybackException.html#rendererFormat"><code>ExoPlaybackException.rendererFormat</code></a>. If <a href="com/google/android/exoplayer2/ExoPlaybackException.html#rendererFormat"><code>ExoPlaybackException.rendererFormat</code></a> is null, this is <a href="com/google/android/exoplayer2/C.html#FORMAT_HANDLED"><code>C.FORMAT_HANDLED</code></a>.</div>
 </li>
 <li class="blockList">
 <h4>rendererIndex</h4>
 <pre>int rendererIndex</pre>
-<div class="block">If <a href="com/google/android/exoplayer2/ExoPlaybackException.html#type"><code>ExoPlaybackException.type</code></a> is <a href="com/google/android/exoplayer2/ExoPlaybackException.html#TYPE_RENDERER"><code>ExoPlaybackException.TYPE_RENDERER</code></a>, this is the index of the renderer, or <a href="com/google/android/exoplayer2/C.html#INDEX_UNSET"><code>C.INDEX_UNSET</code></a> if unknown.</div>
+<div class="block">If <a href="com/google/android/exoplayer2/ExoPlaybackException.html#type"><code>ExoPlaybackException.type</code></a> is <a href="com/google/android/exoplayer2/ExoPlaybackException.html#TYPE_RENDERER"><code>ExoPlaybackException.TYPE_RENDERER</code></a>, this is the index of the renderer.</div>
 </li>
 <li class="blockList">
 <h4>rendererName</h4>
 <pre><a href="https://developer.android.com/reference/java/lang/String.html" title="class or interface in java.lang" class="externalLink" target="_top">String</a> rendererName</pre>
-<div class="block">If <a href="com/google/android/exoplayer2/ExoPlaybackException.html#type"><code>ExoPlaybackException.type</code></a> is <a href="com/google/android/exoplayer2/ExoPlaybackException.html#TYPE_RENDERER"><code>ExoPlaybackException.TYPE_RENDERER</code></a>, this is the name of the renderer, or null if
- unknown.</div>
-</li>
-<li class="blockList">
-<h4>timestampMs</h4>
-<pre>long timestampMs</pre>
-<div class="block">The value of <a href="https://developer.android.com/reference/android/os/SystemClock.html#elapsedRealtime()" title="class or interface in android.os" class="externalLink" target="_top"><code>SystemClock.elapsedRealtime()</code></a> when this exception was created.</div>
+<div class="block">If <a href="com/google/android/exoplayer2/ExoPlaybackException.html#type"><code>ExoPlaybackException.type</code></a> is <a href="com/google/android/exoplayer2/ExoPlaybackException.html#TYPE_RENDERER"><code>ExoPlaybackException.TYPE_RENDERER</code></a>, this is the name of the renderer.</div>
 </li>
 <li class="blockListLast">
 <h4>type</h4>
-<pre>int type</pre>
+<pre>@com.google.android.exoplayer2.ExoPlaybackException.Type int type</pre>
 <div class="block">The <a href="com/google/android/exoplayer2/ExoPlaybackException.Type.html" title="annotation in com.google.android.exoplayer2"><code>ExoPlaybackException.Type</code></a> of the playback failure.</div>
 </li>
 </ul>
@@ -163,14 +153,14 @@ $('.navPadding').css('padding-top', $('.fixedNav').css("height"));
 <li class="blockList"><a id="com.google.android.exoplayer2.ExoTimeoutException">
 <!--   -->
 </a>
-<h3>Class <a href="com/google/android/exoplayer2/ExoTimeoutException.html" title="class in com.google.android.exoplayer2">com.google.android.exoplayer2.ExoTimeoutException</a> extends <a href="https://developer.android.com/reference/java/lang/Exception.html" title="class or interface in java.lang" class="externalLink" target="_top">Exception</a> implements Serializable</h3>
+<h3>Class <a href="com/google/android/exoplayer2/ExoTimeoutException.html" title="class in com.google.android.exoplayer2">com.google.android.exoplayer2.ExoTimeoutException</a> extends <a href="https://developer.android.com/reference/java/lang/RuntimeException.html" title="class or interface in java.lang" class="externalLink" target="_top">RuntimeException</a> implements Serializable</h3>
 <ul class="blockList">
 <li class="blockList">
 <h3>Serialized Fields</h3>
 <ul class="blockList">
 <li class="blockListLast">
 <h4>timeoutOperation</h4>
-<pre>int timeoutOperation</pre>
+<pre>@com.google.android.exoplayer2.ExoTimeoutException.TimeoutOperation int timeoutOperation</pre>
 <div class="block">The operation on the ExoPlayer playback thread that timed out.</div>
 </li>
 </ul>
@@ -208,6 +198,46 @@ $('.navPadding').css('padding-top', $('.fixedNav').css("height"));
 <!--   -->
 </a>
 <h3>Class <a href="com/google/android/exoplayer2/ParserException.html" title="class in com.google.android.exoplayer2">com.google.android.exoplayer2.ParserException</a> extends <a href="https://developer.android.com/reference/java/io/IOException.html" title="class or interface in java.io" class="externalLink" target="_top">IOException</a> implements Serializable</h3>
+<ul class="blockList">
+<li class="blockList">
+<h3>Serialized Fields</h3>
+<ul class="blockList">
+<li class="blockList">
+<h4>contentIsMalformed</h4>
+<pre>boolean contentIsMalformed</pre>
+<div class="block">Whether the parsing error was caused by a bitstream not following the expected format. May be
+ false when a parser encounters a legal condition which it does not support.</div>
+</li>
+<li class="blockListLast">
+<h4>dataType</h4>
+<pre>int dataType</pre>
+<div class="block">The <a href="com/google/android/exoplayer2/C.DataType.html" title="annotation in com.google.android.exoplayer2"><code>data type</code></a> of the parsed bitstream.</div>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="blockList"><a id="com.google.android.exoplayer2.PlaybackException">
+<!--   -->
+</a>
+<h3>Class <a href="com/google/android/exoplayer2/PlaybackException.html" title="class in com.google.android.exoplayer2">com.google.android.exoplayer2.PlaybackException</a> extends <a href="https://developer.android.com/reference/java/lang/Exception.html" title="class or interface in java.lang" class="externalLink" target="_top">Exception</a> implements Serializable</h3>
+<ul class="blockList">
+<li class="blockList">
+<h3>Serialized Fields</h3>
+<ul class="blockList">
+<li class="blockList">
+<h4>errorCode</h4>
+<pre>@com.google.android.exoplayer2.PlaybackException.ErrorCode int errorCode</pre>
+<div class="block">An error code which identifies the cause of the playback failure.</div>
+</li>
+<li class="blockListLast">
+<h4>timestampMs</h4>
+<pre>long timestampMs</pre>
+<div class="block">The value of <a href="https://developer.android.com/reference/android/os/SystemClock.html#elapsedRealtime()" title="class or interface in android.os" class="externalLink" target="_top"><code>SystemClock.elapsedRealtime()</code></a> when this exception was created.</div>
+</li>
+</ul>
+</li>
+</ul>
 </li>
 </ul>
 </section>
@@ -299,8 +329,7 @@ $('.navPadding').css('padding-top', $('.fixedNav').css("height"));
 <h4>errorCode</h4>
 <pre>int errorCode</pre>
 <div class="block">The error value returned from the sink implementation. If the sink writes to a platform
- <a href="https://developer.android.com/reference/android/media/AudioTrack.html" title="class or interface in android.media" class="externalLink" target="_top"><code>AudioTrack</code></a>, this will be the error value returned from
- <a href="https://developer.android.com/reference/android/media/AudioTrack.html#write(byte%5B%5D,int,int)" title="class or interface in android.media" class="externalLink"><code>AudioTrack.write(byte[], int, int)</code></a> or <a href="https://developer.android.com/reference/android/media/AudioTrack.html?is-external=true#write(java.nio.ByteBuffer,int,int)" title="class or interface in android.media" class="externalLink" target="_top"><code>AudioTrack.write(ByteBuffer, int, int)</code></a>.
+ <a href="https://developer.android.com/reference/android/media/AudioTrack.html" title="class or interface in android.media" class="externalLink"><code>AudioTrack</code></a>, this will be the error value returned from <a href="https://developer.android.com/reference/android/media/AudioTrack.html?is-external=true#write(byte%5B%5D,int,int)" title="class or interface in android.media" class="externalLink"><code>AudioTrack.write(byte[], int, int)</code></a> or <a href="https://developer.android.com/reference/android/media/AudioTrack.html?is-external=true#write(java.nio.ByteBuffer,int,int)" title="class or interface in android.media" class="externalLink" target="_top"><code>AudioTrack.write(ByteBuffer, int, int)</code></a>.
  Otherwise, the meaning of the error code depends on the sink implementation.</div>
 </li>
 <li class="blockList">
@@ -341,6 +370,23 @@ $('.navPadding').css('padding-top', $('.fixedNav').css("height"));
 <section role="region">
 <h2 title="Package">Package&nbsp;com.google.android.exoplayer2.decoder</h2>
 <ul class="blockList">
+<li class="blockList"><a id="com.google.android.exoplayer2.decoder.CryptoException">
+<!--   -->
+</a>
+<h3>Class <a href="com/google/android/exoplayer2/decoder/CryptoException.html" title="class in com.google.android.exoplayer2.decoder">com.google.android.exoplayer2.decoder.CryptoException</a> extends <a href="https://developer.android.com/reference/java/lang/Exception.html" title="class or interface in java.lang" class="externalLink" target="_top">Exception</a> implements Serializable</h3>
+<ul class="blockList">
+<li class="blockList">
+<h3>Serialized Fields</h3>
+<ul class="blockList">
+<li class="blockListLast">
+<h4>errorCode</h4>
+<pre>int errorCode</pre>
+<div class="block">A component specific error code.</div>
+</li>
+</ul>
+</li>
+</ul>
+</li>
 <li class="blockList"><a id="com.google.android.exoplayer2.decoder.DecoderException">
 <!--   -->
 </a>
@@ -375,23 +421,6 @@ $('.navPadding').css('padding-top', $('.fixedNav').css("height"));
 <section role="region">
 <h2 title="Package">Package&nbsp;com.google.android.exoplayer2.drm</h2>
 <ul class="blockList">
-<li class="blockList"><a id="com.google.android.exoplayer2.drm.DecryptionException">
-<!--   -->
-</a>
-<h3>Class <a href="com/google/android/exoplayer2/drm/DecryptionException.html" title="class in com.google.android.exoplayer2.drm">com.google.android.exoplayer2.drm.DecryptionException</a> extends <a href="https://developer.android.com/reference/java/lang/Exception.html" title="class or interface in java.lang" class="externalLink" target="_top">Exception</a> implements Serializable</h3>
-<ul class="blockList">
-<li class="blockList">
-<h3>Serialized Fields</h3>
-<ul class="blockList">
-<li class="blockListLast">
-<h4>errorCode</h4>
-<pre>int errorCode</pre>
-<div class="block">A component specific error code.</div>
-</li>
-</ul>
-</li>
-</ul>
-</li>
 <li class="blockList"><a id="com.google.android.exoplayer2.drm.DefaultDrmSession.UnexpectedDrmSessionException">
 <!--   -->
 </a>
@@ -406,6 +435,18 @@ $('.navPadding').css('padding-top', $('.fixedNav').css("height"));
 <!--   -->
 </a>
 <h3>Class <a href="com/google/android/exoplayer2/drm/DrmSession.DrmSessionException.html" title="class in com.google.android.exoplayer2.drm">com.google.android.exoplayer2.drm.DrmSession.DrmSessionException</a> extends <a href="https://developer.android.com/reference/java/io/IOException.html" title="class or interface in java.io" class="externalLink" target="_top">IOException</a> implements Serializable</h3>
+<ul class="blockList">
+<li class="blockList">
+<h3>Serialized Fields</h3>
+<ul class="blockList">
+<li class="blockListLast">
+<h4>errorCode</h4>
+<pre>@com.google.android.exoplayer2.PlaybackException.ErrorCode int errorCode</pre>
+<div class="block">The <a href="com/google/android/exoplayer2/PlaybackException.ErrorCode.html" title="annotation in com.google.android.exoplayer2"><code>PlaybackException.ErrorCode</code></a> that corresponds to the failure.</div>
+</li>
+</ul>
+</li>
+</ul>
 </li>
 <li class="blockList"><a id="com.google.android.exoplayer2.drm.KeysExpiredException">
 <!--   -->
@@ -455,7 +496,7 @@ $('.navPadding').css('padding-top', $('.fixedNav').css("height"));
 <ul class="blockList">
 <li class="blockListLast">
 <h4>reason</h4>
-<pre>int reason</pre>
+<pre>@com.google.android.exoplayer2.drm.UnsupportedDrmException.Reason int reason</pre>
 <div class="block">Either <a href="com/google/android/exoplayer2/drm/UnsupportedDrmException.html#REASON_UNSUPPORTED_SCHEME"><code>UnsupportedDrmException.REASON_UNSUPPORTED_SCHEME</code></a> or <a href="com/google/android/exoplayer2/drm/UnsupportedDrmException.html#REASON_INSTANTIATION_ERROR"><code>UnsupportedDrmException.REASON_INSTANTIATION_ERROR</code></a>.</div>
 </li>
 </ul>
@@ -693,7 +734,7 @@ $('.navPadding').css('padding-top', $('.fixedNav').css("height"));
 <ul class="blockList">
 <li class="blockListLast">
 <h4>reason</h4>
-<pre>int reason</pre>
+<pre>@com.google.android.exoplayer2.source.ClippingMediaSource.IllegalClippingException.Reason int reason</pre>
 <div class="block">The reason clipping failed.</div>
 </li>
 </ul>
@@ -710,7 +751,7 @@ $('.navPadding').css('padding-top', $('.fixedNav').css("height"));
 <ul class="blockList">
 <li class="blockListLast">
 <h4>reason</h4>
-<pre>int reason</pre>
+<pre>@com.google.android.exoplayer2.source.MergingMediaSource.IllegalMergeException.Reason int reason</pre>
 <div class="block">The reason the merge failed.</div>
 </li>
 </ul>
@@ -751,7 +792,7 @@ $('.navPadding').css('padding-top', $('.fixedNav').css("height"));
 <ul class="blockList">
 <li class="blockListLast">
 <h4>type</h4>
-<pre>int type</pre>
+<pre>@com.google.android.exoplayer2.source.ads.AdsMediaSource.AdLoadException.Type int type</pre>
 <div class="block">The <a href="com/google/android/exoplayer2/source/ads/AdsMediaSource.AdLoadException.Type.html" title="annotation in com.google.android.exoplayer2.source.ads"><code>AdsMediaSource.AdLoadException.Type</code></a> of the ad load exception.</div>
 </li>
 </ul>
@@ -881,17 +922,51 @@ $('.navPadding').css('padding-top', $('.fixedNav').css("height"));
 </li>
 <li class="blockList">
 <section role="region">
+<h2 title="Package">Package&nbsp;com.google.android.exoplayer2.transformer</h2>
+<ul class="blockList">
+<li class="blockList"><a id="com.google.android.exoplayer2.transformer.Muxer.MuxerException">
+<!--   -->
+</a>
+<h3>Class com.google.android.exoplayer2.transformer.Muxer.MuxerException extends <a href="https://developer.android.com/reference/java/lang/Exception.html" title="class or interface in java.lang" class="externalLink" target="_top">Exception</a> implements Serializable</h3>
+</li>
+<li class="blockList"><a id="com.google.android.exoplayer2.transformer.TransformationException">
+<!--   -->
+</a>
+<h3>Class <a href="com/google/android/exoplayer2/transformer/TransformationException.html" title="class in com.google.android.exoplayer2.transformer">com.google.android.exoplayer2.transformer.TransformationException</a> extends <a href="https://developer.android.com/reference/java/lang/Exception.html" title="class or interface in java.lang" class="externalLink" target="_top">Exception</a> implements Serializable</h3>
+<ul class="blockList">
+<li class="blockList">
+<h3>Serialized Fields</h3>
+<ul class="blockList">
+<li class="blockList">
+<h4>errorCode</h4>
+<pre>@com.google.android.exoplayer2.transformer.TransformationException.ErrorCode int errorCode</pre>
+<div class="block">An error code which identifies the cause of the transformation failure.</div>
+</li>
+<li class="blockListLast">
+<h4>timestampMs</h4>
+<pre>long timestampMs</pre>
+<div class="block">The value of <a href="https://developer.android.com/reference/android/os/SystemClock.html#elapsedRealtime()" title="class or interface in android.os" class="externalLink" target="_top"><code>SystemClock.elapsedRealtime()</code></a> when this exception was created.</div>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</section>
+</li>
+<li class="blockList">
+<section role="region">
 <h2 title="Package">Package&nbsp;com.google.android.exoplayer2.upstream</h2>
 <ul class="blockList">
 <li class="blockList"><a id="com.google.android.exoplayer2.upstream.AssetDataSource.AssetDataSourceException">
 <!--   -->
 </a>
-<h3>Class <a href="com/google/android/exoplayer2/upstream/AssetDataSource.AssetDataSourceException.html" title="class in com.google.android.exoplayer2.upstream">com.google.android.exoplayer2.upstream.AssetDataSource.AssetDataSourceException</a> extends <a href="https://developer.android.com/reference/java/io/IOException.html" title="class or interface in java.io" class="externalLink" target="_top">IOException</a> implements Serializable</h3>
+<h3>Class <a href="com/google/android/exoplayer2/upstream/AssetDataSource.AssetDataSourceException.html" title="class in com.google.android.exoplayer2.upstream">com.google.android.exoplayer2.upstream.AssetDataSource.AssetDataSourceException</a> extends <a href="com/google/android/exoplayer2/upstream/DataSourceException.html" title="class in com.google.android.exoplayer2.upstream">DataSourceException</a> implements Serializable</h3>
 </li>
 <li class="blockList"><a id="com.google.android.exoplayer2.upstream.ContentDataSource.ContentDataSourceException">
 <!--   -->
 </a>
-<h3>Class <a href="com/google/android/exoplayer2/upstream/ContentDataSource.ContentDataSourceException.html" title="class in com.google.android.exoplayer2.upstream">com.google.android.exoplayer2.upstream.ContentDataSource.ContentDataSourceException</a> extends <a href="https://developer.android.com/reference/java/io/IOException.html" title="class or interface in java.io" class="externalLink" target="_top">IOException</a> implements Serializable</h3>
+<h3>Class <a href="com/google/android/exoplayer2/upstream/ContentDataSource.ContentDataSourceException.html" title="class in com.google.android.exoplayer2.upstream">com.google.android.exoplayer2.upstream.ContentDataSource.ContentDataSourceException</a> extends <a href="com/google/android/exoplayer2/upstream/DataSourceException.html" title="class in com.google.android.exoplayer2.upstream">DataSourceException</a> implements Serializable</h3>
 </li>
 <li class="blockList"><a id="com.google.android.exoplayer2.upstream.DataSourceException">
 <!--   -->
@@ -903,8 +978,9 @@ $('.navPadding').css('padding-top', $('.fixedNav').css("height"));
 <ul class="blockList">
 <li class="blockListLast">
 <h4>reason</h4>
-<pre>int reason</pre>
-<div class="block">The reason of this <a href="com/google/android/exoplayer2/upstream/DataSourceException.html" title="class in com.google.android.exoplayer2.upstream"><code>DataSourceException</code></a>. It can only be <a href="com/google/android/exoplayer2/upstream/DataSourceException.html#POSITION_OUT_OF_RANGE"><code>DataSourceException.POSITION_OUT_OF_RANGE</code></a>.</div>
+<pre>@com.google.android.exoplayer2.PlaybackException.ErrorCode int reason</pre>
+<div class="block">The reason of this <a href="com/google/android/exoplayer2/upstream/DataSourceException.html" title="class in com.google.android.exoplayer2.upstream"><code>DataSourceException</code></a>, should be one of the <code>ERROR_CODE_IO_*</code> in
+ <a href="com/google/android/exoplayer2/PlaybackException.ErrorCode.html" title="annotation in com.google.android.exoplayer2"><code>PlaybackException.ErrorCode</code></a>.</div>
 </li>
 </ul>
 </li>
@@ -913,7 +989,7 @@ $('.navPadding').css('padding-top', $('.fixedNav').css("height"));
 <li class="blockList"><a id="com.google.android.exoplayer2.upstream.FileDataSource.FileDataSourceException">
 <!--   -->
 </a>
-<h3>Class <a href="com/google/android/exoplayer2/upstream/FileDataSource.FileDataSourceException.html" title="class in com.google.android.exoplayer2.upstream">com.google.android.exoplayer2.upstream.FileDataSource.FileDataSourceException</a> extends <a href="https://developer.android.com/reference/java/io/IOException.html" title="class or interface in java.io" class="externalLink" target="_top">IOException</a> implements Serializable</h3>
+<h3>Class <a href="com/google/android/exoplayer2/upstream/FileDataSource.FileDataSourceException.html" title="class in com.google.android.exoplayer2.upstream">com.google.android.exoplayer2.upstream.FileDataSource.FileDataSourceException</a> extends <a href="com/google/android/exoplayer2/upstream/DataSourceException.html" title="class in com.google.android.exoplayer2.upstream">DataSourceException</a> implements Serializable</h3>
 </li>
 <li class="blockList"><a id="com.google.android.exoplayer2.upstream.HttpDataSource.CleartextNotPermittedException">
 <!--   -->
@@ -923,7 +999,7 @@ $('.navPadding').css('padding-top', $('.fixedNav').css("height"));
 <li class="blockList"><a id="com.google.android.exoplayer2.upstream.HttpDataSource.HttpDataSourceException">
 <!--   -->
 </a>
-<h3>Class <a href="com/google/android/exoplayer2/upstream/HttpDataSource.HttpDataSourceException.html" title="class in com.google.android.exoplayer2.upstream">com.google.android.exoplayer2.upstream.HttpDataSource.HttpDataSourceException</a> extends <a href="https://developer.android.com/reference/java/io/IOException.html" title="class or interface in java.io" class="externalLink" target="_top">IOException</a> implements Serializable</h3>
+<h3>Class <a href="com/google/android/exoplayer2/upstream/HttpDataSource.HttpDataSourceException.html" title="class in com.google.android.exoplayer2.upstream">com.google.android.exoplayer2.upstream.HttpDataSource.HttpDataSourceException</a> extends <a href="com/google/android/exoplayer2/upstream/DataSourceException.html" title="class in com.google.android.exoplayer2.upstream">DataSourceException</a> implements Serializable</h3>
 <ul class="blockList">
 <li class="blockList">
 <h3>Serialized Fields</h3>
@@ -935,7 +1011,7 @@ $('.navPadding').css('padding-top', $('.fixedNav').css("height"));
 </li>
 <li class="blockListLast">
 <h4>type</h4>
-<pre>int type</pre>
+<pre>@com.google.android.exoplayer2.upstream.HttpDataSource.HttpDataSourceException.Type int type</pre>
 </li>
 </ul>
 </li>
@@ -997,12 +1073,12 @@ $('.navPadding').css('padding-top', $('.fixedNav').css("height"));
 <li class="blockList"><a id="com.google.android.exoplayer2.upstream.RawResourceDataSource.RawResourceDataSourceException">
 <!--   -->
 </a>
-<h3>Class <a href="com/google/android/exoplayer2/upstream/RawResourceDataSource.RawResourceDataSourceException.html" title="class in com.google.android.exoplayer2.upstream">com.google.android.exoplayer2.upstream.RawResourceDataSource.RawResourceDataSourceException</a> extends <a href="https://developer.android.com/reference/java/io/IOException.html" title="class or interface in java.io" class="externalLink" target="_top">IOException</a> implements Serializable</h3>
+<h3>Class <a href="com/google/android/exoplayer2/upstream/RawResourceDataSource.RawResourceDataSourceException.html" title="class in com.google.android.exoplayer2.upstream">com.google.android.exoplayer2.upstream.RawResourceDataSource.RawResourceDataSourceException</a> extends <a href="com/google/android/exoplayer2/upstream/DataSourceException.html" title="class in com.google.android.exoplayer2.upstream">DataSourceException</a> implements Serializable</h3>
 </li>
 <li class="blockList"><a id="com.google.android.exoplayer2.upstream.UdpDataSource.UdpDataSourceException">
 <!--   -->
 </a>
-<h3>Class <a href="com/google/android/exoplayer2/upstream/UdpDataSource.UdpDataSourceException.html" title="class in com.google.android.exoplayer2.upstream">com.google.android.exoplayer2.upstream.UdpDataSource.UdpDataSourceException</a> extends <a href="https://developer.android.com/reference/java/io/IOException.html" title="class or interface in java.io" class="externalLink" target="_top">IOException</a> implements Serializable</h3>
+<h3>Class <a href="com/google/android/exoplayer2/upstream/UdpDataSource.UdpDataSourceException.html" title="class in com.google.android.exoplayer2.upstream">com.google.android.exoplayer2.upstream.UdpDataSource.UdpDataSourceException</a> extends <a href="com/google/android/exoplayer2/upstream/DataSourceException.html" title="class in com.google.android.exoplayer2.upstream">DataSourceException</a> implements Serializable</h3>
 </li>
 </ul>
 </section>
@@ -1032,6 +1108,11 @@ $('.navPadding').css('padding-top', $('.fixedNav').css("height"));
 <!--   -->
 </a>
 <h3>Class <a href="com/google/android/exoplayer2/util/EGLSurfaceTexture.GlException.html" title="class in com.google.android.exoplayer2.util">com.google.android.exoplayer2.util.EGLSurfaceTexture.GlException</a> extends <a href="https://developer.android.com/reference/java/lang/RuntimeException.html" title="class or interface in java.lang" class="externalLink" target="_top">RuntimeException</a> implements Serializable</h3>
+</li>
+<li class="blockList"><a id="com.google.android.exoplayer2.util.GlUtil.GlException">
+<!--   -->
+</a>
+<h3>Class <a href="com/google/android/exoplayer2/util/GlUtil.GlException.html" title="class in com.google.android.exoplayer2.util">com.google.android.exoplayer2.util.GlUtil.GlException</a> extends <a href="https://developer.android.com/reference/java/lang/RuntimeException.html" title="class or interface in java.lang" class="externalLink" target="_top">RuntimeException</a> implements Serializable</h3>
 </li>
 <li class="blockList"><a id="com.google.android.exoplayer2.util.PriorityTaskManager.PriorityTooLowException">
 <!--   -->

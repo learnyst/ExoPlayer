@@ -41,9 +41,7 @@ public final class DummySurface extends Surface {
 
   private static final String TAG = "DummySurface";
 
-  /**
-   * Whether the surface is secure.
-   */
+  /** Whether the surface is secure. */
   public final boolean secure;
 
   private static @SecureMode int secureMode;
@@ -105,8 +103,7 @@ public final class DummySurface extends Surface {
     }
   }
 
-  @SecureMode
-  private static int getSecureMode(Context context) {
+  private static @SecureMode int getSecureMode(Context context) {
     if (GlUtil.isProtectedContentExtensionSupported(context)) {
       if (GlUtil.isSurfacelessContextExtensionSupported()) {
         return SECURE_MODE_SURFACELESS_CONTEXT;
@@ -214,7 +211,5 @@ public final class DummySurface extends Surface {
       Assertions.checkNotNull(eglSurfaceTexture);
       eglSurfaceTexture.release();
     }
-
   }
-
 }

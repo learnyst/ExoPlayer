@@ -51,9 +51,9 @@ methods, as listed below and shown in the following figure.
   `Timeline`. The current `Timeline.Window` can be retrieved from the `Timeline`
   using `Player.getCurrentWindowIndex` and `Timeline.getWindow`. Within the
   `Window`:
-  * `Window.liveConfiguration` contains the target live offset and and live
-    offset adjustment parameters. These values are based on information in the
-    media and any app-provided overrides set in `MediaItem.liveConfiguration`.
+  * `Window.liveConfiguration` contains the target live offset and live offset
+    adjustment parameters. These values are based on information in the media
+    and any app-provided overrides set in `MediaItem.liveConfiguration`.
   * `Window.windowStartTimeMs` is the time since the Unix Epoch at which the
     live window starts.
   * `Window.getCurrentUnixTimeMs` is the time since the Unix Epoch of the
@@ -89,15 +89,15 @@ components to support additional modes when playing live streams.
 
 By default, ExoPlayer uses live playback parameters defined by the media. If you
 want to configure the live playback parameters yourself, you can set them on a
-per `MediaItem` basis by calling `MediaItem.Builder.setLiveXXX` methods. If
+per `MediaItem` basis by calling `MediaItem.Builder.setLiveConfiguration`. If
 you'd like to set these values globally for all items, you can set them on the
 `DefaultMediaSourceFactory` provided to the player. In both cases, the provided
 values will override parameters defined by the media.
 
 ~~~
 // Global settings.
-SimpleExoPlayer player =
-    new SimpleExoPlayer.Builder(context)
+ExoPlayer player =
+    new ExoPlayer.Builder(context)
         .setMediaSourceFactory(
             new DefaultMediaSourceFactory(context).setLiveTargetOffsetMs(5000))
         .build();
@@ -106,7 +106,10 @@ SimpleExoPlayer player =
 MediaItem mediaItem =
     new MediaItem.Builder()
         .setUri(mediaUri)
-        .setLiveMaxPlaybackSpeed(1.02f)
+        .setLiveConfiguration(
+            new MediaItem.LiveConfiguration.Builder()
+                .setMaxPlaybackSpeed(1.02f)
+                .build())
         .build();
 player.setMediaItem(mediaItem);
 ~~~
@@ -130,39 +133,26 @@ Available configuration values are:
 If automatic playback speed adjustment is not desired, it can be disabled by
 setting `minPlaybackSpeed` and `maxPlaybackSpeed` to `1.0f`.
 
-## BehindLiveWindowException ##
+## BehindLiveWindowException and ERROR_CODE_BEHIND_LIVE_WINDOW ##
 
 The playback position may fall behind the live window, for example if the player
 is paused or buffering for a long enough period of time. If this happens then
-playback will fail and a `BehindLiveWindowException` will be reported via
+playback will fail and an exception with error code
+`ERROR_CODE_BEHIND_LIVE_WINDOW` will be reported via
 `Player.Listener.onPlayerError`. Application code may wish to handle such
 errors by resuming playback at the default position. The [PlayerActivity][] of
 the demo app exemplifies this approach.
 
 ~~~
 @Override
-public void onPlayerError(ExoPlaybackException e) {
-  if (isBehindLiveWindow(e)) {
+public void onPlayerError(PlaybackException error) {
+  if (eror.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW) {
     // Re-initialize player at the current live window default position.
     player.seekToDefaultPosition();
     player.prepare();
   } else {
     // Handle other errors.
   }
-}
-
-private static boolean isBehindLiveWindow(ExoPlaybackException e) {
-  if (e.type != ExoPlaybackException.TYPE_SOURCE) {
-    return false;
-  }
-  Throwable cause = e.getSourceException();
-  while (cause != null) {
-    if (cause instanceof BehindLiveWindowException) {
-      return true;
-    }
-    cause = cause.getCause();
-  }
-  return false;
 }
 ~~~
 {: .language-java}
@@ -176,8 +166,8 @@ implementation, which is `DefaultLivePlaybackSpeedControl`. In both cases an
 instance can be set when building the player:
 
 ~~~
-SimpleExoPlayer player =
-    new SimpleExoPlayer.Builder(context)
+ExoPlayer player =
+    new ExoPlayer.Builder(context)
         .setLivePlaybackSpeedControl(
             new DefaultLivePlaybackSpeedControl.Builder()
                 .setFallbackMaxPlaybackSpeed(1.04f)

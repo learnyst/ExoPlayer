@@ -133,7 +133,8 @@ $('.navPadding').css('padding-top', $('.fixedNav').css("height"));
 <dd><code><a href="ChunkExtractor.html" title="interface in com.google.android.exoplayer2.source.chunk">ChunkExtractor</a></code></dd>
 </dl>
 <hr>
-<pre>public final class <span class="typeNameLabel">MediaParserChunkExtractor</span>
+<pre>@RequiresApi(30)
+public final class <span class="typeNameLabel">MediaParserChunkExtractor</span>
 extends <a href="https://developer.android.com/reference/java/lang/Object.html" title="class or interface in java.lang" class="externalLink" target="_top">Object</a>
 implements <a href="ChunkExtractor.html" title="interface in com.google.android.exoplayer2.source.chunk">ChunkExtractor</a></pre>
 <div class="block"><a href="ChunkExtractor.html" title="interface in com.google.android.exoplayer2.source.chunk"><code>ChunkExtractor</code></a> implemented on top of the platform's <a href="https://developer.android.com/reference/android/media/MediaParser.html" title="class or interface in android.media" class="externalLink" target="_top"><code>MediaParser</code></a>.</div>
@@ -197,9 +198,10 @@ implements <a href="ChunkExtractor.html" title="interface in com.google.android.
 <th class="colLast" scope="col">Description</th>
 </tr>
 <tr class="altColor">
-<th class="colConstructorName" scope="row"><code><span class="memberNameLink"><a href="#%3Cinit%3E(int,com.google.android.exoplayer2.Format,java.util.List)">MediaParserChunkExtractor</a></span>&#8203;(int&nbsp;primaryTrackType,
+<th class="colConstructorName" scope="row"><code><span class="memberNameLink"><a href="#%3Cinit%3E(@com.google.android.exoplayer2.C.TrackTypeint,com.google.android.exoplayer2.Format,java.util.List,com.google.android.exoplayer2.analytics.PlayerId)">MediaParserChunkExtractor</a></span>&#8203;(@com.google.android.exoplayer2.C.TrackType int&nbsp;primaryTrackType,
                          <a href="../../Format.html" title="class in com.google.android.exoplayer2">Format</a>&nbsp;manifestFormat,
-                         <a href="https://developer.android.com/reference/java/util/List.html" title="class or interface in java.util" class="externalLink">List</a>&lt;<a href="../../Format.html" title="class in com.google.android.exoplayer2" target="_top">Format</a>&gt;&nbsp;closedCaptionFormats)</code></th>
+                         <a href="https://developer.android.com/reference/java/util/List.html" title="class or interface in java.util" class="externalLink">List</a>&lt;<a href="../../Format.html" title="class in com.google.android.exoplayer2" target="_top">Format</a>&gt;&nbsp;closedCaptionFormats,
+                         <a href="../../analytics/PlayerId.html" title="class in com.google.android.exoplayer2.analytics">PlayerId</a>&nbsp;playerId)</code></th>
 <td class="colLast">
 <div class="block">Creates a new instance.</div>
 </td>
@@ -248,7 +250,7 @@ implements <a href="ChunkExtractor.html" title="interface in com.google.android.
 </tr>
 <tr id="i3" class="rowColor">
 <td class="colFirst"><code>boolean</code></td>
-<th class="colSecond" scope="row"><code><span class="memberNameLink"><a href="#read(com.google.android.exoplayer2.extractor.ExtractorInput)">read</a></span>&#8203;(<a href="../../extractor/ExtractorInput.html" title="interface in com.google.android.exoplayer2.extractor">ExtractorInput</a>&nbsp;extractorInput)</code></th>
+<th class="colSecond" scope="row"><code><span class="memberNameLink"><a href="#read(com.google.android.exoplayer2.extractor.ExtractorInput)">read</a></span>&#8203;(<a href="../../extractor/ExtractorInput.html" title="interface in com.google.android.exoplayer2.extractor">ExtractorInput</a>&nbsp;input)</code></th>
 <td class="colLast">
 <div class="block">Reads from the given <a href="../../extractor/ExtractorInput.html" title="interface in com.google.android.exoplayer2.extractor"><code>ExtractorInput</code></a>.</div>
 </td>
@@ -303,23 +305,24 @@ implements <a href="ChunkExtractor.html" title="interface in com.google.android.
 <!--   -->
 </a>
 <h3>Constructor Detail</h3>
-<a id="&lt;init&gt;(int,com.google.android.exoplayer2.Format,java.util.List)">
+<a id="&lt;init&gt;(@com.google.android.exoplayer2.C.TrackTypeint,com.google.android.exoplayer2.Format,java.util.List,com.google.android.exoplayer2.analytics.PlayerId)">
 <!--   -->
 </a>
 <ul class="blockListLast">
 <li class="blockList">
 <h4>MediaParserChunkExtractor</h4>
-<pre>public&nbsp;MediaParserChunkExtractor&#8203;(int&nbsp;primaryTrackType,
+<pre>public&nbsp;MediaParserChunkExtractor&#8203;(@com.google.android.exoplayer2.C.TrackType int&nbsp;primaryTrackType,
                                  <a href="../../Format.html" title="class in com.google.android.exoplayer2">Format</a>&nbsp;manifestFormat,
-                                 <a href="https://developer.android.com/reference/java/util/List.html" title="class or interface in java.util" class="externalLink">List</a>&lt;<a href="../../Format.html" title="class in com.google.android.exoplayer2" target="_top">Format</a>&gt;&nbsp;closedCaptionFormats)</pre>
+                                 <a href="https://developer.android.com/reference/java/util/List.html" title="class or interface in java.util" class="externalLink">List</a>&lt;<a href="../../Format.html" title="class in com.google.android.exoplayer2" target="_top">Format</a>&gt;&nbsp;closedCaptionFormats,
+                                 <a href="../../analytics/PlayerId.html" title="class in com.google.android.exoplayer2.analytics">PlayerId</a>&nbsp;playerId)</pre>
 <div class="block">Creates a new instance.</div>
 <dl>
 <dt><span class="paramLabel">Parameters:</span></dt>
-<dd><code>primaryTrackType</code> - The type of the primary track, or <a href="../../C.html#TRACK_TYPE_NONE"><code>C.TRACK_TYPE_NONE</code></a> if there is
-     no primary track. Must be one of the <a href="../../C.html" title="class in com.google.android.exoplayer2"><code>C.TRACK_TYPE_*</code></a> constants.</dd>
+<dd><code>primaryTrackType</code> - The <a href="../../C.TrackType.html" title="annotation in com.google.android.exoplayer2"><code>type</code></a> of the primary track. <a href="../../C.html#TRACK_TYPE_NONE"><code>C.TRACK_TYPE_NONE</code></a> if there is no primary track.</dd>
 <dd><code>manifestFormat</code> - The chunks <a href="../../Format.html" title="class in com.google.android.exoplayer2"><code>Format</code></a> as obtained from the manifest.</dd>
 <dd><code>closedCaptionFormats</code> - A list containing the <a href="../../Format.html" title="class in com.google.android.exoplayer2"><code>Formats</code></a> of the closed-caption
      tracks in the chunks.</dd>
+<dd><code>playerId</code> - The <a href="../../analytics/PlayerId.html" title="class in com.google.android.exoplayer2.analytics"><code>PlayerId</code></a> of the player this chunk extractor is used for.</dd>
 </dl>
 </li>
 </ul>
@@ -378,7 +381,7 @@ implements <a href="ChunkExtractor.html" title="interface in com.google.android.
 <ul class="blockList">
 <li class="blockList">
 <h4>read</h4>
-<pre class="methodSignature">public&nbsp;boolean&nbsp;read&#8203;(<a href="../../extractor/ExtractorInput.html" title="interface in com.google.android.exoplayer2.extractor">ExtractorInput</a>&nbsp;extractorInput)
+<pre class="methodSignature">public&nbsp;boolean&nbsp;read&#8203;(<a href="../../extractor/ExtractorInput.html" title="interface in com.google.android.exoplayer2.extractor">ExtractorInput</a>&nbsp;input)
              throws <a href="https://developer.android.com/reference/java/io/IOException.html" title="class or interface in java.io" class="externalLink" target="_top">IOException</a></pre>
 <div class="block"><span class="descfrmTypeLabel">Description copied from interface:&nbsp;<code><a href="ChunkExtractor.html#read(com.google.android.exoplayer2.extractor.ExtractorInput)">ChunkExtractor</a></code></span></div>
 <div class="block">Reads from the given <a href="../../extractor/ExtractorInput.html" title="interface in com.google.android.exoplayer2.extractor"><code>ExtractorInput</code></a>.</div>
@@ -386,7 +389,7 @@ implements <a href="ChunkExtractor.html" title="interface in com.google.android.
 <dt><span class="overrideSpecifyLabel">Specified by:</span></dt>
 <dd><code><a href="ChunkExtractor.html#read(com.google.android.exoplayer2.extractor.ExtractorInput)">read</a></code>&nbsp;in interface&nbsp;<code><a href="ChunkExtractor.html" title="interface in com.google.android.exoplayer2.source.chunk">ChunkExtractor</a></code></dd>
 <dt><span class="paramLabel">Parameters:</span></dt>
-<dd><code>extractorInput</code> - The input to read from.</dd>
+<dd><code>input</code> - The input to read from.</dd>
 <dt><span class="returnLabel">Returns:</span></dt>
 <dd>Whether there is any data left to extract. Returns false if the end of input has been
      reached.</dd>

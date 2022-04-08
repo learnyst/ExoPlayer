@@ -49,6 +49,8 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 @TargetApi(18)
 /* package */ class DefaultDrmSession<T extends ExoMediaCrypto> implements DrmSession<T> {
 
+  private int retryCount = 0;
+
   /** Thrown when an unexpected exception or error is thrown during provisioning or key requests. */
   public static final class UnexpectedDrmSessionException extends IOException {
 
@@ -474,7 +476,18 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     }
   }
 
+  /*Sridhar changed - start*/
   private void onKeysError(Exception e) {
+    e.printStackTrace();
+
+    if  (retryCount < 2) {
+      retryCount++;
+      provisioningManager.provisionRequired(this);
+      return;
+    }
+
+    /*Sridhar changed - end*/
+
     if (e instanceof NotProvisionedException) {
       provisioningManager.provisionRequired(this);
     } else {

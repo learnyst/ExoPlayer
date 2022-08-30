@@ -15,6 +15,12 @@
  */
 package com.google.android.exoplayer2.scheduler;
 
+import static java.lang.annotation.ElementType.FIELD;
+import static java.lang.annotation.ElementType.LOCAL_VARIABLE;
+import static java.lang.annotation.ElementType.METHOD;
+import static java.lang.annotation.ElementType.PARAMETER;
+import static java.lang.annotation.ElementType.TYPE_USE;
+
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
@@ -33,19 +39,23 @@ import com.google.android.exoplayer2.util.Util;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
 /** Defines a set of device state requirements. */
 public final class Requirements implements Parcelable {
 
   /**
    * Requirement flags. Possible flag values are {@link #NETWORK}, {@link #NETWORK_UNMETERED},
-   * {@link #DEVICE_IDLE} and {@link #DEVICE_CHARGING}.
+   * {@link #DEVICE_IDLE}, {@link #DEVICE_CHARGING} and {@link #DEVICE_STORAGE_NOT_LOW}.
    */
+  // @Target list includes both 'default' targets and TYPE_USE, to ensure backwards compatibility
+  // with Kotlin usages from before TYPE_USE was added.
   @Documented
   @Retention(RetentionPolicy.SOURCE)
+  @Target({FIELD, METHOD, PARAMETER, LOCAL_VARIABLE, TYPE_USE})
   @IntDef(
       flag = true,
-      value = {NETWORK, NETWORK_UNMETERED, DEVICE_IDLE, DEVICE_CHARGING})
+      value = {NETWORK, NETWORK_UNMETERED, DEVICE_IDLE, DEVICE_CHARGING, DEVICE_STORAGE_NOT_LOW})
   public @interface RequirementFlags {}
 
   /** Requirement that the device has network connectivity. */
@@ -56,10 +66,17 @@ public final class Requirements implements Parcelable {
   public static final int DEVICE_IDLE = 1 << 2;
   /** Requirement that the device is charging. */
   public static final int DEVICE_CHARGING = 1 << 3;
+  /**
+   * Requirement that the device's <em>internal</em> storage is not low. Note that this requirement
+   * is not affected by the status of external storage.
+   */
+  public static final int DEVICE_STORAGE_NOT_LOW = 1 << 4;
 
-  @RequirementFlags private final int requirements;
+  private final @RequirementFlags int requirements;
 
-  /** @param requirements A combination of requirement flags. */
+  /**
+   * @param requirements A combination of requirement flags.
+   */
   public Requirements(@RequirementFlags int requirements) {
     if ((requirements & NETWORK_UNMETERED) != 0) {
       // Make sure network requirement flags are consistent.
@@ -69,9 +86,20 @@ public final class Requirements implements Parcelable {
   }
 
   /** Returns the requirements. */
-  @RequirementFlags
-  public int getRequirements() {
+  public @RequirementFlags int getRequirements() {
     return requirements;
+  }
+
+  /**
+   * Filters the requirements, returning the subset that are enabled by the provided filter.
+   *
+   * @param requirementsFilter The enabled {@link RequirementFlags}.
+   * @return The filtered requirements. If the filter does not cause a change in the requirements
+   *     then this instance will be returned.
+   */
+  public Requirements filterRequirements(int requirementsFilter) {
+    int filteredRequirements = requirements & requirementsFilter;
+    return filteredRequirements == requirements ? this : new Requirements(filteredRequirements);
   }
 
   /** Returns whether network connectivity is required. */
@@ -94,6 +122,11 @@ public final class Requirements implements Parcelable {
     return (requirements & DEVICE_IDLE) != 0;
   }
 
+  /** Returns whether the device is required to not be low on <em>internal</em> storage. */
+  public boolean isStorageNotLowRequired() {
+    return (requirements & DEVICE_STORAGE_NOT_LOW) != 0;
+  }
+
   /**
    * Returns whether the requirements are met.
    *
@@ -110,8 +143,7 @@ public final class Requirements implements Parcelable {
    * @param context Any context.
    * @return The requirements that are not met, or 0.
    */
-  @RequirementFlags
-  public int getNotMetRequirements(Context context) {
+  public @RequirementFlags int getNotMetRequirements(Context context) {
     @RequirementFlags int notMetRequirements = getNotMetNetworkRequirements(context);
     if (isChargingRequired() && !isDeviceCharging(context)) {
       notMetRequirements |= DEVICE_CHARGING;
@@ -119,18 +151,21 @@ public final class Requirements implements Parcelable {
     if (isIdleRequired() && !isDeviceIdle(context)) {
       notMetRequirements |= DEVICE_IDLE;
     }
+    if (isStorageNotLowRequired() && !isStorageNotLow(context)) {
+      notMetRequirements |= DEVICE_STORAGE_NOT_LOW;
+    }
     return notMetRequirements;
   }
 
-  @RequirementFlags
-  private int getNotMetNetworkRequirements(Context context) {
+  private @RequirementFlags int getNotMetNetworkRequirements(Context context) {
     if (!isNetworkRequired()) {
       return 0;
     }
 
     ConnectivityManager connectivityManager =
-        (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
-    NetworkInfo networkInfo = Assertions.checkNotNull(connectivityManager).getActiveNetworkInfo();
+        (ConnectivityManager)
+            Assertions.checkNotNull(context.getSystemService(Context.CONNECTIVITY_SERVICE));
+    @Nullable NetworkInfo networkInfo = connectivityManager.getActiveNetworkInfo();
     if (networkInfo == null
         || !networkInfo.isConnected()
         || !isInternetConnectivityValidated(connectivityManager)) {
@@ -145,8 +180,10 @@ public final class Requirements implements Parcelable {
   }
 
   private boolean isDeviceCharging(Context context) {
+    @Nullable
     Intent batteryStatus =
-        context.registerReceiver(null, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
+        context.registerReceiver(
+            /* receiver= */ null, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
     if (batteryStatus == null) {
       return false;
     }
@@ -156,27 +193,43 @@ public final class Requirements implements Parcelable {
   }
 
   private boolean isDeviceIdle(Context context) {
-    PowerManager powerManager = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
+    PowerManager powerManager =
+        (PowerManager) Assertions.checkNotNull(context.getSystemService(Context.POWER_SERVICE));
     return Util.SDK_INT >= 23
         ? powerManager.isDeviceIdleMode()
         : Util.SDK_INT >= 20 ? !powerManager.isInteractive() : !powerManager.isScreenOn();
   }
 
+  private boolean isStorageNotLow(Context context) {
+    return context.registerReceiver(
+            /* receiver= */ null, new IntentFilter(Intent.ACTION_DEVICE_STORAGE_LOW))
+        == null;
+  }
+
   private static boolean isInternetConnectivityValidated(ConnectivityManager connectivityManager) {
-    // It's possible to query NetworkCapabilities from API level 23, but RequirementsWatcher only
-    // fires an event to update its Requirements when NetworkCapabilities change from API level 24.
-    // Since Requirements won't be updated, we assume connectivity is validated on API level 23.
+    // It's possible to check NetworkCapabilities.NET_CAPABILITY_VALIDATED from API level 23, but
+    // RequirementsWatcher only fires an event to re-check the requirements when NetworkCapabilities
+    // change from API level 24. We assume that network capability is validated for API level 23 to
+    // keep in sync.
     if (Util.SDK_INT < 24) {
       return true;
     }
-    Network activeNetwork = connectivityManager.getActiveNetwork();
+
+    @Nullable Network activeNetwork = connectivityManager.getActiveNetwork();
     if (activeNetwork == null) {
       return false;
     }
-    NetworkCapabilities networkCapabilities =
-        connectivityManager.getNetworkCapabilities(activeNetwork);
-    return networkCapabilities != null
-        && networkCapabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED);
+
+    try {
+      @Nullable
+      NetworkCapabilities networkCapabilities =
+          connectivityManager.getNetworkCapabilities(activeNetwork);
+      return networkCapabilities != null
+          && networkCapabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED);
+    } catch (SecurityException e) {
+      // Workaround for https://issuetracker.google.com/issues/175055271.
+      return true;
+    }
   }
 
   @Override

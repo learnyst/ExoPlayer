@@ -15,6 +15,8 @@
  */
 package com.google.android.exoplayer2.audio;
 
+import static java.lang.Math.min;
+
 import androidx.annotation.Nullable;
 import com.google.android.exoplayer2.C;
 import com.google.android.exoplayer2.util.Assertions;
@@ -32,8 +34,8 @@ import java.nio.ByteOrder;
  * <p>This audio processor can be inserted into the audio processor chain to access audio data
  * before/after particular processing steps have been applied. For example, to get audio output
  * after playback speed adjustment and silence skipping have been applied it is necessary to pass a
- * custom {@link com.google.android.exoplayer2.audio.DefaultAudioSink.AudioProcessorChain} when
- * creating the audio sink, and include this audio processor after all other audio processors.
+ * custom {@link DefaultAudioSink.AudioProcessorChain} when creating the audio sink, and include
+ * this audio processor after all other audio processors.
  */
 public final class TeeAudioProcessor extends BaseAudioProcessor {
 
@@ -80,6 +82,11 @@ public final class TeeAudioProcessor extends BaseAudioProcessor {
   }
 
   @Override
+  protected void onFlush() {
+    flushSinkIfActive();
+  }
+
+  @Override
   protected void onQueueEndOfStream() {
     flushSinkIfActive();
   }
@@ -118,7 +125,7 @@ public final class TeeAudioProcessor extends BaseAudioProcessor {
 
     private int sampleRateHz;
     private int channelCount;
-    @C.PcmEncoding private int encoding;
+    private @C.PcmEncoding int encoding;
     @Nullable private RandomAccessFile randomAccessFile;
     private int counter;
     private int bytesWritten;
@@ -193,7 +200,7 @@ public final class TeeAudioProcessor extends BaseAudioProcessor {
     private void writeBuffer(ByteBuffer buffer) throws IOException {
       RandomAccessFile randomAccessFile = Assertions.checkNotNull(this.randomAccessFile);
       while (buffer.hasRemaining()) {
-        int bytesToWrite = Math.min(buffer.remaining(), scratchBuffer.length);
+        int bytesToWrite = min(buffer.remaining(), scratchBuffer.length);
         buffer.get(scratchBuffer, 0, bytesToWrite);
         randomAccessFile.write(scratchBuffer, 0, bytesToWrite);
         bytesWritten += bytesToWrite;
@@ -201,7 +208,7 @@ public final class TeeAudioProcessor extends BaseAudioProcessor {
     }
 
     private void reset() throws IOException {
-      RandomAccessFile randomAccessFile = this.randomAccessFile;
+      @Nullable RandomAccessFile randomAccessFile = this.randomAccessFile;
       if (randomAccessFile == null) {
         return;
       }

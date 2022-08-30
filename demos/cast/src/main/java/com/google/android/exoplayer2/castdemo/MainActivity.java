@@ -27,7 +27,6 @@ import android.widget.ArrayAdapter;
 import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
-import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
@@ -37,23 +36,23 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.recyclerview.widget.RecyclerView.ViewHolder;
 import com.google.android.exoplayer2.C;
-import com.google.android.exoplayer2.SimpleExoPlayer;
-import com.google.android.exoplayer2.ext.cast.MediaItem;
-import com.google.android.exoplayer2.ui.PlayerControlView;
-import com.google.android.exoplayer2.ui.PlayerView;
+import com.google.android.exoplayer2.ExoPlayer;
+import com.google.android.exoplayer2.MediaItem;
+import com.google.android.exoplayer2.ui.StyledPlayerView;
+import com.google.android.exoplayer2.util.Assertions;
+import com.google.android.exoplayer2.util.Util;
 import com.google.android.gms.cast.framework.CastButtonFactory;
 import com.google.android.gms.cast.framework.CastContext;
 import com.google.android.gms.dynamite.DynamiteModule;
 
 /**
- * An activity that plays video using {@link SimpleExoPlayer} and supports casting using ExoPlayer's
- * Cast extension.
+ * An activity that plays video using {@link ExoPlayer} and supports casting using ExoPlayer's Cast
+ * extension.
  */
 public class MainActivity extends AppCompatActivity
     implements OnClickListener, PlayerManager.Listener {
 
-  private PlayerView localPlayerView;
-  private PlayerControlView castControlView;
+  private StyledPlayerView playerView;
   private PlayerManager playerManager;
   private RecyclerView mediaQueueList;
   private MediaQueueListAdapter mediaQueueListAdapter;
@@ -82,10 +81,8 @@ public class MainActivity extends AppCompatActivity
 
     setContentView(R.layout.main_activity);
 
-    localPlayerView = findViewById(R.id.local_player_view);
-    localPlayerView.requestFocus();
-
-    castControlView = findViewById(R.id.cast_control_view);
+    playerView = findViewById(R.id.player_view);
+    playerView.requestFocus();
 
     mediaQueueList = findViewById(R.id.sample_list);
     ItemTouchHelper helper = new ItemTouchHelper(new RecyclerViewCallback());
@@ -113,12 +110,7 @@ public class MainActivity extends AppCompatActivity
       return;
     }
     playerManager =
-        new PlayerManager(
-            /* listener= */ this,
-            localPlayerView,
-            castControlView,
-            /* context= */ this,
-            castContext);
+        new PlayerManager(/* listener= */ this, this, playerView, /* context= */ castContext);
     mediaQueueList.setAdapter(mediaQueueListAdapter);
   }
 
@@ -171,8 +163,6 @@ public class MainActivity extends AppCompatActivity
       showToast(R.string.error_unsupported_audio);
     } else if (trackType == C.TRACK_TYPE_VIDEO) {
       showToast(R.string.error_unsupported_video);
-    } else {
-      // Do nothing.
     }
   }
 
@@ -200,16 +190,19 @@ public class MainActivity extends AppCompatActivity
 
     @Override
     public QueueItemViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
-      TextView v = (TextView) LayoutInflater.from(parent.getContext())
-          .inflate(android.R.layout.simple_list_item_1, parent, false);
+      TextView v =
+          (TextView)
+              LayoutInflater.from(parent.getContext())
+                  .inflate(android.R.layout.simple_list_item_1, parent, false);
       return new QueueItemViewHolder(v);
     }
 
     @Override
     public void onBindViewHolder(QueueItemViewHolder holder, int position) {
-      holder.item = playerManager.getItem(position);
+      holder.item = Assertions.checkNotNull(playerManager.getItem(position));
+
       TextView view = holder.textView;
-      view.setText(holder.item.title);
+      view.setText(holder.item.mediaMetadata.title);
       // TODO: Solve coloring using the theme's ColorStateList.
       view.setTextColor(
           ColorUtils.setAlphaComponent(
@@ -221,7 +214,6 @@ public class MainActivity extends AppCompatActivity
     public int getItemCount() {
       return playerManager.getMediaQueueSize();
     }
-
   }
 
   private class RecyclerViewCallback extends ItemTouchHelper.SimpleCallback {
@@ -236,10 +228,10 @@ public class MainActivity extends AppCompatActivity
     }
 
     @Override
-    public boolean onMove(RecyclerView list, RecyclerView.ViewHolder origin,
-        RecyclerView.ViewHolder target) {
-      int fromPosition = origin.getAdapterPosition();
-      int toPosition = target.getAdapterPosition();
+    public boolean onMove(
+        RecyclerView list, RecyclerView.ViewHolder origin, RecyclerView.ViewHolder target) {
+      int fromPosition = origin.getBindingAdapterPosition();
+      int toPosition = target.getBindingAdapterPosition();
       if (draggingFromPosition == C.INDEX_UNSET) {
         // A drag has started, but changes to the media queue will be reflected in clearView().
         draggingFromPosition = fromPosition;
@@ -251,7 +243,7 @@ public class MainActivity extends AppCompatActivity
 
     @Override
     public void onSwiped(RecyclerView.ViewHolder viewHolder, int direction) {
-      int position = viewHolder.getAdapterPosition();
+      int position = viewHolder.getBindingAdapterPosition();
       QueueItemViewHolder queueItemHolder = (QueueItemViewHolder) viewHolder;
       if (playerManager.removeItem(queueItemHolder.item)) {
         mediaQueueListAdapter.notifyItemRemoved(position);
@@ -290,7 +282,7 @@ public class MainActivity extends AppCompatActivity
 
     @Override
     public void onClick(View v) {
-      playerManager.selectQueueItem(getAdapterPosition());
+      playerManager.selectQueueItem(getBindingAdapterPosition());
     }
   }
 
@@ -300,11 +292,10 @@ public class MainActivity extends AppCompatActivity
       super(context, android.R.layout.simple_list_item_1, DemoUtil.SAMPLES);
     }
 
-    @NonNull
     @Override
-    public View getView(int position, @Nullable View convertView, @NonNull ViewGroup parent) {
+    public View getView(int position, @Nullable View convertView, ViewGroup parent) {
       View view = super.getView(position, convertView, parent);
-      ((TextView) view).setText(getItem(position).title);
+      ((TextView) view).setText(Util.castNonNull(getItem(position)).mediaMetadata.title);
       return view;
     }
   }

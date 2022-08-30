@@ -15,22 +15,26 @@
  */
 package com.google.android.exoplayer2.ext.vp9;
 
+import static androidx.annotation.VisibleForTesting.PACKAGE_PRIVATE;
+
 import android.view.Surface;
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 import com.google.android.exoplayer2.C;
+import com.google.android.exoplayer2.decoder.CryptoConfig;
+import com.google.android.exoplayer2.decoder.CryptoException;
 import com.google.android.exoplayer2.decoder.CryptoInfo;
+import com.google.android.exoplayer2.decoder.DecoderInputBuffer;
 import com.google.android.exoplayer2.decoder.SimpleDecoder;
-import com.google.android.exoplayer2.drm.DecryptionException;
-import com.google.android.exoplayer2.drm.ExoMediaCrypto;
+import com.google.android.exoplayer2.decoder.VideoDecoderOutputBuffer;
 import com.google.android.exoplayer2.util.Assertions;
 import com.google.android.exoplayer2.util.Util;
-import com.google.android.exoplayer2.video.VideoDecoderInputBuffer;
-import com.google.android.exoplayer2.video.VideoDecoderOutputBuffer;
 import java.nio.ByteBuffer;
 
 /** Vpx decoder. */
-/* package */ final class VpxDecoder
-    extends SimpleDecoder<VideoDecoderInputBuffer, VideoDecoderOutputBuffer, VpxDecoderException> {
+@VisibleForTesting(otherwise = PACKAGE_PRIVATE)
+public final class VpxDecoder
+    extends SimpleDecoder<DecoderInputBuffer, VideoDecoderOutputBuffer, VpxDecoderException> {
 
   // These constants should match the codes returned from vpxDecode and vpxSecureDecode functions in
   // https://github.com/google/ExoPlayer/blob/release-v2/extensions/vp9/src/main/jni/vpx_jni.cc.
@@ -38,12 +42,12 @@ import java.nio.ByteBuffer;
   private static final int DECODE_ERROR = -1;
   private static final int DRM_ERROR = -2;
 
-  @Nullable private final ExoMediaCrypto exoMediaCrypto;
+  @Nullable private final CryptoConfig cryptoConfig;
   private final long vpxDecContext;
 
   @Nullable private ByteBuffer lastSupplementalData;
 
-  @C.VideoOutputMode private volatile int outputMode;
+  private volatile @C.VideoOutputMode int outputMode;
 
   /**
    * Creates a VP9 decoder.
@@ -51,8 +55,8 @@ import java.nio.ByteBuffer;
    * @param numInputBuffers The number of input buffers.
    * @param numOutputBuffers The number of output buffers.
    * @param initialInputBufferSize The initial size of each input buffer.
-   * @param exoMediaCrypto The {@link ExoMediaCrypto} object required for decoding encrypted
-   *     content. Maybe null and can be ignored if decoder does not handle encrypted content.
+   * @param cryptoConfig The {@link CryptoConfig} object required for decoding encrypted content.
+   *     May be null and can be ignored if decoder does not handle encrypted content.
    * @param threads Number of threads libvpx will use to decode.
    * @throws VpxDecoderException Thrown if an exception occurs when initializing the decoder.
    */
@@ -60,17 +64,15 @@ import java.nio.ByteBuffer;
       int numInputBuffers,
       int numOutputBuffers,
       int initialInputBufferSize,
-      @Nullable ExoMediaCrypto exoMediaCrypto,
+      @Nullable CryptoConfig cryptoConfig,
       int threads)
       throws VpxDecoderException {
-    super(
-        new VideoDecoderInputBuffer[numInputBuffers],
-        new VideoDecoderOutputBuffer[numOutputBuffers]);
+    super(new DecoderInputBuffer[numInputBuffers], new VideoDecoderOutputBuffer[numOutputBuffers]);
     if (!VpxLibrary.isAvailable()) {
       throw new VpxDecoderException("Failed to load decoder native libraries.");
     }
-    this.exoMediaCrypto = exoMediaCrypto;
-    if (exoMediaCrypto != null && !VpxLibrary.vpxIsSecureDecodeSupported()) {
+    this.cryptoConfig = cryptoConfig;
+    if (cryptoConfig != null && !VpxLibrary.vpxIsSecureDecodeSupported()) {
       throw new VpxDecoderException("Vpx decoder does not support secure decode.");
     }
     vpxDecContext =
@@ -86,18 +88,9 @@ import java.nio.ByteBuffer;
     return "libvpx" + VpxLibrary.getVersion();
   }
 
-  /**
-   * Sets the output mode for frames rendered by the decoder.
-   *
-   * @param outputMode The output mode.
-   */
-  public void setOutputMode(@C.VideoOutputMode int outputMode) {
-    this.outputMode = outputMode;
-  }
-
   @Override
-  protected VideoDecoderInputBuffer createInputBuffer() {
-    return new VideoDecoderInputBuffer();
+  protected DecoderInputBuffer createInputBuffer() {
+    return new DecoderInputBuffer(DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_DIRECT);
   }
 
   @Override
@@ -123,7 +116,7 @@ import java.nio.ByteBuffer;
   @Override
   @Nullable
   protected VpxDecoderException decode(
-      VideoDecoderInputBuffer inputBuffer, VideoDecoderOutputBuffer outputBuffer, boolean reset) {
+      DecoderInputBuffer inputBuffer, VideoDecoderOutputBuffer outputBuffer, boolean reset) {
     if (reset && lastSupplementalData != null) {
       // Don't propagate supplemental data across calls to flush the decoder.
       lastSupplementalData.clear();
@@ -132,16 +125,24 @@ import java.nio.ByteBuffer;
     ByteBuffer inputData = Util.castNonNull(inputBuffer.data);
     int inputSize = inputData.limit();
     CryptoInfo cryptoInfo = inputBuffer.cryptoInfo;
-    final long result = inputBuffer.isEncrypted()
-        ? vpxSecureDecode(vpxDecContext, inputData, inputSize, exoMediaCrypto,
-        cryptoInfo.mode, cryptoInfo.key, cryptoInfo.iv, cryptoInfo.numSubSamples,
-        cryptoInfo.numBytesOfClearData, cryptoInfo.numBytesOfEncryptedData)
-        : vpxDecode(vpxDecContext, inputData, inputSize);
+    final long result =
+        inputBuffer.isEncrypted()
+            ? vpxSecureDecode(
+                vpxDecContext,
+                inputData,
+                inputSize,
+                cryptoConfig,
+                cryptoInfo.mode,
+                Assertions.checkNotNull(cryptoInfo.key),
+                Assertions.checkNotNull(cryptoInfo.iv),
+                cryptoInfo.numSubSamples,
+                cryptoInfo.numBytesOfClearData,
+                cryptoInfo.numBytesOfEncryptedData)
+            : vpxDecode(vpxDecContext, inputData, inputSize);
     if (result != NO_ERROR) {
       if (result == DRM_ERROR) {
         String message = "Drm error: " + vpxGetErrorMessage(vpxDecContext);
-        DecryptionException cause = new DecryptionException(
-            vpxGetErrorCode(vpxDecContext), message);
+        CryptoException cause = new CryptoException(vpxGetErrorCode(vpxDecContext), message);
         return new VpxDecoderException(message, cause);
       } else {
         return new VpxDecoderException("Decode error: " + vpxGetErrorMessage(vpxDecContext));
@@ -170,7 +171,7 @@ import java.nio.ByteBuffer;
       } else if (getFrameResult == -1) {
         return new VpxDecoderException("Buffer initialization failed.");
       }
-      outputBuffer.colorInfo = inputBuffer.colorInfo;
+      outputBuffer.format = inputBuffer.format;
     }
     return null;
   }
@@ -180,6 +181,15 @@ import java.nio.ByteBuffer;
     super.release();
     lastSupplementalData = null;
     vpxClose(vpxDecContext);
+  }
+
+  /**
+   * Sets the output mode for frames rendered by the decoder.
+   *
+   * @param outputMode The output mode.
+   */
+  public void setOutputMode(@C.VideoOutputMode int outputMode) {
+    this.outputMode = outputMode;
   }
 
   /** Renders the outputBuffer to the surface. Used with OUTPUT_MODE_SURFACE_YUV only. */
@@ -195,19 +205,20 @@ import java.nio.ByteBuffer;
       boolean disableLoopFilter, boolean enableRowMultiThreadMode, int threads);
 
   private native long vpxClose(long context);
+
   private native long vpxDecode(long context, ByteBuffer encoded, int length);
 
   private native long vpxSecureDecode(
       long context,
       ByteBuffer encoded,
       int length,
-      @Nullable ExoMediaCrypto mediaCrypto,
+      @Nullable CryptoConfig mediaCrypto,
       int inputMode,
       byte[] key,
       byte[] iv,
       int numSubSamples,
-      int[] numBytesOfClearData,
-      int[] numBytesOfEncryptedData);
+      @Nullable int[] numBytesOfClearData,
+      @Nullable int[] numBytesOfEncryptedData);
 
   private native int vpxGetFrame(long context, VideoDecoderOutputBuffer outputBuffer);
 
@@ -225,6 +236,6 @@ import java.nio.ByteBuffer;
   private native int vpxReleaseFrame(long context, VideoDecoderOutputBuffer outputBuffer);
 
   private native int vpxGetErrorCode(long context);
-  private native String vpxGetErrorMessage(long context);
 
+  private native String vpxGetErrorMessage(long context);
 }

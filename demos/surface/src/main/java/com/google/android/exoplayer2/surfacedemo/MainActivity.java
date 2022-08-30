@@ -19,6 +19,7 @@ import android.app.Activity;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.text.TextUtils;
 import android.view.Surface;
 import android.view.SurfaceControl;
 import android.view.SurfaceHolder;
@@ -28,11 +29,11 @@ import android.widget.Button;
 import android.widget.GridLayout;
 import androidx.annotation.Nullable;
 import com.google.android.exoplayer2.C;
+import com.google.android.exoplayer2.ExoPlayer;
+import com.google.android.exoplayer2.MediaItem;
 import com.google.android.exoplayer2.Player;
-import com.google.android.exoplayer2.SimpleExoPlayer;
 import com.google.android.exoplayer2.drm.DefaultDrmSessionManager;
 import com.google.android.exoplayer2.drm.DrmSessionManager;
-import com.google.android.exoplayer2.drm.ExoMediaCrypto;
 import com.google.android.exoplayer2.drm.FrameworkMediaDrm;
 import com.google.android.exoplayer2.drm.HttpMediaDrmCallback;
 import com.google.android.exoplayer2.source.MediaSource;
@@ -40,9 +41,8 @@ import com.google.android.exoplayer2.source.ProgressiveMediaSource;
 import com.google.android.exoplayer2.source.dash.DashMediaSource;
 import com.google.android.exoplayer2.ui.PlayerControlView;
 import com.google.android.exoplayer2.upstream.DataSource;
-import com.google.android.exoplayer2.upstream.DefaultDataSourceFactory;
-import com.google.android.exoplayer2.upstream.DefaultHttpDataSourceFactory;
-import com.google.android.exoplayer2.upstream.HttpDataSource;
+import com.google.android.exoplayer2.upstream.DefaultDataSource;
+import com.google.android.exoplayer2.upstream.DefaultHttpDataSource;
 import com.google.android.exoplayer2.util.Assertions;
 import com.google.android.exoplayer2.util.Util;
 import java.util.UUID;
@@ -66,7 +66,7 @@ public final class MainActivity extends Activity {
   @Nullable private SurfaceView nonFullScreenView;
   @Nullable private SurfaceView currentOutputView;
 
-  @Nullable private static SimpleExoPlayer player;
+  @Nullable private static ExoPlayer player;
   @Nullable private static SurfaceControl surfaceControl;
   @Nullable private static Surface videoSurface;
 
@@ -184,13 +184,12 @@ public final class MainActivity extends Activity {
         ACTION_VIEW.equals(action)
             ? Assertions.checkNotNull(intent.getData())
             : Uri.parse(DEFAULT_MEDIA_URI);
-    String userAgent = Util.getUserAgent(this, getString(R.string.application_name));
-    DrmSessionManager<ExoMediaCrypto> drmSessionManager;
+    DrmSessionManager drmSessionManager;
     if (intent.hasExtra(DRM_SCHEME_EXTRA)) {
       String drmScheme = Assertions.checkNotNull(intent.getStringExtra(DRM_SCHEME_EXTRA));
       String drmLicenseUrl = Assertions.checkNotNull(intent.getStringExtra(DRM_LICENSE_URL_EXTRA));
       UUID drmSchemeUuid = Assertions.checkNotNull(Util.getDrmUuid(drmScheme));
-      HttpDataSource.Factory licenseDataSourceFactory = new DefaultHttpDataSourceFactory(userAgent);
+      DataSource.Factory licenseDataSourceFactory = new DefaultHttpDataSource.Factory();
       HttpMediaDrmCallback drmCallback =
           new HttpMediaDrmCallback(drmLicenseUrl, licenseDataSourceFactory);
       drmSessionManager =
@@ -198,30 +197,34 @@ public final class MainActivity extends Activity {
               .setUuidAndExoMediaDrmProvider(drmSchemeUuid, FrameworkMediaDrm.DEFAULT_PROVIDER)
               .build(drmCallback);
     } else {
-      drmSessionManager = DrmSessionManager.getDummyDrmSessionManager();
+      drmSessionManager = DrmSessionManager.DRM_UNSUPPORTED;
     }
 
-    DataSource.Factory dataSourceFactory =
-        new DefaultDataSourceFactory(
-            this, Util.getUserAgent(this, getString(R.string.application_name)));
+    DataSource.Factory dataSourceFactory = new DefaultDataSource.Factory(this);
     MediaSource mediaSource;
-    @C.ContentType int type = Util.inferContentType(uri, intent.getStringExtra(EXTENSION_EXTRA));
-    if (type == C.TYPE_DASH) {
+    @Nullable String fileExtension = intent.getStringExtra(EXTENSION_EXTRA);
+    @C.ContentType
+    int type =
+        TextUtils.isEmpty(fileExtension)
+            ? Util.inferContentType(uri)
+            : Util.inferContentTypeForExtension(fileExtension);
+    if (type == C.CONTENT_TYPE_DASH) {
       mediaSource =
           new DashMediaSource.Factory(dataSourceFactory)
-              .setDrmSessionManager(drmSessionManager)
-              .createMediaSource(uri);
-    } else if (type == C.TYPE_OTHER) {
+              .setDrmSessionManagerProvider(unusedMediaItem -> drmSessionManager)
+              .createMediaSource(MediaItem.fromUri(uri));
+    } else if (type == C.CONTENT_TYPE_OTHER) {
       mediaSource =
           new ProgressiveMediaSource.Factory(dataSourceFactory)
-              .setDrmSessionManager(drmSessionManager)
-              .createMediaSource(uri);
+              .setDrmSessionManagerProvider(unusedMediaItem -> drmSessionManager)
+              .createMediaSource(MediaItem.fromUri(uri));
     } else {
       throw new IllegalStateException();
     }
-    SimpleExoPlayer player = new SimpleExoPlayer.Builder(getApplicationContext()).build();
-    player.prepare(mediaSource);
-    player.setPlayWhenReady(true);
+    ExoPlayer player = new ExoPlayer.Builder(getApplicationContext()).build();
+    player.setMediaSource(mediaSource);
+    player.prepare();
+    player.play();
     player.setRepeatMode(Player.REPEAT_MODE_ALL);
 
     surfaceControl =

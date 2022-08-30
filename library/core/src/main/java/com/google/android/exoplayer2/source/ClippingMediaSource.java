@@ -15,17 +15,24 @@
  */
 package com.google.android.exoplayer2.source;
 
+import static java.lang.Math.max;
+import static java.lang.Math.min;
+import static java.lang.annotation.ElementType.TYPE_USE;
+
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import com.google.android.exoplayer2.C;
+import com.google.android.exoplayer2.MediaItem;
 import com.google.android.exoplayer2.Timeline;
 import com.google.android.exoplayer2.upstream.Allocator;
 import com.google.android.exoplayer2.upstream.TransferListener;
 import com.google.android.exoplayer2.util.Assertions;
+import com.google.android.exoplayer2.util.Util;
 import java.io.IOException;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 import java.util.ArrayList;
 
 /**
@@ -43,6 +50,7 @@ public final class ClippingMediaSource extends CompositeMediaSource<Void> {
      */
     @Documented
     @Retention(RetentionPolicy.SOURCE)
+    @Target(TYPE_USE)
     @IntDef({REASON_INVALID_PERIOD_COUNT, REASON_NOT_SEEKABLE_TO_START, REASON_START_EXCEEDS_END})
     public @interface Reason {}
     /** The wrapped source doesn't consist of a single period. */
@@ -185,9 +193,8 @@ public final class ClippingMediaSource extends CompositeMediaSource<Void> {
   }
 
   @Override
-  @Nullable
-  public Object getTag() {
-    return mediaSource.getTag();
+  public MediaItem getMediaItem() {
+    return mediaSource.getMediaItem();
   }
 
   @Override
@@ -274,27 +281,17 @@ public final class ClippingMediaSource extends CompositeMediaSource<Void> {
       clippingTimeline = new ClippingTimeline(timeline, windowStartUs, windowEndUs);
     } catch (IllegalClippingException e) {
       clippingError = e;
+      // The clipping error won't be propagated while we have existing MediaPeriods. Setting the
+      // error at the MediaPeriods ensures it will be thrown as soon as possible.
+      for (int i = 0; i < mediaPeriods.size(); i++) {
+        mediaPeriods.get(i).setClippingError(clippingError);
+      }
       return;
     }
     refreshSourceInfo(clippingTimeline);
   }
 
-  @Override
-  protected long getMediaTimeForChildMediaTime(Void id, long mediaTimeMs) {
-    if (mediaTimeMs == C.TIME_UNSET) {
-      return C.TIME_UNSET;
-    }
-    long startMs = C.usToMs(startUs);
-    long clippedTimeMs = Math.max(0, mediaTimeMs - startMs);
-    if (endUs != C.TIME_END_OF_SOURCE) {
-      clippedTimeMs = Math.min(C.usToMs(endUs) - startMs, clippedTimeMs);
-    }
-    return clippedTimeMs;
-  }
-
-  /**
-   * Provides a clipped view of a specified timeline.
-   */
+  /** Provides a clipped view of a specified timeline. */
   private static final class ClippingTimeline extends ForwardingTimeline {
 
     private final long startUs;
@@ -318,14 +315,14 @@ public final class ClippingMediaSource extends CompositeMediaSource<Void> {
         throw new IllegalClippingException(IllegalClippingException.REASON_INVALID_PERIOD_COUNT);
       }
       Window window = timeline.getWindow(0, new Window());
-      startUs = Math.max(0, startUs);
-      long resolvedEndUs = endUs == C.TIME_END_OF_SOURCE ? window.durationUs : Math.max(0, endUs);
+      startUs = max(0, startUs);
+      if (!window.isPlaceholder && startUs != 0 && !window.isSeekable) {
+        throw new IllegalClippingException(IllegalClippingException.REASON_NOT_SEEKABLE_TO_START);
+      }
+      long resolvedEndUs = endUs == C.TIME_END_OF_SOURCE ? window.durationUs : max(0, endUs);
       if (window.durationUs != C.TIME_UNSET) {
         if (resolvedEndUs > window.durationUs) {
           resolvedEndUs = window.durationUs;
-        }
-        if (startUs != 0 && !window.isSeekable) {
-          throw new IllegalClippingException(IllegalClippingException.REASON_NOT_SEEKABLE_TO_START);
         }
         if (startUs > resolvedEndUs) {
           throw new IllegalClippingException(IllegalClippingException.REASON_START_EXCEEDS_END);
@@ -347,12 +344,12 @@ public final class ClippingMediaSource extends CompositeMediaSource<Void> {
       window.durationUs = durationUs;
       window.isDynamic = isDynamic;
       if (window.defaultPositionUs != C.TIME_UNSET) {
-        window.defaultPositionUs = Math.max(window.defaultPositionUs, startUs);
-        window.defaultPositionUs = endUs == C.TIME_UNSET ? window.defaultPositionUs
-            : Math.min(window.defaultPositionUs, endUs);
+        window.defaultPositionUs = max(window.defaultPositionUs, startUs);
+        window.defaultPositionUs =
+            endUs == C.TIME_UNSET ? window.defaultPositionUs : min(window.defaultPositionUs, endUs);
         window.defaultPositionUs -= startUs;
       }
-      long startMs = C.usToMs(startUs);
+      long startMs = Util.usToMs(startUs);
       if (window.presentationStartTimeMs != C.TIME_UNSET) {
         window.presentationStartTimeMs += startMs;
       }

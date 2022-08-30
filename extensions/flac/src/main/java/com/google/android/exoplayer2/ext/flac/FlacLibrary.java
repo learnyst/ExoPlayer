@@ -18,16 +18,20 @@ package com.google.android.exoplayer2.ext.flac;
 import com.google.android.exoplayer2.ExoPlayerLibraryInfo;
 import com.google.android.exoplayer2.util.LibraryLoader;
 
-/**
- * Configures and queries the underlying native library.
- */
+/** Configures and queries the underlying native library. */
 public final class FlacLibrary {
 
   static {
     ExoPlayerLibraryInfo.registerModule("goog.exo.flac");
   }
 
-  private static final LibraryLoader LOADER = new LibraryLoader("flacJNI");
+  private static final LibraryLoader LOADER =
+      new LibraryLoader("flacJNI") {
+        @Override
+        protected void loadLibrary(String name) {
+          System.loadLibrary(name);
+        }
+      };
 
   private FlacLibrary() {}
 
@@ -42,11 +46,8 @@ public final class FlacLibrary {
     LOADER.setLibraries(libraries);
   }
 
-  /**
-   * Returns whether the underlying library is available, loading it if necessary.
-   */
+  /** Returns whether the underlying library is available, loading it if necessary. */
   public static boolean isAvailable() {
     return LOADER.isAvailable();
   }
-
 }

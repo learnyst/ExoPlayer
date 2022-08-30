@@ -17,9 +17,11 @@ package com.google.android.exoplayer2.source;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import android.net.Uri;
 import android.util.Pair;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.android.exoplayer2.C;
+import com.google.android.exoplayer2.MediaItem;
 import com.google.android.exoplayer2.Timeline.Period;
 import com.google.android.exoplayer2.Timeline.Window;
 import org.junit.Before;
@@ -40,21 +42,38 @@ public final class SinglePeriodTimelineTest {
   }
 
   @Test
-  public void testGetPeriodPositionDynamicWindowUnknownDuration() {
+  public void getPeriodPositionDynamicWindowUnknownDuration() {
     SinglePeriodTimeline timeline =
         new SinglePeriodTimeline(
-            C.TIME_UNSET, /* isSeekable= */ false, /* isDynamic= */ true, /* isLive= */ true);
+            /* durationUs= */ C.TIME_UNSET,
+            /* isSeekable= */ false,
+            /* isDynamic= */ true,
+            /* isLive= */ true,
+            /* manifest= */ null,
+            MediaItem.fromUri(Uri.EMPTY));
     // Should return null with any positive position projection.
-    Pair<Object, Long> position = timeline.getPeriodPosition(window, period, 0, C.TIME_UNSET, 1);
-    assertThat(position).isNull();
+    Pair<Object, Long> positionUs =
+        timeline.getPeriodPositionUs(
+            window,
+            period,
+            /* windowIndex= */ 0,
+            /* windowPositionUs= */ C.TIME_UNSET,
+            /* defaultPositionProjectionUs= */ 1);
+    assertThat(positionUs).isNull();
     // Should return (0, 0) without a position projection.
-    position = timeline.getPeriodPosition(window, period, 0, C.TIME_UNSET, 0);
-    assertThat(position.first).isEqualTo(timeline.getUidOfPeriod(0));
-    assertThat(position.second).isEqualTo(0);
+    positionUs =
+        timeline.getPeriodPositionUs(
+            window,
+            period,
+            /* windowIndex= */ 0,
+            /* windowPositionUs= */ C.TIME_UNSET,
+            /* defaultPositionProjectionUs= */ 0);
+    assertThat(positionUs.first).isEqualTo(timeline.getUidOfPeriod(0));
+    assertThat(positionUs.second).isEqualTo(0);
   }
 
   @Test
-  public void testGetPeriodPositionDynamicWindowKnownDuration() {
+  public void getPeriodPositionDynamicWindowKnownDuration() {
     long windowDurationUs = 1000;
     SinglePeriodTimeline timeline =
         new SinglePeriodTimeline(
@@ -64,24 +83,42 @@ public final class SinglePeriodTimelineTest {
             /* windowDefaultStartPositionUs= */ 0,
             /* isSeekable= */ false,
             /* isDynamic= */ true,
-            /* isLive= */ true,
+            /* useLiveConfiguration= */ true,
             /* manifest= */ null,
-            /* tag= */ null);
+            MediaItem.fromUri(Uri.EMPTY));
     // Should return null with a positive position projection beyond window duration.
-    Pair<Object, Long> position =
-        timeline.getPeriodPosition(window, period, 0, C.TIME_UNSET, windowDurationUs + 1);
-    assertThat(position).isNull();
+    Pair<Object, Long> positionUs =
+        timeline.getPeriodPositionUs(
+            window,
+            period,
+            /* windowIndex= */ 0,
+            /* windowPositionUs= */ C.TIME_UNSET,
+            /* defaultPositionProjectionUs= */ windowDurationUs + 1);
+    assertThat(positionUs).isNull();
     // Should return (0, duration) with a projection equal to window duration.
-    position = timeline.getPeriodPosition(window, period, 0, C.TIME_UNSET, windowDurationUs);
-    assertThat(position.first).isEqualTo(timeline.getUidOfPeriod(0));
-    assertThat(position.second).isEqualTo(windowDurationUs);
+    positionUs =
+        timeline.getPeriodPositionUs(
+            window,
+            period,
+            /* windowIndex= */ 0,
+            /* windowPositionUs= */ C.TIME_UNSET,
+            /* defaultPositionProjectionUs= */ windowDurationUs - 1);
+    assertThat(positionUs.first).isEqualTo(timeline.getUidOfPeriod(0));
+    assertThat(positionUs.second).isEqualTo(windowDurationUs - 1);
     // Should return (0, 0) without a position projection.
-    position = timeline.getPeriodPosition(window, period, 0, C.TIME_UNSET, 0);
-    assertThat(position.first).isEqualTo(timeline.getUidOfPeriod(0));
-    assertThat(position.second).isEqualTo(0);
+    positionUs =
+        timeline.getPeriodPositionUs(
+            window,
+            period,
+            /* windowIndex= */ 0,
+            /* windowPositionUs= */ C.TIME_UNSET,
+            /* defaultPositionProjectionUs= */ 0);
+    assertThat(positionUs.first).isEqualTo(timeline.getUidOfPeriod(0));
+    assertThat(positionUs.second).isEqualTo(0);
   }
 
   @Test
+  @SuppressWarnings("deprecation") // Testing deprecated Window.tag is still populated correctly.
   public void setNullTag_returnsNullTag_butUsesDefaultUid() {
     SinglePeriodTimeline timeline =
         new SinglePeriodTimeline(
@@ -90,9 +127,11 @@ public final class SinglePeriodTimelineTest {
             /* isDynamic= */ false,
             /* isLive= */ false,
             /* manifest= */ null,
-            /* tag= */ null);
+            new MediaItem.Builder().setUri(Uri.EMPTY).setTag(null).build());
 
     assertThat(timeline.getWindow(/* windowIndex= */ 0, window).tag).isNull();
+    assertThat(timeline.getWindow(/* windowIndex= */ 0, window).mediaItem.localConfiguration.tag)
+        .isNull();
     assertThat(timeline.getPeriod(/* periodIndex= */ 0, period, /* setIds= */ false).id).isNull();
     assertThat(timeline.getPeriod(/* periodIndex= */ 0, period, /* setIds= */ true).id).isNull();
     assertThat(timeline.getPeriod(/* periodIndex= */ 0, period, /* setIds= */ false).uid).isNull();
@@ -101,6 +140,7 @@ public final class SinglePeriodTimelineTest {
   }
 
   @Test
+  @SuppressWarnings("deprecation") // Testing deprecated Window.tag is still populated correctly.
   public void getWindow_setsTag() {
     Object tag = new Object();
     SinglePeriodTimeline timeline =
@@ -110,9 +150,29 @@ public final class SinglePeriodTimelineTest {
             /* isDynamic= */ false,
             /* isLive= */ false,
             /* manifest= */ null,
-            tag);
+            new MediaItem.Builder().setUri(Uri.EMPTY).setTag(tag).build());
 
     assertThat(timeline.getWindow(/* windowIndex= */ 0, window).tag).isEqualTo(tag);
+  }
+
+  // Tests backward compatibility.
+  @SuppressWarnings("deprecation")
+  @Test
+  public void getWindow_setsMediaItemAndTag() {
+    MediaItem mediaItem = new MediaItem.Builder().setUri(Uri.EMPTY).setTag(new Object()).build();
+    SinglePeriodTimeline timeline =
+        new SinglePeriodTimeline(
+            /* durationUs= */ C.TIME_UNSET,
+            /* isSeekable= */ false,
+            /* isDynamic= */ false,
+            /* isLive= */ false,
+            /* manifest= */ null,
+            mediaItem);
+
+    Window window = timeline.getWindow(/* windowIndex= */ 0, this.window);
+
+    assertThat(window.mediaItem).isEqualTo(mediaItem);
+    assertThat(window.tag).isEqualTo(mediaItem.localConfiguration.tag);
   }
 
   @Test
@@ -124,7 +184,7 @@ public final class SinglePeriodTimelineTest {
             /* isDynamic= */ false,
             /* isLive= */ false,
             /* manifest= */ null,
-            /* tag= */ null);
+            MediaItem.fromUri(Uri.EMPTY));
     Object uid = timeline.getPeriod(/* periodIndex= */ 0, period, /* setIds= */ true).uid;
 
     assertThat(timeline.getIndexOfPeriod(uid)).isEqualTo(0);

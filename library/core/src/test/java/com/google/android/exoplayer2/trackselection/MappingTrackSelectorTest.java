@@ -15,6 +15,7 @@
  */
 package com.google.android.exoplayer2.trackselection;
 
+import static com.google.android.exoplayer2.util.MimeTypes.AUDIO_AAC;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.util.Pair;
@@ -32,6 +33,7 @@ import com.google.android.exoplayer2.source.TrackGroup;
 import com.google.android.exoplayer2.source.TrackGroupArray;
 import com.google.android.exoplayer2.testutil.FakeTimeline;
 import com.google.android.exoplayer2.util.MimeTypes;
+import com.google.android.exoplayer2.util.Util;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -47,39 +49,11 @@ public final class MappingTrackSelectorTest {
   private static final RendererCapabilities METADATA_CAPABILITIES =
       new FakeRendererCapabilities(C.TRACK_TYPE_METADATA);
 
-  private static final TrackGroup VIDEO_TRACK_GROUP =
-      new TrackGroup(
-          Format.createVideoSampleFormat(
-              "video",
-              MimeTypes.VIDEO_H264,
-              /* codecs= */ null,
-              /* bitrate= */ Format.NO_VALUE,
-              /* maxInputSize= */ Format.NO_VALUE,
-              /* width= */ 1024,
-              /* height= */ 768,
-              /* frameRate= */ Format.NO_VALUE,
-              /* initializationData= */ null,
-              /* drmInitData= */ null));
-  private static final TrackGroup AUDIO_TRACK_GROUP =
-      new TrackGroup(
-          Format.createAudioSampleFormat(
-              "audio",
-              MimeTypes.AUDIO_AAC,
-              /* codecs= */ null,
-              /* bitrate= */ Format.NO_VALUE,
-              /* maxInputSize= */ Format.NO_VALUE,
-              /* channelCount= */ 2,
-              /* sampleRate= */ 44100,
-              /* initializationData= */ null,
-              /* drmInitData= */ null,
-              /* selectionFlags= */ 0,
-              /* language= */ null));
-  private static final TrackGroup METADATA_TRACK_GROUP =
-      new TrackGroup(
-          Format.createSampleFormat(
-              "metadata", MimeTypes.APPLICATION_ID3, /* subsampleOffsetUs= */ 0));
+  private static final TrackGroup VIDEO_TRACK_GROUP = buildTrackGroup(MimeTypes.VIDEO_H264);
+  private static final TrackGroup AUDIO_TRACK_GROUP = buildTrackGroup(AUDIO_AAC);
+  private static final TrackGroup METADATA_TRACK_GROUP = buildTrackGroup(MimeTypes.APPLICATION_ID3);
 
-  private static final Timeline TIMELINE = new FakeTimeline(/* windowCount= */ 1);
+  private static final Timeline TIMELINE = new FakeTimeline();
 
   private static MediaPeriodId periodId;
 
@@ -89,7 +63,7 @@ public final class MappingTrackSelectorTest {
   }
 
   @Test
-  public void selectTracks_audioAndVideo_sameOrderAsRenderers_mappedToCorectRenderer()
+  public void selectTracks_audioAndVideo_sameOrderAsRenderers_mappedToCorrectRenderer()
       throws ExoPlaybackException {
     FakeMappingTrackSelector trackSelector = new FakeMappingTrackSelector();
     RendererCapabilities[] rendererCapabilities =
@@ -103,7 +77,7 @@ public final class MappingTrackSelectorTest {
   }
 
   @Test
-  public void selectTracks_audioAndVideo_reverseOrderToRenderers_mappedToCorectRenderer()
+  public void selectTracks_audioAndVideo_reverseOrderToRenderers_mappedToCorrectRenderer()
       throws ExoPlaybackException {
     FakeMappingTrackSelector trackSelector = new FakeMappingTrackSelector();
     TrackGroupArray trackGroups = new TrackGroupArray(VIDEO_TRACK_GROUP, AUDIO_TRACK_GROUP);
@@ -119,10 +93,13 @@ public final class MappingTrackSelectorTest {
   @Test
   public void selectTracks_multipleVideoAndAudioTracks_mappedToSameRenderer()
       throws ExoPlaybackException {
+    TrackGroup videoGroup0 = VIDEO_TRACK_GROUP.copyWithId("0");
+    TrackGroup videoGroup1 = VIDEO_TRACK_GROUP.copyWithId("1");
+    TrackGroup audioGroup0 = AUDIO_TRACK_GROUP.copyWithId("0");
+    TrackGroup audioGroup1 = AUDIO_TRACK_GROUP.copyWithId("1");
     FakeMappingTrackSelector trackSelector = new FakeMappingTrackSelector();
     TrackGroupArray trackGroups =
-        new TrackGroupArray(
-            VIDEO_TRACK_GROUP, AUDIO_TRACK_GROUP, AUDIO_TRACK_GROUP, VIDEO_TRACK_GROUP);
+        new TrackGroupArray(videoGroup0, audioGroup0, audioGroup1, videoGroup1);
     RendererCapabilities[] rendererCapabilities =
         new RendererCapabilities[] {
           VIDEO_CAPABILITIES, AUDIO_CAPABILITIES, VIDEO_CAPABILITIES, AUDIO_CAPABILITIES
@@ -130,16 +107,18 @@ public final class MappingTrackSelectorTest {
 
     trackSelector.selectTracks(rendererCapabilities, trackGroups, periodId, TIMELINE);
 
-    trackSelector.assertMappedTrackGroups(0, VIDEO_TRACK_GROUP, VIDEO_TRACK_GROUP);
-    trackSelector.assertMappedTrackGroups(1, AUDIO_TRACK_GROUP, AUDIO_TRACK_GROUP);
+    trackSelector.assertMappedTrackGroups(0, videoGroup0, videoGroup1);
+    trackSelector.assertMappedTrackGroups(1, audioGroup0, audioGroup1);
   }
 
   @Test
   public void selectTracks_multipleMetadataTracks_mappedToDifferentRenderers()
       throws ExoPlaybackException {
+    TrackGroup metadataGroup0 = METADATA_TRACK_GROUP.copyWithId("0");
+    TrackGroup metadataGroup1 = METADATA_TRACK_GROUP.copyWithId("1");
     FakeMappingTrackSelector trackSelector = new FakeMappingTrackSelector();
     TrackGroupArray trackGroups =
-        new TrackGroupArray(VIDEO_TRACK_GROUP, METADATA_TRACK_GROUP, METADATA_TRACK_GROUP);
+        new TrackGroupArray(VIDEO_TRACK_GROUP, metadataGroup0, metadataGroup1);
     RendererCapabilities[] rendererCapabilities =
         new RendererCapabilities[] {
           VIDEO_CAPABILITIES, METADATA_CAPABILITIES, METADATA_CAPABILITIES
@@ -148,28 +127,33 @@ public final class MappingTrackSelectorTest {
     trackSelector.selectTracks(rendererCapabilities, trackGroups, periodId, TIMELINE);
 
     trackSelector.assertMappedTrackGroups(0, VIDEO_TRACK_GROUP);
-    trackSelector.assertMappedTrackGroups(1, METADATA_TRACK_GROUP);
-    trackSelector.assertMappedTrackGroups(2, METADATA_TRACK_GROUP);
+    trackSelector.assertMappedTrackGroups(1, metadataGroup0);
+    trackSelector.assertMappedTrackGroups(2, metadataGroup1);
+  }
+
+  private static TrackGroup buildTrackGroup(String sampleMimeType) {
+    return new TrackGroup(new Format.Builder().setSampleMimeType(sampleMimeType).build());
   }
 
   /**
    * A {@link MappingTrackSelector} that stashes the {@link MappedTrackInfo} passed to {@link
-   * #selectTracks(MappedTrackInfo, int[][][], int[])}.
+   * #selectTracks(MappedTrackInfo, int[][][], int[], MediaPeriodId, Timeline)}.
    */
   private static final class FakeMappingTrackSelector extends MappingTrackSelector {
 
     private MappedTrackInfo lastMappedTrackInfo;
 
     @Override
-    protected Pair<RendererConfiguration[], TrackSelection[]> selectTracks(
+    protected Pair<RendererConfiguration[], ExoTrackSelection[]> selectTracks(
         MappedTrackInfo mappedTrackInfo,
         @Capabilities int[][][] rendererFormatSupports,
-        @AdaptiveSupport int[] rendererMixedMimeTypeAdaptationSupports)
-        throws ExoPlaybackException {
+        @AdaptiveSupport int[] rendererMixedMimeTypeAdaptationSupports,
+        MediaPeriodId mediaPeriodId,
+        Timeline timeline) {
       int rendererCount = mappedTrackInfo.getRendererCount();
       lastMappedTrackInfo = mappedTrackInfo;
       return Pair.create(
-          new RendererConfiguration[rendererCount], new TrackSelection[rendererCount]);
+          new RendererConfiguration[rendererCount], new ExoTrackSelection[rendererCount]);
     }
 
     public void assertMappedTrackGroups(int rendererIndex, TrackGroup... expected) {
@@ -179,7 +163,6 @@ public final class MappingTrackSelectorTest {
         assertThat(rendererTrackGroupArray.get(i)).isEqualTo(expected[i]);
       }
     }
-
   }
 
   /**
@@ -194,24 +177,26 @@ public final class MappingTrackSelectorTest {
     }
 
     @Override
+    public String getName() {
+      return "FakeRenderer(" + Util.getTrackTypeString(trackType) + ")";
+    }
+
+    @Override
     public int getTrackType() {
       return trackType;
     }
 
     @Override
-    @Capabilities
-    public int supportsFormat(Format format) throws ExoPlaybackException {
+    public @Capabilities int supportsFormat(Format format) throws ExoPlaybackException {
       return MimeTypes.getTrackType(format.sampleMimeType) == trackType
-          ? RendererCapabilities.create(FORMAT_HANDLED, ADAPTIVE_SEAMLESS, TUNNELING_NOT_SUPPORTED)
-          : RendererCapabilities.create(FORMAT_UNSUPPORTED_TYPE);
+          ? RendererCapabilities.create(
+              C.FORMAT_HANDLED, ADAPTIVE_SEAMLESS, TUNNELING_NOT_SUPPORTED)
+          : RendererCapabilities.create(C.FORMAT_UNSUPPORTED_TYPE);
     }
 
     @Override
-    @AdaptiveSupport
-    public int supportsMixedMimeTypeAdaptation() throws ExoPlaybackException {
+    public @AdaptiveSupport int supportsMixedMimeTypeAdaptation() throws ExoPlaybackException {
       return ADAPTIVE_SEAMLESS;
     }
-
   }
-
 }

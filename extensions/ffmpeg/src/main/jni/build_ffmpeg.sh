@@ -15,14 +15,16 @@
 # limitations under the License.
 #
 
-FFMPEG_EXT_PATH=$1
+FFMPEG_MODULE_PATH=$1
 NDK_PATH=$2
 HOST_PLATFORM=$3
 ENABLED_DECODERS=("${@:4}")
+JOBS=$(nproc 2> /dev/null || sysctl -n hw.ncpu 2> /dev/null || echo 4)
+echo "Using $JOBS jobs for make"
 COMMON_OPTIONS="
     --target-os=android
-    --disable-static
-    --enable-shared
+    --enable-static
+    --disable-shared
     --disable-doc
     --disable-programs
     --disable-everything
@@ -41,21 +43,20 @@ for decoder in "${ENABLED_DECODERS[@]}"
 do
     COMMON_OPTIONS="${COMMON_OPTIONS} --enable-decoder=${decoder}"
 done
-cd "${FFMPEG_EXT_PATH}"
-(git -C ffmpeg pull || git clone git://source.ffmpeg.org/ffmpeg ffmpeg)
-cd ffmpeg
-git checkout release/4.2
+cd "${FFMPEG_MODULE_PATH}/jni/ffmpeg"
 ./configure \
     --libdir=android-libs/armeabi-v7a \
     --arch=arm \
     --cpu=armv7-a \
     --cross-prefix="${TOOLCHAIN_PREFIX}/armv7a-linux-androideabi16-" \
-    --nm="${TOOLCHAIN_PREFIX}/arm-linux-androideabi-nm" \
-    --strip="${TOOLCHAIN_PREFIX}/arm-linux-androideabi-strip" \
+    --nm="${TOOLCHAIN_PREFIX}/llvm-nm" \
+    --ar="${TOOLCHAIN_PREFIX}/llvm-ar" \
+    --ranlib="${TOOLCHAIN_PREFIX}/llvm-ranlib" \
+    --strip="${TOOLCHAIN_PREFIX}/llvm-strip" \
     --extra-cflags="-march=armv7-a -mfloat-abi=softfp" \
     --extra-ldflags="-Wl,--fix-cortex-a8" \
     ${COMMON_OPTIONS}
-make -j4
+make -j$JOBS
 make install-libs
 make clean
 ./configure \
@@ -63,10 +64,12 @@ make clean
     --arch=aarch64 \
     --cpu=armv8-a \
     --cross-prefix="${TOOLCHAIN_PREFIX}/aarch64-linux-android21-" \
-    --nm="${TOOLCHAIN_PREFIX}/aarch64-linux-android-nm" \
-    --strip="${TOOLCHAIN_PREFIX}/aarch64-linux-android-strip" \
+    --nm="${TOOLCHAIN_PREFIX}/llvm-nm" \
+    --ar="${TOOLCHAIN_PREFIX}/llvm-ar" \
+    --ranlib="${TOOLCHAIN_PREFIX}/llvm-ranlib" \
+    --strip="${TOOLCHAIN_PREFIX}/llvm-strip" \
     ${COMMON_OPTIONS}
-make -j4
+make -j$JOBS
 make install-libs
 make clean
 ./configure \
@@ -74,11 +77,13 @@ make clean
     --arch=x86 \
     --cpu=i686 \
     --cross-prefix="${TOOLCHAIN_PREFIX}/i686-linux-android16-" \
-    --nm="${TOOLCHAIN_PREFIX}/i686-linux-android-nm" \
-    --strip="${TOOLCHAIN_PREFIX}/i686-linux-android-strip" \
+    --nm="${TOOLCHAIN_PREFIX}/llvm-nm" \
+    --ar="${TOOLCHAIN_PREFIX}/llvm-ar" \
+    --ranlib="${TOOLCHAIN_PREFIX}/llvm-ranlib" \
+    --strip="${TOOLCHAIN_PREFIX}/llvm-strip" \
     --disable-asm \
     ${COMMON_OPTIONS}
-make -j4
+make -j$JOBS
 make install-libs
 make clean
 ./configure \
@@ -86,10 +91,12 @@ make clean
     --arch=x86_64 \
     --cpu=x86_64 \
     --cross-prefix="${TOOLCHAIN_PREFIX}/x86_64-linux-android21-" \
-    --nm="${TOOLCHAIN_PREFIX}/x86_64-linux-android-nm" \
-    --strip="${TOOLCHAIN_PREFIX}/x86_64-linux-android-strip" \
+    --nm="${TOOLCHAIN_PREFIX}/llvm-nm" \
+    --ar="${TOOLCHAIN_PREFIX}/llvm-ar" \
+    --ranlib="${TOOLCHAIN_PREFIX}/llvm-ranlib" \
+    --strip="${TOOLCHAIN_PREFIX}/llvm-strip" \
     --disable-asm \
     ${COMMON_OPTIONS}
-make -j4
+make -j$JOBS
 make install-libs
 make clean

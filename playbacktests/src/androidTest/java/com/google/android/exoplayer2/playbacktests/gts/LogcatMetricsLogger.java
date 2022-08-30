@@ -15,14 +15,19 @@
  */
 package com.google.android.exoplayer2.playbacktests.gts;
 
+import androidx.annotation.Size;
 import com.google.android.exoplayer2.util.Log;
 
 /** Implementation of {@link MetricsLogger} that prints the metrics to logcat. */
 /* package */ final class LogcatMetricsLogger implements MetricsLogger {
 
+  public static final Factory FACTORY =
+      (instrumentation, tag, streamName) -> new LogcatMetricsLogger(tag);
+
+  @Size(max = 23)
   private final String tag;
 
-  public LogcatMetricsLogger(String tag) {
+  public LogcatMetricsLogger(@Size(max = 23) String tag) {
     this.tag = tag;
   }
 
@@ -45,5 +50,4 @@ import com.google.android.exoplayer2.util.Log;
   public void close() {
     // Do nothing.
   }
-
 }

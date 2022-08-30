@@ -15,14 +15,15 @@
  */
 package com.google.android.exoplayer2.offline;
 
+import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.google.common.truth.Truth.assertThat;
-import static org.robolectric.shadows.ShadowBaseLooper.shadowMainLooper;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.robolectric.shadows.ShadowLooper.shadowMainLooper;
 
-import android.net.Uri;
-import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.android.exoplayer2.C;
 import com.google.android.exoplayer2.Format;
+import com.google.android.exoplayer2.MediaItem;
 import com.google.android.exoplayer2.Renderer;
 import com.google.android.exoplayer2.RenderersFactory;
 import com.google.android.exoplayer2.Timeline;
@@ -36,123 +37,106 @@ import com.google.android.exoplayer2.testutil.FakeMediaSource;
 import com.google.android.exoplayer2.testutil.FakeRenderer;
 import com.google.android.exoplayer2.testutil.FakeTimeline;
 import com.google.android.exoplayer2.testutil.FakeTimeline.TimelineWindowDefinition;
+import com.google.android.exoplayer2.testutil.TestUtil;
 import com.google.android.exoplayer2.trackselection.DefaultTrackSelector;
+import com.google.android.exoplayer2.trackselection.ExoTrackSelection;
 import com.google.android.exoplayer2.trackselection.MappingTrackSelector.MappedTrackInfo;
-import com.google.android.exoplayer2.trackselection.TrackSelection;
+import com.google.android.exoplayer2.trackselection.TrackSelectionOverride;
+import com.google.android.exoplayer2.trackselection.TrackSelectionParameters;
 import com.google.android.exoplayer2.upstream.Allocator;
 import com.google.android.exoplayer2.util.MimeTypes;
-import com.google.android.exoplayer2.util.Util;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.robolectric.annotation.LooperMode;
 
 /** Unit tests for {@link DownloadHelper}. */
 @RunWith(AndroidJUnit4.class)
-@LooperMode(LooperMode.Mode.PAUSED)
 public class DownloadHelperTest {
 
-  private static final String TEST_DOWNLOAD_TYPE = "downloadType";
-  private static final String TEST_CACHE_KEY = "cacheKey";
   private static final Object TEST_MANIFEST = new Object();
   private static final Timeline TEST_TIMELINE =
       new FakeTimeline(
           new Object[] {TEST_MANIFEST},
           new TimelineWindowDefinition(/* periodCount= */ 2, /* id= */ new Object()));
 
-  private static final Format VIDEO_FORMAT_LOW = createVideoFormat(/* bitrate= */ 200_000);
-  private static final Format VIDEO_FORMAT_HIGH = createVideoFormat(/* bitrate= */ 800_000);
-  private static Format audioFormatUs;
-  private static Format audioFormatZh;
-  private static Format textFormatUs;
-  private static Format textFormatZh;
-
-  private static final TrackGroup TRACK_GROUP_VIDEO_BOTH =
-      new TrackGroup(VIDEO_FORMAT_LOW, VIDEO_FORMAT_HIGH);
-  private static final TrackGroup TRACK_GROUP_VIDEO_SINGLE = new TrackGroup(VIDEO_FORMAT_LOW);
+  private static TrackGroup trackGroupVideoLow;
+  private static TrackGroup trackGroupVideoLowAndHigh;
   private static TrackGroup trackGroupAudioUs;
   private static TrackGroup trackGroupAudioZh;
   private static TrackGroup trackGroupTextUs;
   private static TrackGroup trackGroupTextZh;
-
-  private static TrackGroupArray trackGroupArrayAll;
-  private static TrackGroupArray trackGroupArraySingle;
   private static TrackGroupArray[] trackGroupArrays;
-
-  private static Uri testUri;
+  private static MediaItem testMediaItem;
 
   private DownloadHelper downloadHelper;
 
   @BeforeClass
   public static void staticSetUp() {
-    audioFormatUs = createAudioFormat(/* language= */ "US");
-    audioFormatZh = createAudioFormat(/* language= */ "ZH");
-    textFormatUs = createTextFormat(/* language= */ "US");
-    textFormatZh = createTextFormat(/* language= */ "ZH");
+    Format videoFormatLow = createVideoFormat(/* bitrate= */ 200_000);
+    Format videoFormatHigh = createVideoFormat(/* bitrate= */ 800_000);
+    Format audioFormatEn = createAudioFormat(/* language= */ "en");
+    Format audioFormatDe = createAudioFormat(/* language= */ "de");
+    Format textFormatEn = createTextFormat(/* language= */ "en");
+    Format textFormatDe = createTextFormat(/* language= */ "de");
 
-    trackGroupAudioUs = new TrackGroup(audioFormatUs);
-    trackGroupAudioZh = new TrackGroup(audioFormatZh);
-    trackGroupTextUs = new TrackGroup(textFormatUs);
-    trackGroupTextZh = new TrackGroup(textFormatZh);
+    trackGroupVideoLow = new TrackGroup(videoFormatLow);
+    trackGroupVideoLowAndHigh = new TrackGroup(videoFormatLow, videoFormatHigh);
+    trackGroupAudioUs = new TrackGroup(audioFormatEn);
+    trackGroupAudioZh = new TrackGroup(audioFormatDe);
+    trackGroupTextUs = new TrackGroup(textFormatEn);
+    trackGroupTextZh = new TrackGroup(textFormatDe);
 
-    trackGroupArrayAll =
+    TrackGroupArray trackGroupArrayAll =
         new TrackGroupArray(
-            TRACK_GROUP_VIDEO_BOTH,
+            trackGroupVideoLowAndHigh,
             trackGroupAudioUs,
             trackGroupAudioZh,
             trackGroupTextUs,
             trackGroupTextZh);
-    trackGroupArraySingle =
-        new TrackGroupArray(TRACK_GROUP_VIDEO_SINGLE, trackGroupAudioUs);
-    trackGroupArrays =
-        new TrackGroupArray[] {trackGroupArrayAll, trackGroupArraySingle};
+    TrackGroupArray trackGroupArraySingle =
+        new TrackGroupArray(trackGroupVideoLow, trackGroupAudioUs);
+    trackGroupArrays = new TrackGroupArray[] {trackGroupArrayAll, trackGroupArraySingle};
 
-    testUri = Uri.parse("http://test.uri");
+    testMediaItem =
+        new MediaItem.Builder().setUri("http://test.uri").setCustomCacheKey("cacheKey").build();
   }
 
   @Before
   public void setUp() {
-    FakeRenderer videoRenderer = new FakeRenderer(VIDEO_FORMAT_LOW, VIDEO_FORMAT_HIGH);
-    FakeRenderer audioRenderer = new FakeRenderer(audioFormatUs, audioFormatZh);
-    FakeRenderer textRenderer = new FakeRenderer(textFormatUs, textFormatZh);
+    FakeRenderer videoRenderer = new FakeRenderer(C.TRACK_TYPE_VIDEO);
+    FakeRenderer audioRenderer = new FakeRenderer(C.TRACK_TYPE_AUDIO);
+    FakeRenderer textRenderer = new FakeRenderer(C.TRACK_TYPE_TEXT);
     RenderersFactory renderersFactory =
-        (handler, videoListener, audioListener, metadata, text, drm) ->
+        (handler, videoListener, audioListener, metadata, text) ->
             new Renderer[] {textRenderer, audioRenderer, videoRenderer};
 
     downloadHelper =
         new DownloadHelper(
-            TEST_DOWNLOAD_TYPE,
-            testUri,
-            TEST_CACHE_KEY,
+            testMediaItem,
             new TestMediaSource(),
-            DownloadHelper.DEFAULT_TRACK_SELECTOR_PARAMETERS_WITHOUT_VIEWPORT,
-            Util.getRendererCapabilities(renderersFactory));
+            DownloadHelper.DEFAULT_TRACK_SELECTOR_PARAMETERS_WITHOUT_CONTEXT,
+            DownloadHelper.getRendererCapabilities(renderersFactory));
   }
 
   @Test
   public void getManifest_returnsManifest() throws Exception {
     prepareDownloadHelper(downloadHelper);
 
-    Object manifest = downloadHelper.getManifest();
-
-    assertThat(manifest).isEqualTo(TEST_MANIFEST);
+    assertThat(downloadHelper.getManifest()).isEqualTo(TEST_MANIFEST);
   }
 
   @Test
   public void getPeriodCount_returnsPeriodCount() throws Exception {
     prepareDownloadHelper(downloadHelper);
 
-    int periodCount = downloadHelper.getPeriodCount();
-
-    assertThat(periodCount).isEqualTo(2);
+    assertThat(downloadHelper.getPeriodCount()).isEqualTo(2);
   }
 
   @Test
@@ -189,7 +173,7 @@ public class DownloadHelperTest {
     assertThat(mappedTracks0.getTrackGroups(/* rendererIndex= */ 1).get(/* index= */ 1))
         .isEqualTo(trackGroupAudioZh);
     assertThat(mappedTracks0.getTrackGroups(/* rendererIndex= */ 2).get(/* index= */ 0))
-        .isEqualTo(TRACK_GROUP_VIDEO_BOTH);
+        .isEqualTo(trackGroupVideoLowAndHigh);
 
     assertThat(mappedTracks1.getRendererCount()).isEqualTo(3);
     assertThat(mappedTracks1.getRendererType(/* rendererIndex= */ 0)).isEqualTo(C.TRACK_TYPE_TEXT);
@@ -201,33 +185,33 @@ public class DownloadHelperTest {
     assertThat(mappedTracks1.getTrackGroups(/* rendererIndex= */ 1).get(/* index= */ 0))
         .isEqualTo(trackGroupAudioUs);
     assertThat(mappedTracks1.getTrackGroups(/* rendererIndex= */ 2).get(/* index= */ 0))
-        .isEqualTo(TRACK_GROUP_VIDEO_SINGLE);
+        .isEqualTo(trackGroupVideoLow);
   }
 
   @Test
   public void getTrackSelections_returnsInitialSelection() throws Exception {
     prepareDownloadHelper(downloadHelper);
 
-    List<TrackSelection> selectedText0 =
+    List<ExoTrackSelection> selectedText0 =
         downloadHelper.getTrackSelections(/* periodIndex= */ 0, /* rendererIndex= */ 0);
-    List<TrackSelection> selectedAudio0 =
+    List<ExoTrackSelection> selectedAudio0 =
         downloadHelper.getTrackSelections(/* periodIndex= */ 0, /* rendererIndex= */ 1);
-    List<TrackSelection> selectedVideo0 =
+    List<ExoTrackSelection> selectedVideo0 =
         downloadHelper.getTrackSelections(/* periodIndex= */ 0, /* rendererIndex= */ 2);
-    List<TrackSelection> selectedText1 =
+    List<ExoTrackSelection> selectedText1 =
         downloadHelper.getTrackSelections(/* periodIndex= */ 1, /* rendererIndex= */ 0);
-    List<TrackSelection> selectedAudio1 =
+    List<ExoTrackSelection> selectedAudio1 =
         downloadHelper.getTrackSelections(/* periodIndex= */ 1, /* rendererIndex= */ 1);
-    List<TrackSelection> selectedVideo1 =
+    List<ExoTrackSelection> selectedVideo1 =
         downloadHelper.getTrackSelections(/* periodIndex= */ 1, /* rendererIndex= */ 2);
 
     assertSingleTrackSelectionEquals(selectedText0, trackGroupTextUs, 0);
     assertSingleTrackSelectionEquals(selectedAudio0, trackGroupAudioUs, 0);
-    assertSingleTrackSelectionEquals(selectedVideo0, TRACK_GROUP_VIDEO_BOTH, 1);
+    assertSingleTrackSelectionEquals(selectedVideo0, trackGroupVideoLowAndHigh, 1);
 
     assertThat(selectedText1).isEmpty();
     assertSingleTrackSelectionEquals(selectedAudio1, trackGroupAudioUs, 0);
-    assertSingleTrackSelectionEquals(selectedVideo1, TRACK_GROUP_VIDEO_SINGLE, 0);
+    assertSingleTrackSelectionEquals(selectedVideo1, trackGroupVideoLow, 0);
   }
 
   @Test
@@ -236,17 +220,17 @@ public class DownloadHelperTest {
 
     // Clear only one period selection to verify second period selection is untouched.
     downloadHelper.clearTrackSelections(/* periodIndex= */ 0);
-    List<TrackSelection> selectedText0 =
+    List<ExoTrackSelection> selectedText0 =
         downloadHelper.getTrackSelections(/* periodIndex= */ 0, /* rendererIndex= */ 0);
-    List<TrackSelection> selectedAudio0 =
+    List<ExoTrackSelection> selectedAudio0 =
         downloadHelper.getTrackSelections(/* periodIndex= */ 0, /* rendererIndex= */ 1);
-    List<TrackSelection> selectedVideo0 =
+    List<ExoTrackSelection> selectedVideo0 =
         downloadHelper.getTrackSelections(/* periodIndex= */ 0, /* rendererIndex= */ 2);
-    List<TrackSelection> selectedText1 =
+    List<ExoTrackSelection> selectedText1 =
         downloadHelper.getTrackSelections(/* periodIndex= */ 1, /* rendererIndex= */ 0);
-    List<TrackSelection> selectedAudio1 =
+    List<ExoTrackSelection> selectedAudio1 =
         downloadHelper.getTrackSelections(/* periodIndex= */ 1, /* rendererIndex= */ 1);
-    List<TrackSelection> selectedVideo1 =
+    List<ExoTrackSelection> selectedVideo1 =
         downloadHelper.getTrackSelections(/* periodIndex= */ 1, /* rendererIndex= */ 2);
 
     assertThat(selectedText0).isEmpty();
@@ -256,7 +240,7 @@ public class DownloadHelperTest {
     // Verify
     assertThat(selectedText1).isEmpty();
     assertSingleTrackSelectionEquals(selectedAudio1, trackGroupAudioUs, 0);
-    assertSingleTrackSelectionEquals(selectedVideo1, TRACK_GROUP_VIDEO_SINGLE, 0);
+    assertSingleTrackSelectionEquals(selectedVideo1, trackGroupVideoLow, 0);
   }
 
   @Test
@@ -264,25 +248,25 @@ public class DownloadHelperTest {
       throws Exception {
     prepareDownloadHelper(downloadHelper);
     DefaultTrackSelector.Parameters parameters =
-        new DefaultTrackSelector.ParametersBuilder(ApplicationProvider.getApplicationContext())
-            .setPreferredAudioLanguage("ZH")
-            .setPreferredTextLanguage("ZH")
+        new DefaultTrackSelector.ParametersBuilder(getApplicationContext())
+            .setPreferredAudioLanguage("de")
+            .setPreferredTextLanguage("de")
             .setRendererDisabled(/* rendererIndex= */ 2, true)
             .build();
 
     // Replace only one period selection to verify second period selection is untouched.
     downloadHelper.replaceTrackSelections(/* periodIndex= */ 0, parameters);
-    List<TrackSelection> selectedText0 =
+    List<ExoTrackSelection> selectedText0 =
         downloadHelper.getTrackSelections(/* periodIndex= */ 0, /* rendererIndex= */ 0);
-    List<TrackSelection> selectedAudio0 =
+    List<ExoTrackSelection> selectedAudio0 =
         downloadHelper.getTrackSelections(/* periodIndex= */ 0, /* rendererIndex= */ 1);
-    List<TrackSelection> selectedVideo0 =
+    List<ExoTrackSelection> selectedVideo0 =
         downloadHelper.getTrackSelections(/* periodIndex= */ 0, /* rendererIndex= */ 2);
-    List<TrackSelection> selectedText1 =
+    List<ExoTrackSelection> selectedText1 =
         downloadHelper.getTrackSelections(/* periodIndex= */ 1, /* rendererIndex= */ 0);
-    List<TrackSelection> selectedAudio1 =
+    List<ExoTrackSelection> selectedAudio1 =
         downloadHelper.getTrackSelections(/* periodIndex= */ 1, /* rendererIndex= */ 1);
-    List<TrackSelection> selectedVideo1 =
+    List<ExoTrackSelection> selectedVideo1 =
         downloadHelper.getTrackSelections(/* periodIndex= */ 1, /* rendererIndex= */ 2);
 
     assertSingleTrackSelectionEquals(selectedText0, trackGroupTextZh, 0);
@@ -291,7 +275,7 @@ public class DownloadHelperTest {
 
     assertThat(selectedText1).isEmpty();
     assertSingleTrackSelectionEquals(selectedAudio1, trackGroupAudioUs, 0);
-    assertSingleTrackSelectionEquals(selectedVideo1, TRACK_GROUP_VIDEO_SINGLE, 0);
+    assertSingleTrackSelectionEquals(selectedVideo1, trackGroupVideoLow, 0);
   }
 
   @Test
@@ -300,36 +284,36 @@ public class DownloadHelperTest {
     prepareDownloadHelper(downloadHelper);
     // Select parameters to require some merging of track groups because the new parameters add
     // all video tracks to initial video single track selection.
-    DefaultTrackSelector.Parameters parameters =
-        new DefaultTrackSelector.ParametersBuilder(ApplicationProvider.getApplicationContext())
-            .setPreferredAudioLanguage("ZH")
-            .setPreferredTextLanguage("US")
+    TrackSelectionParameters parameters =
+        new TrackSelectionParameters.Builder(getApplicationContext())
+            .setPreferredAudioLanguage("de")
+            .setPreferredTextLanguage("en")
             .build();
 
     // Add only to one period selection to verify second period selection is untouched.
     downloadHelper.addTrackSelection(/* periodIndex= */ 0, parameters);
-    List<TrackSelection> selectedText0 =
+    List<ExoTrackSelection> selectedText0 =
         downloadHelper.getTrackSelections(/* periodIndex= */ 0, /* rendererIndex= */ 0);
-    List<TrackSelection> selectedAudio0 =
+    List<ExoTrackSelection> selectedAudio0 =
         downloadHelper.getTrackSelections(/* periodIndex= */ 0, /* rendererIndex= */ 1);
-    List<TrackSelection> selectedVideo0 =
+    List<ExoTrackSelection> selectedVideo0 =
         downloadHelper.getTrackSelections(/* periodIndex= */ 0, /* rendererIndex= */ 2);
-    List<TrackSelection> selectedText1 =
+    List<ExoTrackSelection> selectedText1 =
         downloadHelper.getTrackSelections(/* periodIndex= */ 1, /* rendererIndex= */ 0);
-    List<TrackSelection> selectedAudio1 =
+    List<ExoTrackSelection> selectedAudio1 =
         downloadHelper.getTrackSelections(/* periodIndex= */ 1, /* rendererIndex= */ 1);
-    List<TrackSelection> selectedVideo1 =
+    List<ExoTrackSelection> selectedVideo1 =
         downloadHelper.getTrackSelections(/* periodIndex= */ 1, /* rendererIndex= */ 2);
 
     assertSingleTrackSelectionEquals(selectedText0, trackGroupTextUs, 0);
     assertThat(selectedAudio0).hasSize(2);
     assertTrackSelectionEquals(selectedAudio0.get(0), trackGroupAudioUs, 0);
     assertTrackSelectionEquals(selectedAudio0.get(1), trackGroupAudioZh, 0);
-    assertSingleTrackSelectionEquals(selectedVideo0, TRACK_GROUP_VIDEO_BOTH, 0, 1);
+    assertSingleTrackSelectionEquals(selectedVideo0, trackGroupVideoLowAndHigh, 0, 1);
 
     assertThat(selectedText1).isEmpty();
     assertSingleTrackSelectionEquals(selectedAudio1, trackGroupAudioUs, 0);
-    assertSingleTrackSelectionEquals(selectedVideo1, TRACK_GROUP_VIDEO_SINGLE, 0);
+    assertSingleTrackSelectionEquals(selectedVideo1, trackGroupVideoLow, 0);
   }
 
   @Test
@@ -340,18 +324,18 @@ public class DownloadHelperTest {
     downloadHelper.clearTrackSelections(/* periodIndex= */ 1);
 
     // Add a non-default language, and a non-existing language (which will select the default).
-    downloadHelper.addAudioLanguagesToSelection("ZH", "Klingonese");
-    List<TrackSelection> selectedText0 =
+    downloadHelper.addAudioLanguagesToSelection("de", "Klingonese");
+    List<ExoTrackSelection> selectedText0 =
         downloadHelper.getTrackSelections(/* periodIndex= */ 0, /* rendererIndex= */ 0);
-    List<TrackSelection> selectedAudio0 =
+    List<ExoTrackSelection> selectedAudio0 =
         downloadHelper.getTrackSelections(/* periodIndex= */ 0, /* rendererIndex= */ 1);
-    List<TrackSelection> selectedVideo0 =
+    List<ExoTrackSelection> selectedVideo0 =
         downloadHelper.getTrackSelections(/* periodIndex= */ 0, /* rendererIndex= */ 2);
-    List<TrackSelection> selectedText1 =
+    List<ExoTrackSelection> selectedText1 =
         downloadHelper.getTrackSelections(/* periodIndex= */ 1, /* rendererIndex= */ 0);
-    List<TrackSelection> selectedAudio1 =
+    List<ExoTrackSelection> selectedAudio1 =
         downloadHelper.getTrackSelections(/* periodIndex= */ 1, /* rendererIndex= */ 1);
-    List<TrackSelection> selectedVideo1 =
+    List<ExoTrackSelection> selectedVideo1 =
         downloadHelper.getTrackSelections(/* periodIndex= */ 1, /* rendererIndex= */ 2);
 
     assertThat(selectedVideo0).isEmpty();
@@ -374,18 +358,18 @@ public class DownloadHelperTest {
 
     // Add a non-default language, and a non-existing language (which will select the default).
     downloadHelper.addTextLanguagesToSelection(
-        /* selectUndeterminedTextLanguage= */ true, "ZH", "Klingonese");
-    List<TrackSelection> selectedText0 =
+        /* selectUndeterminedTextLanguage= */ true, "de", "Klingonese");
+    List<ExoTrackSelection> selectedText0 =
         downloadHelper.getTrackSelections(/* periodIndex= */ 0, /* rendererIndex= */ 0);
-    List<TrackSelection> selectedAudio0 =
+    List<ExoTrackSelection> selectedAudio0 =
         downloadHelper.getTrackSelections(/* periodIndex= */ 0, /* rendererIndex= */ 1);
-    List<TrackSelection> selectedVideo0 =
+    List<ExoTrackSelection> selectedVideo0 =
         downloadHelper.getTrackSelections(/* periodIndex= */ 0, /* rendererIndex= */ 2);
-    List<TrackSelection> selectedText1 =
+    List<ExoTrackSelection> selectedText1 =
         downloadHelper.getTrackSelections(/* periodIndex= */ 1, /* rendererIndex= */ 0);
-    List<TrackSelection> selectedAudio1 =
+    List<ExoTrackSelection> selectedAudio1 =
         downloadHelper.getTrackSelections(/* periodIndex= */ 1, /* rendererIndex= */ 1);
-    List<TrackSelection> selectedVideo1 =
+    List<ExoTrackSelection> selectedVideo1 =
         downloadHelper.getTrackSelections(/* periodIndex= */ 1, /* rendererIndex= */ 2);
 
     assertThat(selectedVideo0).isEmpty();
@@ -404,30 +388,54 @@ public class DownloadHelperTest {
     prepareDownloadHelper(downloadHelper);
     // Ensure we have track groups with multiple indices, renderers with multiple track groups and
     // also renderers without any track groups.
-    DefaultTrackSelector.Parameters parameters =
-        new DefaultTrackSelector.ParametersBuilder(ApplicationProvider.getApplicationContext())
-            .setPreferredAudioLanguage("ZH")
-            .setPreferredTextLanguage("US")
+    TrackSelectionParameters parameters =
+        new TrackSelectionParameters.Builder(getApplicationContext())
+            .setPreferredAudioLanguage("de")
+            .setPreferredTextLanguage("en")
             .build();
     downloadHelper.addTrackSelection(/* periodIndex= */ 0, parameters);
-    byte[] data = new byte[10];
-    Arrays.fill(data, (byte) 123);
+    byte[] data = TestUtil.buildTestData(10);
 
     DownloadRequest downloadRequest = downloadHelper.getDownloadRequest(data);
 
-    assertThat(downloadRequest.type).isEqualTo(TEST_DOWNLOAD_TYPE);
-    assertThat(downloadRequest.uri).isEqualTo(testUri);
-    assertThat(downloadRequest.customCacheKey).isEqualTo(TEST_CACHE_KEY);
+    assertThat(downloadRequest.uri).isEqualTo(testMediaItem.localConfiguration.uri);
+    assertThat(downloadRequest.mimeType).isEqualTo(testMediaItem.localConfiguration.mimeType);
+    assertThat(downloadRequest.customCacheKey)
+        .isEqualTo(testMediaItem.localConfiguration.customCacheKey);
     assertThat(downloadRequest.data).isEqualTo(data);
     assertThat(downloadRequest.streamKeys)
         .containsExactly(
-            new StreamKey(/* periodIndex= */ 0, /* groupIndex= */ 0, /* trackIndex= */ 0),
-            new StreamKey(/* periodIndex= */ 0, /* groupIndex= */ 0, /* trackIndex= */ 1),
-            new StreamKey(/* periodIndex= */ 0, /* groupIndex= */ 1, /* trackIndex= */ 0),
-            new StreamKey(/* periodIndex= */ 0, /* groupIndex= */ 2, /* trackIndex= */ 0),
-            new StreamKey(/* periodIndex= */ 0, /* groupIndex= */ 3, /* trackIndex= */ 0),
-            new StreamKey(/* periodIndex= */ 1, /* groupIndex= */ 0, /* trackIndex= */ 0),
-            new StreamKey(/* periodIndex= */ 1, /* groupIndex= */ 1, /* trackIndex= */ 0));
+            new StreamKey(/* periodIndex= */ 0, /* groupIndex= */ 0, /* streamIndex= */ 0),
+            new StreamKey(/* periodIndex= */ 0, /* groupIndex= */ 0, /* streamIndex= */ 1),
+            new StreamKey(/* periodIndex= */ 0, /* groupIndex= */ 1, /* streamIndex= */ 0),
+            new StreamKey(/* periodIndex= */ 0, /* groupIndex= */ 2, /* streamIndex= */ 0),
+            new StreamKey(/* periodIndex= */ 0, /* groupIndex= */ 3, /* streamIndex= */ 0),
+            new StreamKey(/* periodIndex= */ 1, /* groupIndex= */ 0, /* streamIndex= */ 0),
+            new StreamKey(/* periodIndex= */ 1, /* groupIndex= */ 1, /* streamIndex= */ 0));
+  }
+
+  @Test
+  public void getDownloadRequest_createsDownloadRequest_withMultipleOverridesOfSameType()
+      throws Exception {
+    prepareDownloadHelper(downloadHelper);
+
+    TrackSelectionParameters parameters =
+        new TrackSelectionParameters.Builder(getApplicationContext())
+            .addOverride(new TrackSelectionOverride(trackGroupAudioUs, /* trackIndex= */ 0))
+            .addOverride(new TrackSelectionOverride(trackGroupAudioZh, /* trackIndex= */ 0))
+            .setTrackTypeDisabled(C.TRACK_TYPE_VIDEO, /* disabled= */ true)
+            .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, /* disabled= */ true)
+            .build();
+
+    downloadHelper.replaceTrackSelections(/* periodIndex= */ 0, parameters);
+    downloadHelper.clearTrackSelections(/* periodIndex= */ 1);
+
+    DownloadRequest downloadRequest = downloadHelper.getDownloadRequest(/* data= */ null);
+
+    assertThat(downloadRequest.streamKeys)
+        .containsExactly(
+            new StreamKey(/* periodIndex= */ 0, /* groupIndex= */ 1, /* streamIndex= */ 0),
+            new StreamKey(/* periodIndex= */ 0, /* groupIndex= */ 2, /* streamIndex= */ 0));
   }
 
   private static void prepareDownloadHelper(DownloadHelper downloadHelper) throws Exception {
@@ -446,7 +454,7 @@ public class DownloadHelperTest {
             preparedLatch.countDown();
           }
         });
-    while (!preparedLatch.await(0, TimeUnit.MILLISECONDS)) {
+    while (!preparedLatch.await(0, MILLISECONDS)) {
       shadowMainLooper().idleFor(shadowMainLooper().getNextScheduledTaskTime());
     }
     if (prepareException.get() != null) {
@@ -455,50 +463,35 @@ public class DownloadHelperTest {
   }
 
   private static Format createVideoFormat(int bitrate) {
-    return Format.createVideoSampleFormat(
-        /* id= */ null,
-        /* sampleMimeType= */ MimeTypes.VIDEO_H264,
-        /* codecs= */ null,
-        /* bitrate= */ bitrate,
-        /* maxInputSize= */ Format.NO_VALUE,
-        /* width= */ 480,
-        /* height= */ 360,
-        /* frameRate= */ Format.NO_VALUE,
-        /* initializationData= */ null,
-        /* drmInitData= */ null);
+    return new Format.Builder()
+        .setSampleMimeType(MimeTypes.VIDEO_H264)
+        .setAverageBitrate(bitrate)
+        .build();
   }
 
   private static Format createAudioFormat(String language) {
-    return Format.createAudioSampleFormat(
-        /* id= */ null,
-        /* sampleMimeType= */ MimeTypes.AUDIO_AAC,
-        /* codecs= */ null,
-        /* bitrate= */ 48000,
-        /* maxInputSize= */ Format.NO_VALUE,
-        /* channelCount= */ 2,
-        /* sampleRate */ 44100,
-        /* initializationData= */ null,
-        /* drmInitData= */ null,
-        /* selectionFlags= */ C.SELECTION_FLAG_DEFAULT,
-        /* language= */ language);
+    return new Format.Builder()
+        .setSampleMimeType(MimeTypes.AUDIO_AAC)
+        .setLanguage(language)
+        .build();
   }
 
   private static Format createTextFormat(String language) {
-    return Format.createTextSampleFormat(
-        /* id= */ null,
-        /* sampleMimeType= */ MimeTypes.TEXT_VTT,
-        /* selectionFlags= */ C.SELECTION_FLAG_DEFAULT,
-        /* language= */ language);
+    return new Format.Builder()
+        .setSampleMimeType(MimeTypes.TEXT_VTT)
+        .setSelectionFlags(C.SELECTION_FLAG_DEFAULT)
+        .setLanguage(language)
+        .build();
   }
 
   private static void assertSingleTrackSelectionEquals(
-      List<TrackSelection> trackSelectionList, TrackGroup trackGroup, int... tracks) {
+      List<ExoTrackSelection> trackSelectionList, TrackGroup trackGroup, int... tracks) {
     assertThat(trackSelectionList).hasSize(1);
     assertTrackSelectionEquals(trackSelectionList.get(0), trackGroup, tracks);
   }
 
   private static void assertTrackSelectionEquals(
-      TrackSelection trackSelection, TrackGroup trackGroup, int... tracks) {
+      ExoTrackSelection trackSelection, TrackGroup trackGroup, int... tracks) {
     assertThat(trackSelection.getTrackGroup()).isEqualTo(trackGroup);
     assertThat(trackSelection.length()).isEqualTo(tracks.length);
     int[] selectedTracksInGroup = new int[trackSelection.length()];
@@ -521,14 +514,15 @@ public class DownloadHelperTest {
       int periodIndex = TEST_TIMELINE.getIndexOfPeriod(id.periodUid);
       return new FakeMediaPeriod(
           trackGroupArrays[periodIndex],
+          allocator,
+          TEST_TIMELINE.getWindow(0, new Timeline.Window()).positionInFirstPeriodUs,
           new EventDispatcher()
               .withParameters(/* windowIndex= */ 0, id, /* mediaTimeOffsetMs= */ 0)) {
         @Override
-        public List<StreamKey> getStreamKeys(List<TrackSelection> trackSelections) {
+        public List<StreamKey> getStreamKeys(List<ExoTrackSelection> trackSelections) {
           List<StreamKey> result = new ArrayList<>();
-          for (TrackSelection trackSelection : trackSelections) {
-            int groupIndex =
-                trackGroupArrays[periodIndex].indexOf(trackSelection.getTrackGroup());
+          for (ExoTrackSelection trackSelection : trackSelections) {
+            int groupIndex = trackGroupArrays[periodIndex].indexOf(trackSelection.getTrackGroup());
             for (int i = 0; i < trackSelection.length(); i++) {
               result.add(
                   new StreamKey(periodIndex, groupIndex, trackSelection.getIndexInTrackGroup(i)));

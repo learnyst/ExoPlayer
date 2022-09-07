@@ -60,6 +60,8 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 @RequiresApi(18)
 /* package */ class DefaultDrmSession implements DrmSession {
 
+  private int retryCount = 0;
+
   /** Thrown when an unexpected exception or error is thrown during provisioning or key requests. */
   public static final class UnexpectedDrmSessionException extends IOException {
 
@@ -528,6 +530,16 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
   }
 
   private void onKeysError(Exception e, boolean thrownByExoMediaDrm) {
+  /*Sridhar changed - start*/
+    e.printStackTrace();
+
+    if  (retryCount < 2) {
+      retryCount++;
+      provisioningManager.provisionRequired(this);
+      return;
+    }
+
+    /*Sridhar changed - end*/
     if (e instanceof NotProvisionedException) {
       provisioningManager.provisionRequired(this);
     } else {

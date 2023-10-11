@@ -42,6 +42,7 @@ import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.NoRouteToHostException;
 import java.net.URL;
+import java.net.Proxy;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -641,7 +642,9 @@ public class DefaultHttpDataSource extends BaseDataSource implements HttpDataSou
   /** Creates an {@link HttpURLConnection} that is connected with the {@code url}. */
   @VisibleForTesting
   /* package */ HttpURLConnection openConnection(URL url) throws IOException {
-    return (HttpURLConnection) url.openConnection();
+    /*Modified by sridhar to bypass proxy for local URL.
+    Some networks and mobile are sending localhost to proxy and video does not load*/
+    return (HttpURLConnection) url.openConnection(Proxy.NO_PROXY); //Proxy.NO_PROXY
   }
 
   /**

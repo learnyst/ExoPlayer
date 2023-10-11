@@ -644,7 +644,7 @@ public class DefaultHttpDataSource extends BaseDataSource implements HttpDataSou
   /* package */ HttpURLConnection openConnection(URL url) throws IOException {
     /*Modified by sridhar to bypass proxy for local URL.
     Some networks and mobile are sending localhost to proxy and video does not load*/
-    if (url.indexOf("localhost") > 0) {
+    if (url.toString().indexOf("localhost") > 0) {
       return (HttpURLConnection) url.openConnection(Proxy.NO_PROXY); //Proxy.NO_PROXY
     } else {
       return (HttpURLConnection) url.openConnection();

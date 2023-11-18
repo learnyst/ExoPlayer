@@ -113,7 +113,10 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
     this.mediaDrm = new MediaDrm(adjustUuid(uuid));
     // Creators of an instance automatically acquire ownership of the created instance.
     referenceCount = 1;
-    if (C.WIDEVINE_UUID.equals(uuid) && needsForceWidevineL3Workaround()) {
+
+    //Sridhar modified. Some mobiles with L1 DRM not able to play video. So forcing L3
+    //if (C.WIDEVINE_UUID.equals(uuid) && needsForceWidevineL3Workaround()) {
+    if (C.WIDEVINE_UUID.equals(uuid)) {
       forceWidevineL3(mediaDrm);
     }
   }

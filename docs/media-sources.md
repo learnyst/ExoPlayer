@@ -4,6 +4,10 @@ redirect_from:
   - /mediasource.html
 ---
 
+This documentation may be out-of-date. Please refer to the
+[documentation for the latest ExoPlayer release][] on developer.android.com.
+{:.info}
+
 In ExoPlayer every piece of media is represented by a `MediaItem`. However
 internally, the player needs `MediaSource` instances to play the content. The
 player creates these from media items using a `MediaSource.Factory`.
@@ -34,9 +38,10 @@ these requirements and injected during player construction:
 
 ~~~
 MediaSource.Factory mediaSourceFactory =
-    new DefaultMediaSourceFactory(cacheDataSourceFactory)
-        .setAdsLoaderProvider(adsLoaderProvider)
-        .setAdViewProvider(playerView);
+    new DefaultMediaSourceFactory(context)
+        .setDataSourceFactory(cacheDataSourceFactory)
+        .setLocalAdInsertionComponents(
+             adsLoaderProvider, /* adViewProvider= */ playerView);
 ExoPlayer player = new ExoPlayer.Builder(context)
     .setMediaSourceFactory(mediaSourceFactory)
     .build();
@@ -74,6 +79,7 @@ exoPlayer.play();
 ~~~
 {: .language-java}
 
+[documentation for the latest ExoPlayer release]: https://developer.android.com/guide/topics/media/exoplayer/media-sources
 [DASH]: {{ site.baseurl }}/dash.html
 [SmoothStreaming]: {{ site.baseurl }}/smoothstreaming.html
 [HLS]: {{ site.baseurl }}/hls.html

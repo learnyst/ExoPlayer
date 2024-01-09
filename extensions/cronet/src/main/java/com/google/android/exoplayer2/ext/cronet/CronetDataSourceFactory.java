@@ -25,7 +25,9 @@ import com.google.android.exoplayer2.upstream.TransferListener;
 import java.util.concurrent.Executor;
 import org.chromium.net.CronetEngine;
 
-/** @deprecated Use {@link CronetDataSource.Factory} instead. */
+/**
+ * @deprecated Use {@link CronetDataSource.Factory} instead.
+ */
 @Deprecated
 public final class CronetDataSourceFactory extends BaseFactory {
 
@@ -354,7 +356,7 @@ public final class CronetDataSourceFactory extends BaseFactory {
             /* userAgent= */ null,
             defaultRequestProperties,
             /* contentTypePredicate= */ null,
-            /* keepPostFor302Redirects */ false);
+            /* keepPostFor302Redirects= */ false);
     if (transferListener != null) {
       dataSource.addTransferListener(transferListener);
     }

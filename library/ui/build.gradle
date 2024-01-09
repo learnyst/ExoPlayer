@@ -11,17 +11,25 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-apply from: "$gradle.ext.exoplayerSettingsDir/common_library_config.gradle"
+ apply from: "$gradle.ext.exoplayerSettingsDir/common_library_config.gradle"
 
 android.buildTypes.debug.testCoverageEnabled true
 
+android {
+    lint {
+        baseline = file("lint-baseline.xml")
+    }
+}
+
 dependencies {
-    implementation project(modulePrefix + 'library-core')
-    api 'androidx.media:media:' + androidxMediaVersion
+    implementation project(modulePrefix + 'library-common')
+ api 'androidx.media:media:' + androidxMediaVersion
     implementation 'androidx.annotation:annotation:' + androidxAnnotationVersion
     implementation 'androidx.recyclerview:recyclerview:' + androidxRecyclerViewVersion
     compileOnly 'org.checkerframework:checker-qual:' + checkerframeworkVersion
     compileOnly 'org.jetbrains.kotlin:kotlin-annotations-jvm:' + kotlinAnnotationsVersion
+    testImplementation project(modulePrefix + 'library-core')
+    testImplementation project(modulePrefix + 'robolectricutils')
     testImplementation project(modulePrefix + 'testutils')
     testImplementation 'org.robolectric:robolectric:' + robolectricVersion
 }
@@ -32,7 +40,7 @@ ext {
 apply from: '../../javadoc_library.gradle'
 
 ext {
-    releaseArtifactId = 'exoplayer-ui'
-    releaseDescription = 'The ExoPlayer library UI module.'
+ releaseArtifactId = 'exoplayer-ui'
+ releaseDescription = 'The ExoPlayer library UI module.'
 }
 apply from: '../../publish.gradle'

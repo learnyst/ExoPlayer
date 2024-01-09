@@ -31,6 +31,7 @@ import androidx.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 
+@Deprecated
 /* package */ final class StyledPlayerControlViewLayoutManager {
   private static final long ANIMATION_INTERVAL_MS = 2_000;
   private static final long DURATION_FOR_HIDING_ANIMATION_MS = 250;
@@ -604,13 +605,15 @@ import java.util.List;
     }
 
     if (timeBar != null) {
-      MarginLayoutParams timeBarParams = (MarginLayoutParams) timeBar.getLayoutParams();
       int timeBarMarginBottom =
           playerControlView
               .getResources()
               .getDimensionPixelSize(R.dimen.exo_styled_progress_margin_bottom);
-      timeBarParams.bottomMargin = (isMinimalMode ? 0 : timeBarMarginBottom);
-      timeBar.setLayoutParams(timeBarParams);
+      @Nullable MarginLayoutParams timeBarParams = (MarginLayoutParams) timeBar.getLayoutParams();
+      if (timeBarParams != null) {
+        timeBarParams.bottomMargin = (isMinimalMode ? 0 : timeBarMarginBottom);
+        timeBar.setLayoutParams(timeBarParams);
+      }
       if (timeBar instanceof DefaultTimeBar) {
         DefaultTimeBar defaultTimeBar = (DefaultTimeBar) timeBar;
         if (isMinimalMode) {

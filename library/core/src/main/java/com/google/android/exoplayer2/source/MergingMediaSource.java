@@ -43,7 +43,13 @@ import java.util.Map;
  * Merges multiple {@link MediaSource}s.
  *
  * <p>The {@link Timeline}s of the sources being merged must have the same number of periods.
+ *
+ * @deprecated com.google.android.exoplayer2 is deprecated. Please migrate to androidx.media3 (which
+ *     contains the same ExoPlayer code). See <a
+ *     href="https://developer.android.com/guide/topics/media/media3/getting-started/migration-guide">the
+ *     migration guide</a> for more details, including a script to help with the migration.
  */
+@Deprecated
 public final class MergingMediaSource extends CompositeMediaSource<Integer> {
 
   /** Thrown when a {@link MergingMediaSource} cannot merge its sources. */
@@ -61,14 +67,16 @@ public final class MergingMediaSource extends CompositeMediaSource<Integer> {
     /** The reason the merge failed. */
     public final @Reason int reason;
 
-    /** @param reason The reason the merge failed. */
+    /**
+     * @param reason The reason the merge failed.
+     */
     public IllegalMergeException(@Reason int reason) {
       this.reason = reason;
     }
   }
 
   private static final int PERIOD_COUNT_UNSET = -1;
-  private static final MediaItem EMPTY_MEDIA_ITEM =
+  private static final MediaItem PLACEHOLDER_MEDIA_ITEM =
       new MediaItem.Builder().setMediaId("MergingMediaSource").build();
 
   private final boolean adjustPeriodTimeOffsets;
@@ -159,7 +167,7 @@ public final class MergingMediaSource extends CompositeMediaSource<Integer> {
 
   @Override
   public MediaItem getMediaItem() {
-    return mediaSources.length > 0 ? mediaSources[0].getMediaItem() : EMPTY_MEDIA_ITEM;
+    return mediaSources.length > 0 ? mediaSources[0].getMediaItem() : PLACEHOLDER_MEDIA_ITEM;
   }
 
   @Override
@@ -234,13 +242,13 @@ public final class MergingMediaSource extends CompositeMediaSource<Integer> {
 
   @Override
   protected void onChildSourceInfoRefreshed(
-      Integer id, MediaSource mediaSource, Timeline timeline) {
+      Integer childSourceId, MediaSource mediaSource, Timeline newTimeline) {
     if (mergeError != null) {
       return;
     }
     if (periodCount == PERIOD_COUNT_UNSET) {
-      periodCount = timeline.getPeriodCount();
-    } else if (timeline.getPeriodCount() != periodCount) {
+      periodCount = newTimeline.getPeriodCount();
+    } else if (newTimeline.getPeriodCount() != periodCount) {
       mergeError = new IllegalMergeException(IllegalMergeException.REASON_PERIOD_COUNT_MISMATCH);
       return;
     }
@@ -248,7 +256,7 @@ public final class MergingMediaSource extends CompositeMediaSource<Integer> {
       periodTimeOffsetsUs = new long[periodCount][timelines.length];
     }
     pendingTimelineSources.remove(mediaSource);
-    timelines[id] = timeline;
+    timelines[childSourceId] = newTimeline;
     if (pendingTimelineSources.isEmpty()) {
       if (adjustPeriodTimeOffsets) {
         computePeriodTimeOffsets();
@@ -265,8 +273,8 @@ public final class MergingMediaSource extends CompositeMediaSource<Integer> {
   @Override
   @Nullable
   protected MediaPeriodId getMediaPeriodIdForChildMediaPeriodId(
-      Integer id, MediaPeriodId mediaPeriodId) {
-    return id == 0 ? mediaPeriodId : null;
+      Integer childSourceId, MediaPeriodId mediaPeriodId) {
+    return childSourceId == 0 ? mediaPeriodId : null;
   }
 
   private void computePeriodTimeOffsets() {

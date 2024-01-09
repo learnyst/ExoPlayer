@@ -2,6 +2,10 @@
 title: Debug logging
 ---
 
+This documentation may be out-of-date. Please refer to the
+[documentation for the latest ExoPlayer release][] on developer.android.com.
+{:.info}
+
 By default ExoPlayer only logs errors. To log player events, the `EventLogger`
 class can be used. The additional logging it provides can be helpful for
 understanding what the player is doing, as well as for debugging playback
@@ -9,12 +13,9 @@ issues. `EventLogger` implements `AnalyticsListener`, so registering an instance
 with an `ExoPlayer` is easy:
 
 ```
-player.addAnalyticsListener(new EventLogger(trackSelector));
+player.addAnalyticsListener(new EventLogger());
 ```
 {: .language-java}
-
-Passing the `trackSelector` enables additional logging, but is optional and so
-`null` can be passed instead.
 
 The easiest way to observe the log is using Android Studio's [logcat tab][]. You
 can select your app as debuggable process by the package name (
@@ -80,20 +81,16 @@ logging for an adaptive stream:
 
 ```
 EventLogger: tracks [eventTime=0.30, mediaPos=0.00, window=0, period=0,
-EventLogger:   MediaCodecVideoRenderer [
-EventLogger:     Group:0, adaptive_supported=YES [
-EventLogger:       [X] Track:0, id=133, mimeType=video/avc, bitrate=261112, codecs=avc1.4d4015, res=426x240, fps=30.0, supported=YES
-EventLogger:       [X] Track:1, id=134, mimeType=video/avc, bitrate=671331, codecs=avc1.4d401e, res=640x360, fps=30.0, supported=YES
-EventLogger:       [X] Track:2, id=135, mimeType=video/avc, bitrate=1204535, codecs=avc1.4d401f, res=854x480, fps=30.0, supported=YES
-EventLogger:       [X] Track:3, id=160, mimeType=video/avc, bitrate=112329, codecs=avc1.4d400c, res=256x144, fps=30.0, supported=YES
-EventLogger:       [ ] Track:4, id=136, mimeType=video/avc, bitrate=2400538, codecs=avc1.4d401f, res=1280x720, fps=30.0, supported=NO_EXCEEDS_CAPABILITIES
-EventLogger:     ]
+EventLogger:   group [
+EventLogger:     [X] Track:0, id=133, mimeType=video/avc, bitrate=261112, codecs=avc1.4d4015, res=426x240, fps=30.0, supported=YES
+EventLogger:     [X] Track:1, id=134, mimeType=video/avc, bitrate=671331, codecs=avc1.4d401e, res=640x360, fps=30.0, supported=YES
+EventLogger:     [X] Track:2, id=135, mimeType=video/avc, bitrate=1204535, codecs=avc1.4d401f, res=854x480, fps=30.0, supported=YES
+EventLogger:     [X] Track:3, id=160, mimeType=video/avc, bitrate=112329, codecs=avc1.4d400c, res=256x144, fps=30.0, supported=YES
+EventLogger:     [ ] Track:4, id=136, mimeType=video/avc, bitrate=2400538, codecs=avc1.4d401f, res=1280x720, fps=30.0, supported=NO_EXCEEDS_CAPABILITIES
 EventLogger:   ]
-EventLogger:   MediaCodecAudioRenderer [
-EventLogger:     Group:0, adaptive_supported=YES_NOT_SEAMLESS [
-EventLogger:       [ ] Track:0, id=139, mimeType=audio/mp4a-latm, bitrate=48582, codecs=mp4a.40.5, channels=2, sample_rate=22050, supported=YES
-EventLogger:       [X] Track:1, id=140, mimeType=audio/mp4a-latm, bitrate=127868, codecs=mp4a.40.2, channels=2, sample_rate=44100, supported=YES
-EventLogger:     ]
+EventLogger:   group [
+EventLogger:     [ ] Track:0, id=139, mimeType=audio/mp4a-latm, bitrate=48582, codecs=mp4a.40.5, channels=2, sample_rate=22050, supported=YES
+EventLogger:     [X] Track:1, id=140, mimeType=audio/mp4a-latm, bitrate=127868, codecs=mp4a.40.2, channels=2, sample_rate=44100, supported=YES
 EventLogger:   ]
 EventLogger: ]
 ```
@@ -123,4 +120,5 @@ EventLogger: videoDecoderInitialized [0.77, 0.00, window=0, period=0, video, OMX
 EventLogger: audioDecoderInitialized [0.79, 0.00, window=0, period=0, audio, OMX.google.aac.decoder]
 ```
 
+[documentation for the latest ExoPlayer release]: https://developer.android.com/guide/topics/media/exoplayer/debug-logging
 [logcat tab]: https://developer.android.com/studio/debug/am-logcat

@@ -50,7 +50,13 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
  * section 5.
  *
  * <p>This extractor only supports single-channel AMR container formats.
+ *
+ * @deprecated com.google.android.exoplayer2 is deprecated. Please migrate to androidx.media3 (which
+ *     contains the same ExoPlayer code). See <a
+ *     href="https://developer.android.com/guide/topics/media/media3/getting-started/migration-guide">the
+ *     migration guide</a> for more details, including a script to help with the migration.
  */
+@Deprecated
 public final class AmrExtractor implements Extractor {
 
   /** Factory for {@link AmrExtractor} instances. */
@@ -169,7 +175,9 @@ public final class AmrExtractor implements Extractor {
     this(/* flags= */ 0);
   }
 
-  /** @param flags Flags that control the extractor's behavior. */
+  /**
+   * @param flags Flags that control the extractor's behavior.
+   */
   public AmrExtractor(@Flags int flags) {
     if ((flags & FLAG_ENABLE_CONSTANT_BITRATE_SEEKING_ALWAYS) != 0) {
       flags |= FLAG_ENABLE_CONSTANT_BITRATE_SEEKING;
@@ -410,6 +418,7 @@ public final class AmrExtractor implements Extractor {
    * @return The stream bitrate.
    */
   private static int getBitrateFromFrameSize(int frameSize, long durationUsPerFrame) {
-    return (int) ((frameSize * C.BITS_PER_BYTE * C.MICROS_PER_SECOND) / durationUsPerFrame);
+    return (int)
+        ((frameSize * ((long) C.BITS_PER_BYTE) * C.MICROS_PER_SECOND) / durationUsPerFrame);
   }
 }

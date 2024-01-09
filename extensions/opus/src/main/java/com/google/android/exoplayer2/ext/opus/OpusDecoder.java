@@ -32,8 +32,16 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.List;
 
-/** Opus decoder. */
+/**
+ * Opus decoder.
+ *
+ * @deprecated com.google.android.exoplayer2 is deprecated. Please migrate to androidx.media3 (which
+ *     contains the same ExoPlayer code). See <a
+ *     href="https://developer.android.com/guide/topics/media/media3/getting-started/migration-guide">the
+ *     migration guide</a> for more details, including a script to help with the migration.
+ */
 @VisibleForTesting(otherwise = PACKAGE_PRIVATE)
+@Deprecated
 public final class OpusDecoder
     extends SimpleDecoder<DecoderInputBuffer, SimpleDecoderOutputBuffer, OpusDecoderException> {
 
@@ -54,6 +62,7 @@ public final class OpusDecoder
   private final int preSkipSamples;
   private final int seekPreRollSamples;
   private final long nativeDecoderContext;
+  private boolean experimentalDiscardPaddingEnabled;
 
   private int skipSamples;
 
@@ -97,6 +106,7 @@ public final class OpusDecoder
     }
     preSkipSamples = getPreSkipSamples(initializationData);
     seekPreRollSamples = getSeekPreRollSamples(initializationData);
+    skipSamples = preSkipSamples;
 
     byte[] headerBytes = initializationData.get(0);
     if (headerBytes.length < 19) {
@@ -140,6 +150,16 @@ public final class OpusDecoder
     if (outputFloat) {
       opusSetFloatOutput();
     }
+  }
+
+  /**
+   * Sets whether discard padding is enabled. When enabled, discard padding samples (provided as
+   * supplemental data on the input buffer) will be removed from the end of the decoder output.
+   *
+   * <p>This method is experimental, and will be renamed or removed in a future release.
+   */
+  public void experimentalSetDiscardPaddingEnabled(boolean enabled) {
+    this.experimentalDiscardPaddingEnabled = enabled;
   }
 
   @Override
@@ -221,6 +241,14 @@ public final class OpusDecoder
         skipSamples = 0;
         outputData.position(skipBytes);
       }
+    } else if (experimentalDiscardPaddingEnabled && inputBuffer.hasSupplementalData()) {
+      int discardPaddingSamples = getDiscardPaddingSamples(inputBuffer.supplementalData);
+      if (discardPaddingSamples > 0) {
+        int discardBytes = samplesToBytes(discardPaddingSamples, channelCount, outputFloat);
+        if (result >= discardBytes) {
+          outputData.limit(result - discardBytes);
+        }
+      }
     }
     return null;
   }
@@ -276,6 +304,25 @@ public final class OpusDecoder
     }
     // Fall back to returning the default seek pre-roll.
     return DEFAULT_SEEK_PRE_ROLL_SAMPLES;
+  }
+
+  /**
+   * Returns the number of discard padding samples specified by the supplemental data attached to an
+   * input buffer.
+   *
+   * @param supplementalData Supplemental data related to the an input buffer.
+   * @return The number of discard padding samples to remove from the decoder output.
+   */
+  @VisibleForTesting
+  /* package */ static int getDiscardPaddingSamples(@Nullable ByteBuffer supplementalData) {
+    if (supplementalData == null || supplementalData.remaining() != 8) {
+      return 0;
+    }
+    long discardPaddingNs = supplementalData.order(ByteOrder.LITTLE_ENDIAN).getLong();
+    if (discardPaddingNs < 0) {
+      return 0;
+    }
+    return (int) ((discardPaddingNs * SAMPLE_RATE) / C.NANOS_PER_SECOND);
   }
 
   /** Returns number of bytes to represent {@code samples}. */

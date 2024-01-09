@@ -296,8 +296,8 @@ public final class ImaAdsLoaderTest {
         /* periodIndex= */ 0,
         /* adGroupIndex= */ 0,
         /* adIndexInAdGroup= */ 0,
-        /* position= */ 0,
-        /* contentPosition= */ 0);
+        /* positionMs= */ 0,
+        /* contentPositionMs= */ 0);
     fakePlayer.setState(Player.STATE_READY, /* playWhenReady= */ true);
     adEventListener.onAdEvent(getAdEvent(AdEventType.STARTED, mockPrerollSingleAd));
     adEventListener.onAdEvent(getAdEvent(AdEventType.FIRST_QUARTILE, mockPrerollSingleAd));
@@ -315,7 +315,7 @@ public final class ImaAdsLoaderTest {
             new AdPlaybackState(TEST_ADS_ID, /* adGroupTimesUs...= */ 0)
                 .withContentDurationUs(CONTENT_PERIOD_DURATION_US)
                 .withAdCount(/* adGroupIndex= */ 0, /* adCount= */ 1)
-                .withAdUri(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0, TEST_URI)
+                .withAvailableAdUri(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0, TEST_URI)
                 .withAdDurationsUs(new long[][] {{TEST_AD_DURATION_US}})
                 .withPlayedAd(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0)
                 .withAdResumePositionUs(/* adResumePositionUs= */ 0));
@@ -962,7 +962,7 @@ public final class ImaAdsLoaderTest {
 
   @Test
   public void setsDefaultMimeTypes() throws Exception {
-    imaAdsLoader.setSupportedContentTypes(C.TYPE_DASH, C.TYPE_OTHER);
+    imaAdsLoader.setSupportedContentTypes(C.CONTENT_TYPE_DASH, C.CONTENT_TYPE_OTHER);
     imaAdsLoader.start(
         adsMediaSource, TEST_DATA_SPEC, TEST_ADS_ID, adViewProvider, adsLoaderListener);
 
@@ -996,7 +996,7 @@ public final class ImaAdsLoaderTest {
             adViewProvider);
     when(mockAdsManager.getAdCuePoints()).thenReturn(PREROLL_CUE_POINTS_SECONDS);
 
-    imaAdsLoader.setSupportedContentTypes(C.TYPE_OTHER);
+    imaAdsLoader.setSupportedContentTypes(C.CONTENT_TYPE_OTHER);
     imaAdsLoader.start(
         adsMediaSource, TEST_DATA_SPEC, TEST_ADS_ID, adViewProvider, adsLoaderListener);
 
@@ -1063,7 +1063,7 @@ public final class ImaAdsLoaderTest {
             new AdPlaybackState(TEST_ADS_ID, getAdGroupTimesUsForCuePoints(cuePoints))
                 .withContentDurationUs(CONTENT_PERIOD_DURATION_US)
                 .withAdCount(/* adGroupIndex= */ 0, /* adCount= */ 1)
-                .withAdUri(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0, TEST_URI)
+                .withAvailableAdUri(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0, TEST_URI)
                 .withAdDurationsUs(new long[][] {{TEST_AD_DURATION_US}}));
   }
 
@@ -1096,8 +1096,8 @@ public final class ImaAdsLoaderTest {
         /* periodIndex= */ 0,
         /* adGroupIndex= */ 0,
         /* adIndexInAdGroup= */ 0,
-        /* position= */ 0,
-        /* contentPosition= */ 0);
+        /* positionMs= */ 0,
+        /* contentPositionMs= */ 0);
     fakePlayer.setState(Player.STATE_READY, /* playWhenReady= */ true);
     adEventListener.onAdEvent(getAdEvent(AdEventType.STARTED, mockPrerollSingleAd));
     adEventListener.onAdEvent(getAdEvent(AdEventType.FIRST_QUARTILE, mockPrerollSingleAd));
@@ -1117,7 +1117,7 @@ public final class ImaAdsLoaderTest {
             new AdPlaybackState(TEST_ADS_ID, /* adGroupTimesUs...= */ 0)
                 .withContentDurationUs(CONTENT_PERIOD_DURATION_US)
                 .withAdCount(/* adGroupIndex= */ 0, /* adCount= */ 1)
-                .withAdUri(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0, TEST_URI)
+                .withAvailableAdUri(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0, TEST_URI)
                 .withAdDurationsUs(new long[][] {{TEST_AD_DURATION_US}})
                 .withPlayedAd(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0)
                 .withAdResumePositionUs(/* adResumePositionUs= */ 0));
@@ -1155,8 +1155,8 @@ public final class ImaAdsLoaderTest {
         /* periodIndex= */ 0,
         /* adGroupIndex= */ 0,
         /* adIndexInAdGroup= */ 0,
-        /* position= */ 0,
-        /* contentPosition= */ 0);
+        /* positionMs= */ 0,
+        /* contentPositionMs= */ 0);
     fakePlayer.setState(Player.STATE_READY, /* playWhenReady= */ true);
     adEventListener.onAdEvent(getAdEvent(AdEventType.STARTED, mockPrerollSingleAd));
     adEventListener.onAdEvent(getAdEvent(AdEventType.FIRST_QUARTILE, mockPrerollSingleAd));
@@ -1184,7 +1184,7 @@ public final class ImaAdsLoaderTest {
             new AdPlaybackState(TEST_ADS_ID, /* adGroupTimesUs...= */ 0)
                 .withContentDurationUs(CONTENT_PERIOD_DURATION_US)
                 .withAdCount(/* adGroupIndex= */ 0, /* adCount= */ 1)
-                .withAdUri(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0, TEST_URI)
+                .withAvailableAdUri(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0, TEST_URI)
                 .withAdDurationsUs(new long[][] {{TEST_AD_DURATION_US}})
                 .withPlayedAd(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0)
                 .withAdResumePositionUs(/* adResumePositionUs= */ 0));
@@ -1257,7 +1257,7 @@ public final class ImaAdsLoaderTest {
             adViewProvider);
     when(mockAdsManager.getAdCuePoints()).thenReturn(PREROLL_CUE_POINTS_SECONDS);
 
-    imaAdsLoader.setSupportedContentTypes(C.TYPE_OTHER);
+    imaAdsLoader.setSupportedContentTypes(C.CONTENT_TYPE_OTHER);
     imaAdsLoader.start(
         adsMediaSource, TEST_DATA_SPEC, TEST_ADS_ID, adViewProvider, adsLoaderListener);
 
@@ -1283,7 +1283,7 @@ public final class ImaAdsLoaderTest {
             adViewProvider);
     when(mockAdsManager.getAdCuePoints()).thenReturn(PREROLL_CUE_POINTS_SECONDS);
 
-    imaAdsLoader.setSupportedContentTypes(C.TYPE_OTHER);
+    imaAdsLoader.setSupportedContentTypes(C.CONTENT_TYPE_OTHER);
     imaAdsLoader.start(
         adsMediaSource, TEST_DATA_SPEC, TEST_ADS_ID, adViewProvider, adsLoaderListener);
 

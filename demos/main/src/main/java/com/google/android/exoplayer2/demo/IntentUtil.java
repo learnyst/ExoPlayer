@@ -15,8 +15,9 @@
  */
 package com.google.android.exoplayer2.demo;
 
-import static com.google.android.exoplayer2.util.Assertions.checkNotNull;
-import static com.google.android.exoplayer2.util.Assertions.checkState;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import android.content.Intent;
 import android.net.Uri;
@@ -26,7 +27,6 @@ import com.google.android.exoplayer2.MediaItem;
 import com.google.android.exoplayer2.MediaItem.ClippingConfiguration;
 import com.google.android.exoplayer2.MediaItem.SubtitleConfiguration;
 import com.google.android.exoplayer2.MediaMetadata;
-import com.google.android.exoplayer2.util.Assertions;
 import com.google.android.exoplayer2.util.Util;
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
@@ -35,7 +35,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-/** Util to read from and populate an intent. */
+/**
+ * Util to read from and populate an intent.
+ *
+ * @deprecated com.google.android.exoplayer2 is deprecated. Please migrate to androidx.media3 (which
+ *     contains the same ExoPlayer code). See <a
+ *     href="https://developer.android.com/guide/topics/media/media3/getting-started/migration-guide">the
+ *     migration guide</a> for more details, including a script to help with the migration.
+ */
+@Deprecated
 public class IntentUtil {
 
   // Actions.
@@ -87,7 +95,7 @@ public class IntentUtil {
 
   /** Populates the intent with the given list of {@link MediaItem media items}. */
   public static void addToIntent(List<MediaItem> mediaItems, Intent intent) {
-    Assertions.checkArgument(!mediaItems.isEmpty());
+    checkArgument(!mediaItems.isEmpty());
     if (mediaItems.size() == 1) {
       MediaItem mediaItem = mediaItems.get(0);
       MediaItem.LocalConfiguration localConfiguration = checkNotNull(mediaItem.localConfiguration);
@@ -95,7 +103,7 @@ public class IntentUtil {
       if (mediaItem.mediaMetadata.title != null) {
         intent.putExtra(TITLE_EXTRA, mediaItem.mediaMetadata.title);
       }
-      addPlaybackPropertiesToIntent(localConfiguration, intent, /* extrasKeySuffix= */ "");
+      addLocalConfigurationToIntent(localConfiguration, intent, /* extrasKeySuffix= */ "");
       addClippingConfigurationToIntent(
           mediaItem.clippingConfiguration, intent, /* extrasKeySuffix= */ "");
     } else {
@@ -105,7 +113,7 @@ public class IntentUtil {
         MediaItem.LocalConfiguration localConfiguration =
             checkNotNull(mediaItem.localConfiguration);
         intent.putExtra(URI_EXTRA + ("_" + i), localConfiguration.uri.toString());
-        addPlaybackPropertiesToIntent(localConfiguration, intent, /* extrasKeySuffix= */ "_" + i);
+        addLocalConfigurationToIntent(localConfiguration, intent, /* extrasKeySuffix= */ "_" + i);
         addClippingConfigurationToIntent(
             mediaItem.clippingConfiguration, intent, /* extrasKeySuffix= */ "_" + i);
         if (mediaItem.mediaMetadata.title != null) {
@@ -178,7 +186,7 @@ public class IntentUtil {
         headers.put(keyRequestPropertiesArray[i], keyRequestPropertiesArray[i + 1]);
       }
     }
-    @Nullable UUID drmUuid = Util.getDrmUuid(Util.castNonNull(drmSchemeExtra));
+    @Nullable UUID drmUuid = Util.getDrmUuid(drmSchemeExtra);
     if (drmUuid != null) {
       builder.setDrmConfiguration(
           new MediaItem.DrmConfiguration.Builder(drmUuid)
@@ -189,14 +197,14 @@ public class IntentUtil {
                   intent.getBooleanExtra(
                       DRM_FORCE_DEFAULT_LICENSE_URI_EXTRA + extrasKeySuffix, false))
               .setLicenseRequestHeaders(headers)
-              .forceSessionsForAudioAndVideoTracks(
+              .setForceSessionsForAudioAndVideoTracks(
                   intent.getBooleanExtra(DRM_SESSION_FOR_CLEAR_CONTENT + extrasKeySuffix, false))
               .build());
     }
     return builder;
   }
 
-  private static void addPlaybackPropertiesToIntent(
+  private static void addLocalConfigurationToIntent(
       MediaItem.LocalConfiguration localConfiguration, Intent intent, String extrasKeySuffix) {
     intent
         .putExtra(MIME_TYPE_EXTRA + extrasKeySuffix, localConfiguration.mimeType)
@@ -242,7 +250,7 @@ public class IntentUtil {
         drmConfiguration.forcedSessionTrackTypes;
     if (!forcedDrmSessionTrackTypes.isEmpty()) {
       // Only video and audio together are supported.
-      Assertions.checkState(
+      checkState(
           forcedDrmSessionTrackTypes.size() == 2
               && forcedDrmSessionTrackTypes.contains(C.TRACK_TYPE_VIDEO)
               && forcedDrmSessionTrackTypes.contains(C.TRACK_TYPE_AUDIO));

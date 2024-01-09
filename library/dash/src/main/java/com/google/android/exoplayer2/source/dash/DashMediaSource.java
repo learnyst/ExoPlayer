@@ -60,6 +60,7 @@ import com.google.android.exoplayer2.source.dash.manifest.Period;
 import com.google.android.exoplayer2.source.dash.manifest.Representation;
 import com.google.android.exoplayer2.source.dash.manifest.UtcTimingElement;
 import com.google.android.exoplayer2.upstream.Allocator;
+import com.google.android.exoplayer2.upstream.CmcdConfiguration;
 import com.google.android.exoplayer2.upstream.DataSource;
 import com.google.android.exoplayer2.upstream.DefaultLoadErrorHandlingPolicy;
 import com.google.android.exoplayer2.upstream.LoadErrorHandlingPolicy;
@@ -76,6 +77,7 @@ import com.google.android.exoplayer2.util.SntpClient;
 import com.google.android.exoplayer2.util.Util;
 import com.google.common.base.Charsets;
 import com.google.common.math.LongMath;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -89,7 +91,15 @@ import java.util.TimeZone;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/** A DASH {@link MediaSource}. */
+/**
+ * A DASH {@link MediaSource}.
+ *
+ * @deprecated com.google.android.exoplayer2 is deprecated. Please migrate to androidx.media3 (which
+ *     contains the same ExoPlayer code). See <a
+ *     href="https://developer.android.com/guide/topics/media/media3/getting-started/migration-guide">the
+ *     migration guide</a> for more details, including a script to help with the migration.
+ */
+@Deprecated
 public final class DashMediaSource extends BaseMediaSource {
 
   static {
@@ -103,14 +113,25 @@ public final class DashMediaSource extends BaseMediaSource {
     private final DashChunkSource.Factory chunkSourceFactory;
     @Nullable private final DataSource.Factory manifestDataSourceFactory;
 
+    private CmcdConfiguration.Factory cmcdConfigurationFactory;
     private DrmSessionManagerProvider drmSessionManagerProvider;
     private CompositeSequenceableLoaderFactory compositeSequenceableLoaderFactory;
     private LoadErrorHandlingPolicy loadErrorHandlingPolicy;
     private long fallbackTargetLiveOffsetMs;
+    private long minLiveStartPositionUs;
     @Nullable private ParsingLoadable.Parser<? extends DashManifest> manifestParser;
 
     /**
      * Creates a new factory for {@link DashMediaSource}s.
+     *
+     * <p>The factory will use the following default components:
+     *
+     * <ul>
+     *   <li>{@link DefaultDashChunkSource.Factory}
+     *   <li>{@link DefaultDrmSessionManagerProvider}
+     *   <li>{@link DefaultLoadErrorHandlingPolicy}
+     *   <li>{@link DefaultCompositeSequenceableLoaderFactory}
+     * </ul>
      *
      * @param dataSourceFactory A factory for {@link DataSource} instances that will be used to load
      *     manifest and media data.
@@ -122,10 +143,18 @@ public final class DashMediaSource extends BaseMediaSource {
     /**
      * Creates a new factory for {@link DashMediaSource}s.
      *
+     * <p>The factory will use the following default components:
+     *
+     * <ul>
+     *   <li>{@link DefaultDrmSessionManagerProvider}
+     *   <li>{@link DefaultLoadErrorHandlingPolicy}
+     *   <li>{@link DefaultCompositeSequenceableLoaderFactory}
+     * </ul>
+     *
      * @param chunkSourceFactory A factory for {@link DashChunkSource} instances.
      * @param manifestDataSourceFactory A factory for {@link DataSource} instances that will be used
      *     to load (and refresh) the manifest. May be {@code null} if the factory will only ever be
-     *     used to create create media sources with sideloaded manifests via {@link
+     *     used to create media sources with sideloaded manifests via {@link
      *     #createMediaSource(DashManifest, MediaItem)}.
      */
     public Factory(
@@ -136,32 +165,39 @@ public final class DashMediaSource extends BaseMediaSource {
       drmSessionManagerProvider = new DefaultDrmSessionManagerProvider();
       loadErrorHandlingPolicy = new DefaultLoadErrorHandlingPolicy();
       fallbackTargetLiveOffsetMs = DEFAULT_FALLBACK_TARGET_LIVE_OFFSET_MS;
+      minLiveStartPositionUs = MIN_LIVE_DEFAULT_START_POSITION_US;
       compositeSequenceableLoaderFactory = new DefaultCompositeSequenceableLoaderFactory();
     }
 
+    @CanIgnoreReturnValue
     @Override
-    public Factory setDrmSessionManagerProvider(
-        @Nullable DrmSessionManagerProvider drmSessionManagerProvider) {
-      this.drmSessionManagerProvider =
-          drmSessionManagerProvider != null
-              ? drmSessionManagerProvider
-              : new DefaultDrmSessionManagerProvider();
+    public Factory setCmcdConfigurationFactory(CmcdConfiguration.Factory cmcdConfigurationFactory) {
+      this.cmcdConfigurationFactory = checkNotNull(cmcdConfigurationFactory);
       return this;
     }
 
-    /**
-     * Sets the {@link LoadErrorHandlingPolicy}. The default value is created by calling {@link
-     * DefaultLoadErrorHandlingPolicy#DefaultLoadErrorHandlingPolicy()}.
-     *
-     * @param loadErrorHandlingPolicy A {@link LoadErrorHandlingPolicy}.
-     * @return This factory, for convenience.
-     */
-    public Factory setLoadErrorHandlingPolicy(
-        @Nullable LoadErrorHandlingPolicy loadErrorHandlingPolicy) {
+    @CanIgnoreReturnValue
+    @Override
+    public Factory setDrmSessionManagerProvider(
+        DrmSessionManagerProvider drmSessionManagerProvider) {
+      this.drmSessionManagerProvider =
+          checkNotNull(
+              drmSessionManagerProvider,
+              "MediaSource.Factory#setDrmSessionManagerProvider no longer handles null by"
+                  + " instantiating a new DefaultDrmSessionManagerProvider. Explicitly construct"
+                  + " and pass an instance in order to retain the old behavior.");
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    @Override
+    public Factory setLoadErrorHandlingPolicy(LoadErrorHandlingPolicy loadErrorHandlingPolicy) {
       this.loadErrorHandlingPolicy =
-          loadErrorHandlingPolicy != null
-              ? loadErrorHandlingPolicy
-              : new DefaultLoadErrorHandlingPolicy();
+          checkNotNull(
+              loadErrorHandlingPolicy,
+              "MediaSource.Factory#setLoadErrorHandlingPolicy no longer handles null by"
+                  + " instantiating a new DefaultLoadErrorHandlingPolicy. Explicitly construct and"
+                  + " pass an instance in order to retain the old behavior.");
       return this;
     }
 
@@ -174,8 +210,28 @@ public final class DashMediaSource extends BaseMediaSource {
      * @param fallbackTargetLiveOffsetMs The fallback live target offset in milliseconds.
      * @return This factory, for convenience.
      */
+    @CanIgnoreReturnValue
     public Factory setFallbackTargetLiveOffsetMs(long fallbackTargetLiveOffsetMs) {
       this.fallbackTargetLiveOffsetMs = fallbackTargetLiveOffsetMs;
+      return this;
+    }
+
+    /**
+     * Sets the minimum position to start playback from in a live stream, in microseconds relative
+     * to the start of the live window.
+     *
+     * <p>This value will override any suggested value from the manifest and helps to prevent {@link
+     * com.google.android.exoplayer2.source.BehindLiveWindowException} issues.
+     *
+     * <p>The default value is {@link #MIN_LIVE_DEFAULT_START_POSITION_US}.
+     *
+     * @param minLiveStartPositionUs The minimum live start position, in microseconds relative to
+     *     the start of the live window.
+     * @return This factory, for convenience.
+     */
+    @CanIgnoreReturnValue
+    public Factory setMinLiveStartPositionUs(long minLiveStartPositionUs) {
+      this.minLiveStartPositionUs = minLiveStartPositionUs;
       return this;
     }
 
@@ -185,6 +241,7 @@ public final class DashMediaSource extends BaseMediaSource {
      * @param manifestParser A parser for loaded manifest data.
      * @return This factory, for convenience.
      */
+    @CanIgnoreReturnValue
     public Factory setManifestParser(
         @Nullable ParsingLoadable.Parser<? extends DashManifest> manifestParser) {
       this.manifestParser = manifestParser;
@@ -201,12 +258,15 @@ public final class DashMediaSource extends BaseMediaSource {
      *     audio etc...).
      * @return This factory, for convenience.
      */
+    @CanIgnoreReturnValue
     public Factory setCompositeSequenceableLoaderFactory(
-        @Nullable CompositeSequenceableLoaderFactory compositeSequenceableLoaderFactory) {
+        CompositeSequenceableLoaderFactory compositeSequenceableLoaderFactory) {
       this.compositeSequenceableLoaderFactory =
-          compositeSequenceableLoaderFactory != null
-              ? compositeSequenceableLoaderFactory
-              : new DefaultCompositeSequenceableLoaderFactory();
+          checkNotNull(
+              compositeSequenceableLoaderFactory,
+              "DashMediaSource.Factory#setCompositeSequenceableLoaderFactory no longer handles null"
+                  + " by instantiating a new DefaultCompositeSequenceableLoaderFactory. Explicitly"
+                  + " construct and pass an instance in order to retain the old behavior.");
       return this;
     }
 
@@ -245,6 +305,11 @@ public final class DashMediaSource extends BaseMediaSource {
         mediaItemBuilder.setUri(Uri.EMPTY);
       }
       mediaItem = mediaItemBuilder.build();
+      @Nullable
+      CmcdConfiguration cmcdConfiguration =
+          cmcdConfigurationFactory == null
+              ? null
+              : cmcdConfigurationFactory.createCmcdConfiguration(mediaItem);
       return new DashMediaSource(
           mediaItem,
           manifest,
@@ -252,9 +317,11 @@ public final class DashMediaSource extends BaseMediaSource {
           /* manifestParser= */ null,
           chunkSourceFactory,
           compositeSequenceableLoaderFactory,
+          cmcdConfiguration,
           drmSessionManagerProvider.get(mediaItem),
           loadErrorHandlingPolicy,
-          fallbackTargetLiveOffsetMs);
+          fallbackTargetLiveOffsetMs,
+          minLiveStartPositionUs);
     }
 
     /**
@@ -275,6 +342,11 @@ public final class DashMediaSource extends BaseMediaSource {
       if (!streamKeys.isEmpty()) {
         manifestParser = new FilteringManifestParser<>(manifestParser, streamKeys);
       }
+      @Nullable
+      CmcdConfiguration cmcdConfiguration =
+          cmcdConfigurationFactory == null
+              ? null
+              : cmcdConfigurationFactory.createCmcdConfiguration(mediaItem);
 
       return new DashMediaSource(
           mediaItem,
@@ -283,14 +355,16 @@ public final class DashMediaSource extends BaseMediaSource {
           manifestParser,
           chunkSourceFactory,
           compositeSequenceableLoaderFactory,
+          cmcdConfiguration,
           drmSessionManagerProvider.get(mediaItem),
           loadErrorHandlingPolicy,
-          fallbackTargetLiveOffsetMs);
+          fallbackTargetLiveOffsetMs,
+          minLiveStartPositionUs);
     }
 
     @Override
-    public int[] getSupportedTypes() {
-      return new int[] {C.TYPE_DASH};
+    public @C.ContentType int[] getSupportedTypes() {
+      return new int[] {C.CONTENT_TYPE_DASH};
     }
   }
 
@@ -299,10 +373,18 @@ public final class DashMediaSource extends BaseMediaSource {
    * if no value is defined in the {@link MediaItem} or the manifest.
    */
   public static final long DEFAULT_FALLBACK_TARGET_LIVE_OFFSET_MS = 30_000;
-  /** @deprecated Use {@link #DEFAULT_FALLBACK_TARGET_LIVE_OFFSET_MS} instead. */
+  /**
+   * @deprecated Use {@link #DEFAULT_FALLBACK_TARGET_LIVE_OFFSET_MS} instead.
+   */
   @Deprecated public static final long DEFAULT_LIVE_PRESENTATION_DELAY_MS = 30_000;
   /** The media id used by media items of dash media sources without a manifest URI. */
   public static final String DEFAULT_MEDIA_ID = "DashMediaSource";
+
+  /**
+   * The minimum default start position for live streams, in microseconds relative to the start of
+   * the live window.
+   */
+  public static final long MIN_LIVE_DEFAULT_START_POSITION_US = 5_000_000;
 
   /**
    * The interval in milliseconds between invocations of {@link
@@ -310,10 +392,6 @@ public final class DashMediaSource extends BaseMediaSource {
    * Timeline} is changing dynamically (for example, for incomplete live streams).
    */
   private static final long DEFAULT_NOTIFY_MANIFEST_INTERVAL_MS = 5000;
-  /**
-   * The minimum default start position for live streams, relative to the start of the live window.
-   */
-  private static final long MIN_LIVE_DEFAULT_START_POSITION_US = 5_000_000;
 
   private static final String TAG = "DashMediaSource";
 
@@ -322,10 +400,12 @@ public final class DashMediaSource extends BaseMediaSource {
   private final DataSource.Factory manifestDataSourceFactory;
   private final DashChunkSource.Factory chunkSourceFactory;
   private final CompositeSequenceableLoaderFactory compositeSequenceableLoaderFactory;
+  @Nullable private final CmcdConfiguration cmcdConfiguration;
   private final DrmSessionManager drmSessionManager;
   private final LoadErrorHandlingPolicy loadErrorHandlingPolicy;
   private final BaseUrlExclusionList baseUrlExclusionList;
   private final long fallbackTargetLiveOffsetMs;
+  private final long minLiveStartPositionUs;
   private final EventDispatcher manifestEventDispatcher;
   private final ParsingLoadable.Parser<? extends DashManifest> manifestParser;
   private final ManifestCallback manifestCallback;
@@ -364,9 +444,11 @@ public final class DashMediaSource extends BaseMediaSource {
       @Nullable ParsingLoadable.Parser<? extends DashManifest> manifestParser,
       DashChunkSource.Factory chunkSourceFactory,
       CompositeSequenceableLoaderFactory compositeSequenceableLoaderFactory,
+      @Nullable CmcdConfiguration cmcdConfiguration,
       DrmSessionManager drmSessionManager,
       LoadErrorHandlingPolicy loadErrorHandlingPolicy,
-      long fallbackTargetLiveOffsetMs) {
+      long fallbackTargetLiveOffsetMs,
+      long minLiveStartPositionUs) {
     this.mediaItem = mediaItem;
     this.liveConfiguration = mediaItem.liveConfiguration;
     this.manifestUri = checkNotNull(mediaItem.localConfiguration).uri;
@@ -375,9 +457,11 @@ public final class DashMediaSource extends BaseMediaSource {
     this.manifestDataSourceFactory = manifestDataSourceFactory;
     this.manifestParser = manifestParser;
     this.chunkSourceFactory = chunkSourceFactory;
+    this.cmcdConfiguration = cmcdConfiguration;
     this.drmSessionManager = drmSessionManager;
     this.loadErrorHandlingPolicy = loadErrorHandlingPolicy;
     this.fallbackTargetLiveOffsetMs = fallbackTargetLiveOffsetMs;
+    this.minLiveStartPositionUs = minLiveStartPositionUs;
     this.compositeSequenceableLoaderFactory = compositeSequenceableLoaderFactory;
     baseUrlExclusionList = new BaseUrlExclusionList();
     sideloadedManifest = manifest != null;
@@ -392,7 +476,7 @@ public final class DashMediaSource extends BaseMediaSource {
       manifestCallback = null;
       refreshManifestRunnable = null;
       simulateManifestRefreshRunnable = null;
-      manifestLoadErrorThrower = new LoaderErrorThrower.Dummy();
+      manifestLoadErrorThrower = new LoaderErrorThrower.Placeholder();
     } else {
       manifestCallback = new ManifestCallback();
       manifestLoadErrorThrower = new ManifestLoadErrorThrower();
@@ -423,8 +507,8 @@ public final class DashMediaSource extends BaseMediaSource {
   @Override
   protected void prepareSourceInternal(@Nullable TransferListener mediaTransferListener) {
     this.mediaTransferListener = mediaTransferListener;
-    drmSessionManager.prepare();
     drmSessionManager.setPlayer(/* playbackLooper= */ Looper.myLooper(), getPlayerId());
+    drmSessionManager.prepare();
     if (sideloadedManifest) {
       processManifest(false);
     } else {
@@ -443,17 +527,17 @@ public final class DashMediaSource extends BaseMediaSource {
   @Override
   public MediaPeriod createPeriod(MediaPeriodId id, Allocator allocator, long startPositionUs) {
     int periodIndex = (Integer) id.periodUid - firstPeriodId;
-    MediaSourceEventListener.EventDispatcher periodEventDispatcher =
-        createEventDispatcher(id, manifest.getPeriod(periodIndex).startMs);
+    MediaSourceEventListener.EventDispatcher periodEventDispatcher = createEventDispatcher(id);
     DrmSessionEventListener.EventDispatcher drmEventDispatcher = createDrmEventDispatcher(id);
     DashMediaPeriod mediaPeriod =
         new DashMediaPeriod(
-            firstPeriodId + periodIndex,
+            /* id= */ firstPeriodId + periodIndex,
             manifest,
             baseUrlExclusionList,
             periodIndex,
             chunkSourceFactory,
             mediaTransferListener,
+            cmcdConfiguration,
             drmSessionManager,
             drmEventDispatcher,
             loadErrorHandlingPolicy,
@@ -495,7 +579,6 @@ public final class DashMediaSource extends BaseMediaSource {
     elapsedRealtimeOffsetMs = C.TIME_UNSET;
     staleManifestReloadAttempt = 0;
     expiredManifestPublishTimeUs = C.TIME_UNSET;
-    firstPeriodId = 0;
     periodsById.clear();
     baseUrlExclusionList.reset();
     drmSessionManager.release();
@@ -804,8 +887,7 @@ public final class DashMediaSource extends BaseMediaSource {
       windowStartUnixTimeMs =
           manifest.availabilityStartTimeMs + Util.usToMs(windowStartTimeInManifestUs);
       windowDefaultPositionUs = nowInWindowUs - Util.msToUs(liveConfiguration.targetOffsetMs);
-      long minimumWindowDefaultPositionUs =
-          min(MIN_LIVE_DEFAULT_START_POSITION_US, windowDurationUs / 2);
+      long minimumWindowDefaultPositionUs = min(minLiveStartPositionUs, windowDurationUs / 2);
       if (windowDefaultPositionUs < minimumWindowDefaultPositionUs) {
         // The default position is too close to the start of the live window. Set it to the minimum
         // default position provided the window is at least twice as big. Else set it to the middle
@@ -914,8 +996,7 @@ public final class DashMediaSource extends BaseMediaSource {
       targetOffsetMs = minLiveOffsetMs;
     }
     if (targetOffsetMs > maxLiveOffsetMs) {
-      long safeDistanceFromWindowStartUs =
-          min(MIN_LIVE_DEFAULT_START_POSITION_US, windowDurationUs / 2);
+      long safeDistanceFromWindowStartUs = min(minLiveStartPositionUs, windowDurationUs / 2);
       long maxTargetOffsetForSafeDistanceToWindowStartMs =
           usToMs(nowInWindowUs - safeDistanceFromWindowStartUs);
       targetOffsetMs =
@@ -1032,9 +1113,11 @@ public final class DashMediaSource extends BaseMediaSource {
     for (int i = 0; i < period.adaptationSets.size(); i++) {
       AdaptationSet adaptationSet = period.adaptationSets.get(i);
       List<Representation> representations = adaptationSet.representations;
-      // Exclude text adaptation sets from duration calculations, if we have at least one audio
-      // or video adaptation set. See: https://github.com/google/ExoPlayer/issues/4029
-      if ((haveAudioVideoAdaptationSets && adaptationSet.type == C.TRACK_TYPE_TEXT)
+      // Exclude other adaptation sets from duration calculations, if we have at least one audio or
+      // video adaptation set. See: https://github.com/google/ExoPlayer/issues/4029.
+      boolean adaptationSetIsNotAudioVideo =
+          adaptationSet.type != C.TRACK_TYPE_AUDIO && adaptationSet.type != C.TRACK_TYPE_VIDEO;
+      if ((haveAudioVideoAdaptationSets && adaptationSetIsNotAudioVideo)
           || representations.isEmpty()) {
         continue;
       }
@@ -1064,9 +1147,11 @@ public final class DashMediaSource extends BaseMediaSource {
     for (int i = 0; i < period.adaptationSets.size(); i++) {
       AdaptationSet adaptationSet = period.adaptationSets.get(i);
       List<Representation> representations = adaptationSet.representations;
-      // Exclude text adaptation sets from duration calculations, if we have at least one audio
-      // or video adaptation set. See: https://github.com/google/ExoPlayer/issues/4029
-      if ((haveAudioVideoAdaptationSets && adaptationSet.type == C.TRACK_TYPE_TEXT)
+      // Exclude other adaptation sets from duration calculations, if we have at least one audio or
+      // video adaptation set. See: https://github.com/google/ExoPlayer/issues/4029
+      boolean adaptationSetIsNotAudioVideo =
+          adaptationSet.type != C.TRACK_TYPE_AUDIO && adaptationSet.type != C.TRACK_TYPE_VIDEO;
+      if ((haveAudioVideoAdaptationSets && adaptationSetIsNotAudioVideo)
           || representations.isEmpty()) {
         continue;
       }

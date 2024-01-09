@@ -18,15 +18,22 @@ package com.google.android.exoplayer2.source.hls;
 import com.google.android.exoplayer2.C;
 import com.google.android.exoplayer2.upstream.DataSource;
 
-/** Creates {@link DataSource}s for HLS playlists, encryption and media chunks. */
+/**
+ * Creates {@link DataSource}s for HLS playlists, encryption and media chunks.
+ *
+ * @deprecated com.google.android.exoplayer2 is deprecated. Please migrate to androidx.media3 (which
+ *     contains the same ExoPlayer code). See <a
+ *     href="https://developer.android.com/guide/topics/media/media3/getting-started/migration-guide">the
+ *     migration guide</a> for more details, including a script to help with the migration.
+ */
+@Deprecated
 public interface HlsDataSourceFactory {
 
   /**
    * Creates a {@link DataSource} for the given data type.
    *
-   * @param dataType The data type for which the {@link DataSource} will be used. One of {@link C}
-   *     {@code .DATA_TYPE_*} constants.
+   * @param dataType The {@link C.DataType} for which the {@link DataSource} will be used.
    * @return A {@link DataSource} for the given data type.
    */
-  DataSource createDataSource(int dataType);
+  DataSource createDataSource(@C.DataType int dataType);
 }

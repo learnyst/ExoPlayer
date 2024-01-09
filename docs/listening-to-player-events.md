@@ -2,6 +2,10 @@
 title: Player events
 ---
 
+This documentation may be out-of-date. Please refer to the
+[documentation for the latest ExoPlayer release][] on developer.android.com.
+{:.info}
+
 ## Listening to playback events ##
 
 Events such as changes in state and playback errors are reported to registered
@@ -88,8 +92,6 @@ public void onPlayerError(PlaybackException error) {
   if (cause instanceof HttpDataSourceException) {
     // An HTTP error occurred.
     HttpDataSourceException httpError = (HttpDataSourceException) cause;
-    // This is the request for which the error occurred.
-    DataSpec requestDataSpec = httpError.dataSpec;
     // It's possible to find out more about the error both by casting and by
     // querying the cause.
     if (httpError instanceof HttpDataSource.InvalidResponseCodeException) {
@@ -193,12 +195,11 @@ logging purposes. It can be added to an `ExoPlayer` to enable useful
 additional logging with a single line.
 
 ```
-player.addAnalyticsListener(new EventLogger(trackSelector));
+player.addAnalyticsListener(new EventLogger());
 ```
 {: .language-java }
 
-Passing the `trackSelector` enables additional logging, but is optional and so
-`null` can be passed instead. See the [debug logging page][] for more details.
+See the [debug logging page][] for more details.
 
 ## Firing events at specified playback positions ##
 
@@ -227,6 +228,7 @@ player
 ~~~
 {: .language-java }
 
+[documentation for the latest ExoPlayer release]: https://developer.android.com/guide/topics/media/exoplayer/listening-to-player-events
 [`Player.Listener`]: {{ site.exo_sdk }}/Player.Listener.html
 [Javadoc]: {{ site.exo_sdk }}/Player.Listener.html
 [`Individual callbacks vs onEvents`]: #individual-callbacks-vs-onevents

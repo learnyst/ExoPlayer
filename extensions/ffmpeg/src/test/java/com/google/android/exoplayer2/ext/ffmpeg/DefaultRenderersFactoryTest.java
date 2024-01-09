@@ -32,4 +32,5 @@ public final class DefaultRenderersFactoryTest {
     DefaultRenderersFactoryAsserts.assertExtensionRendererCreated(
         FfmpegAudioRenderer.class, C.TRACK_TYPE_AUDIO);
   }
+
 }

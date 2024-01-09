@@ -24,8 +24,14 @@ import java.util.ArrayDeque;
 /**
  * Base class for {@link Decoder}s that use their own decode thread and decode each input buffer
  * immediately into a corresponding output buffer.
+ *
+ * @deprecated com.google.android.exoplayer2 is deprecated. Please migrate to androidx.media3 (which
+ *     contains the same ExoPlayer code). See <a
+ *     href="https://developer.android.com/guide/topics/media/media3/getting-started/migration-guide">the
+ *     migration guide</a> for more details, including a script to help with the migration.
  */
 @SuppressWarnings("UngroupedOverloads")
+@Deprecated
 public abstract class SimpleDecoder<
         I extends DecoderInputBuffer, O extends DecoderOutputBuffer, E extends DecoderException>
     implements Decoder<I, O, E> {
@@ -232,6 +238,9 @@ public abstract class SimpleDecoder<
     } else {
       if (inputBuffer.isDecodeOnly()) {
         outputBuffer.addFlag(C.BUFFER_FLAG_DECODE_ONLY);
+      }
+      if (inputBuffer.isFirstSample()) {
+        outputBuffer.addFlag(C.BUFFER_FLAG_FIRST_SAMPLE);
       }
       @Nullable E exception;
       try {

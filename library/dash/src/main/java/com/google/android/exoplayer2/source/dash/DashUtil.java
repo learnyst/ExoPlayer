@@ -33,14 +33,23 @@ import com.google.android.exoplayer2.source.dash.manifest.RangedUri;
 import com.google.android.exoplayer2.source.dash.manifest.Representation;
 import com.google.android.exoplayer2.upstream.DataSource;
 import com.google.android.exoplayer2.upstream.DataSpec;
-import com.google.android.exoplayer2.upstream.HttpDataSource;
 import com.google.android.exoplayer2.upstream.ParsingLoadable;
 import com.google.android.exoplayer2.util.Assertions;
 import com.google.android.exoplayer2.util.MimeTypes;
+import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 
-/** Utility methods for DASH streams. */
+/**
+ * Utility methods for DASH streams.
+ *
+ * @deprecated com.google.android.exoplayer2 is deprecated. Please migrate to androidx.media3 (which
+ *     contains the same ExoPlayer code). See <a
+ *     href="https://developer.android.com/guide/topics/media/media3/getting-started/migration-guide">the
+ *     migration guide</a> for more details, including a script to help with the migration.
+ */
+@Deprecated
 public final class DashUtil {
 
   /**
@@ -51,39 +60,53 @@ public final class DashUtil {
    * @param requestUri The {@link RangedUri} of the data to request.
    * @param flags Flags to be set on the returned {@link DataSpec}. See {@link
    *     DataSpec.Builder#setFlags(int)}.
+   * @param httpRequestHeaders The {@link DataSpec#httpRequestHeaders}.
    * @return The {@link DataSpec}.
    */
   public static DataSpec buildDataSpec(
-      Representation representation, String baseUrl, RangedUri requestUri, int flags) {
+      Representation representation,
+      String baseUrl,
+      RangedUri requestUri,
+      int flags,
+      Map<String, String> httpRequestHeaders) {
     return new DataSpec.Builder()
         .setUri(requestUri.resolveUri(baseUrl))
         .setPosition(requestUri.start)
         .setLength(requestUri.length)
         .setKey(resolveCacheKey(representation, requestUri))
         .setFlags(flags)
+        .setHttpRequestHeaders(httpRequestHeaders)
         .build();
   }
 
   /**
-   * Builds a {@link DataSpec} for a given {@link RangedUri} belonging to {@link Representation}.
-   *
-   * <p>Uses the first base URL of the representation to build the data spec.
-   *
-   * @param representation The {@link Representation} to which the request belongs.
-   * @param requestUri The {@link RangedUri} of the data to request.
-   * @param flags Flags to be set on the returned {@link DataSpec}. See {@link
-   *     DataSpec.Builder#setFlags(int)}.
-   * @return The {@link DataSpec}.
+   * @deprecated Use {@link #buildDataSpec(Representation, String, RangedUri, int, Map)} instead.
    */
+  @Deprecated
+  public static DataSpec buildDataSpec(
+      Representation representation, String baseUrl, RangedUri requestUri, int flags) {
+    return buildDataSpec(
+        representation, baseUrl, requestUri, flags, /* httpRequestHeaders= */ ImmutableMap.of());
+  }
+
+  /**
+   * @deprecated Use {@link #buildDataSpec(Representation, String, RangedUri, int, Map)} instead.
+   */
+  @Deprecated
   public static DataSpec buildDataSpec(
       Representation representation, RangedUri requestUri, int flags) {
-    return buildDataSpec(representation, representation.baseUrls.get(0).url, requestUri, flags);
+    return buildDataSpec(
+        representation,
+        representation.baseUrls.get(0).url,
+        requestUri,
+        flags,
+        /* httpRequestHeaders= */ ImmutableMap.of());
   }
 
   /**
    * Loads a DASH manifest.
    *
-   * @param dataSource The {@link HttpDataSource} from which the manifest should be read.
+   * @param dataSource The {@link DataSource} from which the manifest should be read.
    * @param uri The {@link Uri} of the manifest to be read.
    * @return An instance of {@link DashManifest}.
    * @throws IOException Thrown when there is an error while loading.
@@ -95,7 +118,7 @@ public final class DashUtil {
   /**
    * Loads a {@link Format} for acquiring keys for a given period in a DASH manifest.
    *
-   * @param dataSource The {@link HttpDataSource} from which data should be loaded.
+   * @param dataSource The {@link DataSource} from which data should be loaded.
    * @param period The {@link Period}.
    * @return The loaded {@link Format}, or null if none is defined.
    * @throws IOException Thrown when there is an error while loading.
@@ -291,14 +314,15 @@ public final class DashUtil {
             representation,
             representation.baseUrls.get(baseUrlIndex).url,
             requestUri,
-            /* flags= */ 0);
+            /* flags= */ 0,
+            /* httpRequestHeaders= */ ImmutableMap.of());
     InitializationChunk initializationChunk =
         new InitializationChunk(
             dataSource,
             dataSpec,
             representation.format,
             C.SELECTION_REASON_UNKNOWN,
-            null /* trackSelectionData */,
+            /* trackSelectionData= */ null,
             chunkExtractor);
     initializationChunk.load();
   }

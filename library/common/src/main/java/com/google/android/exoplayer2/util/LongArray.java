@@ -17,7 +17,15 @@ package com.google.android.exoplayer2.util;
 
 import java.util.Arrays;
 
-/** An append-only, auto-growing {@code long[]}. */
+/**
+ * An append-only, auto-growing {@code long[]}.
+ *
+ * @deprecated com.google.android.exoplayer2 is deprecated. Please migrate to androidx.media3 (which
+ *     contains the same ExoPlayer code). See <a
+ *     href="https://developer.android.com/guide/topics/media/media3/getting-started/migration-guide">the
+ *     migration guide</a> for more details, including a script to help with the migration.
+ */
+@Deprecated
 public final class LongArray {
 
   private static final int DEFAULT_INITIAL_CAPACITY = 32;
@@ -29,7 +37,9 @@ public final class LongArray {
     this(DEFAULT_INITIAL_CAPACITY);
   }
 
-  /** @param initialCapacity The initial capacity of the array. */
+  /**
+   * @param initialCapacity The initial capacity of the array.
+   */
   public LongArray(int initialCapacity) {
     values = new long[initialCapacity];
   }

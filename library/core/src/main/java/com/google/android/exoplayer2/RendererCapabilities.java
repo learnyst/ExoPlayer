@@ -24,10 +24,33 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-/** Defines the capabilities of a {@link Renderer}. */
+/**
+ * Defines the capabilities of a {@link Renderer}.
+ *
+ * @deprecated com.google.android.exoplayer2 is deprecated. Please migrate to androidx.media3 (which
+ *     contains the same ExoPlayer code). See <a
+ *     href="https://developer.android.com/guide/topics/media/media3/getting-started/migration-guide">the
+ *     migration guide</a> for more details, including a script to help with the migration.
+ */
+@Deprecated
 public interface RendererCapabilities {
 
-  /** @deprecated Use {@link C.FormatSupport} instead. */
+  /** Listener for renderer capabilities events. */
+  interface Listener {
+
+    /**
+     * Called when the renderer capabilities are changed.
+     *
+     * <p>This method will be called on the playback thread.
+     *
+     * @param renderer The renderer that has its capabilities changed.
+     */
+    void onRendererCapabilitiesChanged(Renderer renderer);
+  }
+
+  /**
+   * @deprecated Use {@link C.FormatSupport} instead.
+   */
   @SuppressWarnings("deprecation")
   @Documented
   @Retention(RetentionPolicy.SOURCE)
@@ -43,15 +66,25 @@ public interface RendererCapabilities {
   @interface FormatSupport {}
   /** A mask to apply to {@link Capabilities} to obtain the {@link C.FormatSupport} only. */
   int FORMAT_SUPPORT_MASK = 0b111;
-  /** @deprecated Use {@link C#FORMAT_HANDLED} instead. */
+  /**
+   * @deprecated Use {@link C#FORMAT_HANDLED} instead.
+   */
   @Deprecated int FORMAT_HANDLED = C.FORMAT_HANDLED;
-  /** @deprecated Use {@link C#FORMAT_EXCEEDS_CAPABILITIES} instead. */
+  /**
+   * @deprecated Use {@link C#FORMAT_EXCEEDS_CAPABILITIES} instead.
+   */
   @Deprecated int FORMAT_EXCEEDS_CAPABILITIES = C.FORMAT_EXCEEDS_CAPABILITIES;
-  /** @deprecated Use {@link C#FORMAT_UNSUPPORTED_DRM} instead. */
+  /**
+   * @deprecated Use {@link C#FORMAT_UNSUPPORTED_DRM} instead.
+   */
   @Deprecated int FORMAT_UNSUPPORTED_DRM = C.FORMAT_UNSUPPORTED_DRM;
-  /** @deprecated Use {@link C#FORMAT_UNSUPPORTED_SUBTYPE} instead. */
+  /**
+   * @deprecated Use {@link C#FORMAT_UNSUPPORTED_SUBTYPE} instead.
+   */
   @Deprecated int FORMAT_UNSUPPORTED_SUBTYPE = C.FORMAT_UNSUPPORTED_SUBTYPE;
-  /** @deprecated Use {@link C#FORMAT_UNSUPPORTED_TYPE} instead. */
+  /**
+   * @deprecated Use {@link C#FORMAT_UNSUPPORTED_TYPE} instead.
+   */
   @Deprecated int FORMAT_UNSUPPORTED_TYPE = C.FORMAT_UNSUPPORTED_TYPE;
 
   /**
@@ -115,24 +148,26 @@ public interface RendererCapabilities {
   int HARDWARE_ACCELERATION_NOT_SUPPORTED = 0;
 
   /**
-   * Level of decoder support. One of {@link #DECODER_SUPPORT_PRIMARY} and {@link
-   * #DECODER_SUPPORT_FALLBACK}.
+   * Level of decoder support. One of {@link #DECODER_SUPPORT_FALLBACK_MIMETYPE}, {@link
+   * #DECODER_SUPPORT_FALLBACK}, and {@link #DECODER_SUPPORT_PRIMARY}.
    *
    * <p>For video renderers, the level of support is indicated for non-tunneled output.
    */
   @Documented
   @Retention(RetentionPolicy.SOURCE)
   @Target(TYPE_USE)
-  @IntDef({
-    DECODER_SUPPORT_PRIMARY,
-    DECODER_SUPPORT_FALLBACK,
-  })
+  @IntDef({DECODER_SUPPORT_FALLBACK_MIMETYPE, DECODER_SUPPORT_PRIMARY, DECODER_SUPPORT_FALLBACK})
   @interface DecoderSupport {}
   /** A mask to apply to {@link Capabilities} to obtain {@link DecoderSupport} only. */
-  int MODE_SUPPORT_MASK = 0b1 << 7;
+  int MODE_SUPPORT_MASK = 0b11 << 7;
+  /**
+   * The format's MIME type is unsupported and the renderer may use a decoder for a fallback MIME
+   * type.
+   */
+  int DECODER_SUPPORT_FALLBACK_MIMETYPE = 0b10 << 7;
   /** The renderer is able to use the primary decoder for the format's MIME type. */
   int DECODER_SUPPORT_PRIMARY = 0b1 << 7;
-  /** The renderer will use a fallback decoder. */
+  /** The format exceeds the primary decoder's capabilities but is supported by fallback decoder */
   int DECODER_SUPPORT_FALLBACK = 0;
 
   /**
@@ -153,7 +188,7 @@ public interface RendererCapabilities {
    *       C#FORMAT_UNSUPPORTED_DRM}, {@link C#FORMAT_UNSUPPORTED_SUBTYPE} and {@link
    *       C#FORMAT_UNSUPPORTED_TYPE}.
    *   <li>{@link AdaptiveSupport}: The level of support for adapting from the format to another
-   *       format of the same mime type. One of {@link #ADAPTIVE_SEAMLESS}, {@link
+   *       format of the same MIME type. One of {@link #ADAPTIVE_SEAMLESS}, {@link
    *       #ADAPTIVE_NOT_SEAMLESS} and {@link #ADAPTIVE_NOT_SUPPORTED}. Only set if the level of
    *       support for the format itself is {@link C#FORMAT_HANDLED} or {@link
    *       C#FORMAT_EXCEEDS_CAPABILITIES}.
@@ -337,4 +372,18 @@ public interface RendererCapabilities {
    */
   @AdaptiveSupport
   int supportsMixedMimeTypeAdaptation() throws ExoPlaybackException;
+
+  /**
+   * Sets the {@link Listener}.
+   *
+   * @param listener The listener to be set.
+   */
+  default void setListener(Listener listener) {
+    // Do nothing.
+  }
+
+  /** Clears the {@link Listener}. */
+  default void clearListener() {
+    // Do nothing.
+  }
 }

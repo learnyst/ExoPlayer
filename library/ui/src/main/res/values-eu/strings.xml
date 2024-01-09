@@ -1,18 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Copyright (C) 2019 The Android Open Source Project
-
-     Licensed under the Apache License, Version 2.0 (the "License");
-     you may not use this file except in compliance with the License.
-     You may obtain a copy of the License at
-
-          http://www.apache.org/licenses/LICENSE-2.0
-
-     Unless required by applicable law or agreed to in writing, software
-     distributed under the License is distributed on an "AS IS" BASIS,
-     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-     See the License for the specific language governing permissions and
-     limitations under the License.
--->
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
   <string name="exo_controls_show">Erakutsi erreproduzigailua kontrolatzeko aukerak</string>
   <string name="exo_controls_hide">Ezkutatu erreproduzigailua kontrolatzeko aukerak</string>
@@ -37,22 +23,22 @@
     <item quantity="one">Aurreratu %d segundo</item>
     <item quantity="other">Aurreratu %d segundo</item>
   </plurals>
-  <string name="exo_controls_repeat_off_description">Ez errepikatu</string>
-  <string name="exo_controls_repeat_one_description">Errepikatu bat</string>
-  <string name="exo_controls_repeat_all_description">Errepikatu guztiak</string>
-  <string name="exo_controls_shuffle_on_description">Ausazko erreprodukzioa aktibatuta</string>
-  <string name="exo_controls_shuffle_off_description">Ausazko erreprodukzioa desaktibatuta</string>
+  <string name="exo_controls_repeat_off_description">Oraingo modua: ez errepikatu. Aldatu errepikatzeko modua.</string>
+  <string name="exo_controls_repeat_one_description">Oraingo modua: errepikatu bat. Aldatu errepikatzeko modua.</string>
+  <string name="exo_controls_repeat_all_description">Oraingo modua: errepikatu guztiak. Aldatu errepikatzeko modua.</string>
+  <string name="exo_controls_shuffle_on_description">Desgaitu ausaz erreproduzitzeko modua</string>
+  <string name="exo_controls_shuffle_off_description">Gaitu ausaz erreproduzitzeko modua</string>
   <string name="exo_controls_vr_description">EBko modua</string>
   <string name="exo_controls_cc_enabled_description">Desgaitu azpitituluak</string>
   <string name="exo_controls_cc_disabled_description">Gaitu azpitituluak</string>
   <string name="exo_controls_playback_speed">Abiadura</string>
   <string-array name="exo_controls_playback_speeds">
-    <item>0,25x</item>
-    <item>0,5x</item>
-    <item>0,75x</item>
+    <item>0,25×</item>
+    <item>0,5×</item>
+    <item>0,75×</item>
     <item>Normala</item>
-    <item>1,25x</item>
-    <item>1,5x</item>
+    <item>1,25×</item>
+    <item>1,5×</item>
     <item>2x</item>
   </string-array>
   <string name="exo_track_selection_title_video">Bideoa</string>

@@ -46,7 +46,15 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/** Utility methods for RTSP messages. */
+/**
+ * Utility methods for RTSP messages.
+ *
+ * @deprecated com.google.android.exoplayer2 is deprecated. Please migrate to androidx.media3 (which
+ *     contains the same ExoPlayer code). See <a
+ *     href="https://developer.android.com/guide/topics/media/media3/getting-started/migration-guide">the
+ *     migration guide</a> for more details, including a script to help with the migration.
+ */
+@Deprecated
 /* package */ final class RtspMessageUtil {
   /** Represents a RTSP Session header (RFC2326 Section 12.37). */
   public static final class RtspSessionHeader {
@@ -455,6 +463,21 @@ import java.util.regex.Pattern;
     }
     throw ParserException.createForMalformedManifest(
         "Invalid WWW-Authenticate header " + headerValue, /* cause= */ null);
+  }
+
+  /**
+   * Throws {@link ParserException#createForMalformedManifest ParserException} if {@code expression}
+   * evaluates to false.
+   *
+   * @param expression The expression to evaluate.
+   * @param message The error message.
+   * @throws ParserException If {@code expression} is false.
+   */
+  public static void checkManifestExpression(boolean expression, @Nullable String message)
+      throws ParserException {
+    if (!expression) {
+      throw ParserException.createForMalformedManifest(message, /* cause= */ null);
+    }
   }
 
   private static String getRtspStatusReasonPhrase(int statusCode) {

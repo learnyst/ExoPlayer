@@ -21,7 +21,13 @@ import com.google.android.exoplayer2.util.Assertions;
 
 /**
  * Maps seek positions (in microseconds) to corresponding positions (byte offsets) in the stream.
+ *
+ * @deprecated com.google.android.exoplayer2 is deprecated. Please migrate to androidx.media3 (which
+ *     contains the same ExoPlayer code). See <a
+ *     href="https://developer.android.com/guide/topics/media/media3/getting-started/migration-guide">the
+ *     migration guide</a> for more details, including a script to help with the migration.
  */
+@Deprecated
 public interface SeekMap {
 
   /** A {@link SeekMap} that does not support seeking. */
@@ -73,7 +79,9 @@ public interface SeekMap {
     /** The second seek point, or {@link #first} if there's only one seek point. */
     public final SeekPoint second;
 
-    /** @param point The single seek point. */
+    /**
+     * @param point The single seek point.
+     */
     public SeekPoints(SeekPoint point) {
       this(point, point);
     }

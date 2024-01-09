@@ -29,9 +29,12 @@ import com.google.android.exoplayer2.audio.AacUtil;
 import com.google.android.exoplayer2.audio.Ac3Util;
 import com.google.android.exoplayer2.audio.Ac4Util;
 import com.google.android.exoplayer2.audio.OpusUtil;
+import com.google.android.exoplayer2.container.CreationTime;
+import com.google.android.exoplayer2.container.Mp4LocationData;
 import com.google.android.exoplayer2.drm.DrmInitData;
 import com.google.android.exoplayer2.extractor.ExtractorUtil;
 import com.google.android.exoplayer2.extractor.GaplessInfoHolder;
+import com.google.android.exoplayer2.extractor.mp4.Atom.LeafAtom;
 import com.google.android.exoplayer2.metadata.Metadata;
 import com.google.android.exoplayer2.metadata.mp4.SmtaMetadataEntry;
 import com.google.android.exoplayer2.util.CodecSpecificDataUtil;
@@ -45,6 +48,7 @@ import com.google.android.exoplayer2.video.DolbyVisionConfig;
 import com.google.android.exoplayer2.video.HevcConfig;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Ints;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
@@ -52,9 +56,50 @@ import java.util.Arrays;
 import java.util.List;
 import org.checkerframework.checker.nullness.compatqual.NullableType;
 
-/** Utility methods for parsing MP4 format atom payloads according to ISO/IEC 14496-12. */
+/**
+ * Utility methods for parsing MP4 format atom payloads according to ISO/IEC 14496-12.
+ *
+ * @deprecated com.google.android.exoplayer2 is deprecated. Please migrate to androidx.media3 (which
+ *     contains the same ExoPlayer code). See <a
+ *     href="https://developer.android.com/guide/topics/media/media3/getting-started/migration-guide">the
+ *     migration guide</a> for more details, including a script to help with the migration.
+ */
 @SuppressWarnings("ConstantField")
+@Deprecated
 /* package */ final class AtomParsers {
+
+  /** Stores metadata retrieved from the udta atom. */
+  public static final class UdtaInfo {
+    /** The metadata retrieved from the meta sub atom. */
+    @Nullable public final Metadata metaMetadata;
+    /** The metadata retrieved from the smta sub atom. */
+    @Nullable public final Metadata smtaMetadata;
+    /** The location metadata retrieved from the xyz sub atom. */
+    @Nullable public final Metadata xyzMetadata;
+
+    /** Creates an instance. */
+    public UdtaInfo(
+        @Nullable Metadata metaMetadata,
+        @Nullable Metadata smtaMetadata,
+        @Nullable Metadata xyzMetadata) {
+      this.metaMetadata = metaMetadata;
+      this.smtaMetadata = smtaMetadata;
+      this.xyzMetadata = xyzMetadata;
+    }
+  }
+
+  /** Stores data retrieved from the mvhd atom. */
+  public static final class MvhdInfo {
+    /** The metadata. */
+    public final Metadata metadata;
+    /** The movie timescale. */
+    public final long timescale;
+
+    public MvhdInfo(Metadata metadata, long timescale) {
+      this.metadata = metadata;
+      this.timescale = timescale;
+    }
+  }
 
   private static final String TAG = "AtomParsers";
 
@@ -155,15 +200,15 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
    * Parses a udta atom.
    *
    * @param udtaAtom The udta (user data) atom to decode.
-   * @return A {@link Pair} containing the metadata from the meta child atom as first value (if
-   *     any), and the metadata from the smta child atom as second value (if any).
+   * @return A {@link UdtaInfo} containing the metadata extracted from the meta, smta and xyz child
+   *     atoms (if present).
    */
-  public static Pair<@NullableType Metadata, @NullableType Metadata> parseUdta(
-      Atom.LeafAtom udtaAtom) {
+  public static UdtaInfo parseUdta(Atom.LeafAtom udtaAtom) {
     ParsableByteArray udtaData = udtaAtom.data;
     udtaData.setPosition(Atom.HEADER_SIZE);
     @Nullable Metadata metaMetadata = null;
     @Nullable Metadata smtaMetadata = null;
+    @Nullable Metadata xyzMetadata = null;
     while (udtaData.bytesLeft() >= Atom.HEADER_SIZE) {
       int atomPosition = udtaData.getPosition();
       int atomSize = udtaData.readInt();
@@ -174,10 +219,41 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
       } else if (atomType == Atom.TYPE_smta) {
         udtaData.setPosition(atomPosition);
         smtaMetadata = parseSmta(udtaData, atomPosition + atomSize);
+      } else if (atomType == Atom.TYPE_xyz) {
+        xyzMetadata = parseXyz(udtaData);
       }
       udtaData.setPosition(atomPosition + atomSize);
     }
-    return Pair.create(metaMetadata, smtaMetadata);
+    return new UdtaInfo(metaMetadata, smtaMetadata, xyzMetadata);
+  }
+
+  /**
+   * Parses a mvhd atom (defined in ISO/IEC 14496-12), returning the timescale for the movie.
+   *
+   * @param mvhd Contents of the mvhd atom to be parsed.
+   * @return An object containing the parsed data.
+   */
+  public static MvhdInfo parseMvhd(ParsableByteArray mvhd) {
+    mvhd.setPosition(Atom.HEADER_SIZE);
+    int fullAtom = mvhd.readInt();
+    int version = Atom.parseFullAtomVersion(fullAtom);
+    long creationTimestampSeconds;
+    if (version == 0) {
+      creationTimestampSeconds = mvhd.readUnsignedInt();
+      mvhd.skipBytes(4); // modification_time
+    } else {
+      creationTimestampSeconds = mvhd.readLong();
+      mvhd.skipBytes(8); // modification_time
+    }
+
+    // Convert creation time from MP4 format to Unix epoch timestamp in Ms.
+    // Time delta between January 1, 1904 (MP4 format) and January 1, 1970 (Unix epoch).
+    // Includes leap year.
+    int timeDeltaSeconds = (66 * 365 + 17) * (24 * 60 * 60);
+    long unixTimestampMs = (creationTimestampSeconds - timeDeltaSeconds) * 1000;
+
+    long timescale = mvhd.readUnsignedInt();
+    return new MvhdInfo(new Metadata(new CreationTime(unixTimestampMs)), timescale);
   }
 
   /**
@@ -293,7 +369,7 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
     if (duration == C.TIME_UNSET) {
       duration = tkhdData.duration;
     }
-    long movieTimescale = parseMvhd(mvhd.data);
+    long movieTimescale = parseMvhd(mvhd.data).timescale;
     long durationUs;
     if (duration == C.TIME_UNSET) {
       durationUs = C.TIME_UNSET;
@@ -307,9 +383,14 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
 
     Pair<Long, String> mdhdData =
         parseMdhd(checkNotNull(mdia.getLeafAtomOfType(Atom.TYPE_mdhd)).data);
+    LeafAtom stsd = stbl.getLeafAtomOfType(Atom.TYPE_stsd);
+    if (stsd == null) {
+      throw ParserException.createForMalformedContainer(
+          "Malformed sample table (stbl) missing sample description (stsd)", /* cause= */ null);
+    }
     StsdData stsdData =
         parseStsd(
-            checkNotNull(stbl.getLeafAtomOfType(Atom.TYPE_stsd)).data,
+            stsd.data,
             tkhdData.id,
             tkhdData.rotationDegrees,
             mdhdData.second,
@@ -656,6 +737,13 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
         long editDuration =
             Util.scaleLargeTimestamp(
                 track.editListDurations[i], track.timescale, track.movieTimescale);
+        // The timestamps array is in the order read from the media, which might not be strictly
+        // sorted, but will ensure that a) all sync frames are in-order and b) any out-of-order
+        // frames are after their respective sync frames. This means that although the result of
+        // this binary search might be slightly incorrect (due to out-of-order timestamps), the loop
+        // below that walks forward to find the next sync frame will result in a correct start
+        // index. The start index would also be correct if we walk backwards to the previous sync
+        // frame (https://github.com/google/ExoPlayer/issues/1659).
         startIndices[i] =
             Util.binarySearchFloor(
                 timestamps, editMediaTime, /* inclusive= */ true, /* stayInBounds= */ true);
@@ -702,7 +790,10 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
         long ptsUs = Util.scaleLargeTimestamp(pts, C.MICROS_PER_SECOND, track.movieTimescale);
         long timeInSegmentUs =
             Util.scaleLargeTimestamp(
-                max(0, timestamps[j] - editMediaTime), C.MICROS_PER_SECOND, track.timescale);
+                timestamps[j] - editMediaTime, C.MICROS_PER_SECOND, track.timescale);
+        if (canTrimSamplesWithTimestampChange(track.type)) {
+          timeInSegmentUs = max(0, timeInSegmentUs);
+        }
         editedTimestamps[sampleIndex] = ptsUs + timeInSegmentUs;
         if (copyMetadata && editedSizes[sampleIndex] > editedMaximumSize) {
           editedMaximumSize = sizes[j];
@@ -721,6 +812,12 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
         editedTimestamps,
         editedFlags,
         editedDurationUs);
+  }
+
+  private static boolean canTrimSamplesWithTimestampChange(@C.TrackType int trackType) {
+    // Audio samples have an inherent duration and we can't trim data by changing the sample
+    // timestamp alone.
+    return trackType != C.TRACK_TYPE_AUDIO;
   }
 
   @Nullable
@@ -751,6 +848,27 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
       }
     }
     return entries.isEmpty() ? null : new Metadata(entries);
+  }
+
+  /** Parses the location metadata from the xyz atom. */
+  @Nullable
+  private static Metadata parseXyz(ParsableByteArray xyzBox) {
+    int length = xyzBox.readShort();
+    xyzBox.skipBytes(2); // language code.
+    String location = xyzBox.readString(length);
+    // The location string looks like "+35.1345-15.1020/".
+    int plusSignIndex = location.lastIndexOf('+');
+    int minusSignIndex = location.lastIndexOf('-');
+    int latitudeEndIndex = max(plusSignIndex, minusSignIndex);
+    try {
+      float latitude = Float.parseFloat(location.substring(0, latitudeEndIndex));
+      float longitude =
+          Float.parseFloat(location.substring(latitudeEndIndex, location.length() - 1));
+      return new Metadata(new Mp4LocationData(latitude, longitude));
+    } catch (IndexOutOfBoundsException | NumberFormatException exception) {
+      // Invalid input.
+      return null;
+    }
   }
 
   /**
@@ -785,22 +903,9 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
   }
 
   /**
-   * Parses a mvhd atom (defined in ISO/IEC 14496-12), returning the timescale for the movie.
-   *
-   * @param mvhd Contents of the mvhd atom to be parsed.
-   * @return Timescale for the movie.
-   */
-  private static long parseMvhd(ParsableByteArray mvhd) {
-    mvhd.setPosition(Atom.HEADER_SIZE);
-    int fullAtom = mvhd.readInt();
-    int version = Atom.parseFullAtomVersion(fullAtom);
-    mvhd.skipBytes(version == 0 ? 8 : 16);
-    return mvhd.readUnsignedInt();
-  }
-
-  /**
    * Parses a tkhd atom (defined in ISO/IEC 14496-12).
    *
+   * @param tkhd Contents of the tkhd atom to be parsed.
    * @return An object containing the parsed data.
    */
   private static TkhdData parseTkhd(ParsableByteArray tkhd) {
@@ -1116,6 +1221,7 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
     @Nullable String codecs = null;
     @Nullable byte[] projectionData = null;
     @C.StereoMode int stereoMode = Format.NO_VALUE;
+    @Nullable EsdsData esdsData = null;
 
     // HDR related metadata.
     @C.ColorSpace int colorSpace = Format.NO_VALUE;
@@ -1145,6 +1251,9 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
           pixelWidthHeightRatio = avcConfig.pixelWidthHeightRatio;
         }
         codecs = avcConfig.codecs;
+        colorSpace = avcConfig.colorSpace;
+        colorRange = avcConfig.colorRange;
+        colorTransfer = avcConfig.colorTransfer;
       } else if (childAtomType == Atom.TYPE_hvcC) {
         ExtractorUtil.checkContainerInput(mimeType == null, /* message= */ null);
         mimeType = MimeTypes.VIDEO_H265;
@@ -1156,6 +1265,9 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
           pixelWidthHeightRatio = hevcConfig.pixelWidthHeightRatio;
         }
         codecs = hevcConfig.codecs;
+        colorSpace = hevcConfig.colorSpace;
+        colorRange = hevcConfig.colorRange;
+        colorTransfer = hevcConfig.colorTransfer;
       } else if (childAtomType == Atom.TYPE_dvcC || childAtomType == Atom.TYPE_dvvC) {
         @Nullable DolbyVisionConfig dolbyVisionConfig = DolbyVisionConfig.parse(parent);
         if (dolbyVisionConfig != null) {
@@ -1165,6 +1277,16 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
       } else if (childAtomType == Atom.TYPE_vpcC) {
         ExtractorUtil.checkContainerInput(mimeType == null, /* message= */ null);
         mimeType = (atomType == Atom.TYPE_vp08) ? MimeTypes.VIDEO_VP8 : MimeTypes.VIDEO_VP9;
+        parent.setPosition(childStartPosition + Atom.FULL_HEADER_SIZE);
+        // See vpcC atom syntax: https://www.webmproject.org/vp9/mp4/#syntax_1
+        parent.skipBytes(2); // profile(8), level(8)
+        boolean fullRangeFlag = (parent.readUnsignedByte() & 1) != 0;
+        int colorPrimaries = parent.readUnsignedByte();
+        int transferCharacteristics = parent.readUnsignedByte();
+        colorSpace = ColorInfo.isoColorPrimariesToColorSpace(colorPrimaries);
+        colorRange = fullRangeFlag ? C.COLOR_RANGE_FULL : C.COLOR_RANGE_LIMITED;
+        colorTransfer =
+            ColorInfo.isoTransferCharacteristicsToColorTransfer(transferCharacteristics);
       } else if (childAtomType == Atom.TYPE_av1C) {
         ExtractorUtil.checkContainerInput(mimeType == null, /* message= */ null);
         mimeType = MimeTypes.VIDEO_AV1;
@@ -1210,10 +1332,9 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
         mimeType = MimeTypes.VIDEO_H263;
       } else if (childAtomType == Atom.TYPE_esds) {
         ExtractorUtil.checkContainerInput(mimeType == null, /* message= */ null);
-        Pair<@NullableType String, byte @NullableType []> mimeTypeAndInitializationDataBytes =
-            parseEsdsFromParent(parent, childStartPosition);
-        mimeType = mimeTypeAndInitializationDataBytes.first;
-        @Nullable byte[] initializationDataBytes = mimeTypeAndInitializationDataBytes.second;
+        esdsData = parseEsdsFromParent(parent, childStartPosition);
+        mimeType = esdsData.mimeType;
+        @Nullable byte[] initializationDataBytes = esdsData.initializationData;
         if (initializationDataBytes != null) {
           initializationData = ImmutableList.of(initializationDataBytes);
         }
@@ -1245,26 +1366,34 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
           }
         }
       } else if (childAtomType == Atom.TYPE_colr) {
-        int colorType = parent.readInt();
-        if (colorType == TYPE_nclx || colorType == TYPE_nclc) {
-          // For more info on syntax, see Section 8.5.2.2 in ISO/IEC 14496-12:2012(E) and
-          // https://developer.apple.com/library/archive/documentation/QuickTime/QTFF/QTFFChap3/qtff3.html.
-          int colorPrimaries = parent.readUnsignedShort();
-          int transferCharacteristics = parent.readUnsignedShort();
-          parent.skipBytes(2); // matrix_coefficients.
+        // Only modify these values if 'colorSpace' and 'colorTransfer' have not been previously
+        // established by the bitstream. The absence of color descriptors ('colorSpace' and
+        // 'colorTransfer') does not necessarily mean that 'colorRange' has default values, hence it
+        // is not being verified here.
+        // If 'Atom.TYPE_avcC', 'Atom.TYPE_hvcC' or 'Atom.TYPE_vpcC' is available, they will take
+        // precedence and overwrite any existing values.
+        if (colorSpace == Format.NO_VALUE && colorTransfer == Format.NO_VALUE) {
+          int colorType = parent.readInt();
+          if (colorType == TYPE_nclx || colorType == TYPE_nclc) {
+            // For more info on syntax, see Section 8.5.2.2 in ISO/IEC 14496-12:2012(E) and
+            // https://developer.apple.com/library/archive/documentation/QuickTime/QTFF/QTFFChap3/qtff3.html.
+            int colorPrimaries = parent.readUnsignedShort();
+            int transferCharacteristics = parent.readUnsignedShort();
+            parent.skipBytes(2); // matrix_coefficients.
 
-          // Only try and read full_range_flag if the box is long enough. It should be present in
-          // all colr boxes with type=nclx (Section 8.5.2.2 in ISO/IEC 14496-12:2012(E)) but some
-          // device cameras record videos with type=nclx without this final flag (and therefore
-          // size=18): https://github.com/google/ExoPlayer/issues/9332
-          boolean fullRangeFlag =
-              childAtomSize == 19 && (parent.readUnsignedByte() & 0b10000000) != 0;
-          colorSpace = ColorInfo.isoColorPrimariesToColorSpace(colorPrimaries);
-          colorRange = fullRangeFlag ? C.COLOR_RANGE_FULL : C.COLOR_RANGE_LIMITED;
-          colorTransfer =
-              ColorInfo.isoTransferCharacteristicsToColorTransfer(transferCharacteristics);
-        } else {
-          Log.w(TAG, "Unsupported color type: " + Atom.getAtomTypeString(colorType));
+            // Only try and read full_range_flag if the box is long enough. It should be present in
+            // all colr boxes with type=nclx (Section 8.5.2.2 in ISO/IEC 14496-12:2012(E)) but some
+            // device cameras record videos with type=nclx without this final flag (and therefore
+            // size=18): https://github.com/google/ExoPlayer/issues/9332
+            boolean fullRangeFlag =
+                childAtomSize == 19 && (parent.readUnsignedByte() & 0b10000000) != 0;
+            colorSpace = ColorInfo.isoColorPrimariesToColorSpace(colorPrimaries);
+            colorRange = fullRangeFlag ? C.COLOR_RANGE_FULL : C.COLOR_RANGE_LIMITED;
+            colorTransfer =
+                ColorInfo.isoTransferCharacteristicsToColorTransfer(transferCharacteristics);
+          } else {
+            Log.w(TAG, "Unsupported color type: " + Atom.getAtomTypeString(colorType));
+          }
         }
       }
       childPosition += childAtomSize;
@@ -1301,6 +1430,13 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
               colorTransfer,
               hdrStaticInfo != null ? hdrStaticInfo.array() : null));
     }
+
+    if (esdsData != null) {
+      formatBuilder
+          .setAverageBitrate(Ints.saturatedCast(esdsData.bitrate))
+          .setPeakBitrate(Ints.saturatedCast(esdsData.peakBitrate));
+    }
+
     out.format = formatBuilder.build();
   }
 
@@ -1391,6 +1527,7 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
     int sampleRateMlp = 0;
     @C.PcmEncoding int pcmEncoding = Format.NO_VALUE;
     @Nullable String codecs = null;
+    @Nullable EsdsData esdsData = null;
 
     if (quickTimeSoundDescriptionVersion == 0 || quickTimeSoundDescriptionVersion == 1) {
       channelCount = parent.readUnsignedShort();
@@ -1506,11 +1643,10 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
             childAtomType == Atom.TYPE_esds
                 ? childPosition
                 : findBoxPosition(parent, Atom.TYPE_esds, childPosition, childAtomSize);
-        if (esdsAtomPosition != C.POSITION_UNSET) {
-          Pair<@NullableType String, byte @NullableType []> mimeTypeAndInitializationData =
-              parseEsdsFromParent(parent, esdsAtomPosition);
-          mimeType = mimeTypeAndInitializationData.first;
-          @Nullable byte[] initializationDataBytes = mimeTypeAndInitializationData.second;
+        if (esdsAtomPosition != C.INDEX_UNSET) {
+          esdsData = parseEsdsFromParent(parent, esdsAtomPosition);
+          mimeType = esdsData.mimeType;
+          @Nullable byte[] initializationDataBytes = esdsData.initializationData;
           if (initializationDataBytes != null) {
             if (MimeTypes.AUDIO_AAC.equals(mimeType)) {
               // Update sampleRate and channelCount from the AudioSpecificConfig initialization
@@ -1546,7 +1682,7 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
         // because these streams can carry simultaneously multiple representations of the same
         // audio. Use stereo by default.
         channelCount = 2;
-      } else if (childAtomType == Atom.TYPE_ddts) {
+      } else if (childAtomType == Atom.TYPE_ddts || childAtomType == Atom.TYPE_udts) {
         out.format =
             new Format.Builder()
                 .setId(trackId)
@@ -1591,7 +1727,7 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
     }
 
     if (out.format == null && mimeType != null) {
-      out.format =
+      Format.Builder formatBuilder =
           new Format.Builder()
               .setId(trackId)
               .setSampleMimeType(mimeType)
@@ -1601,14 +1737,21 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
               .setPcmEncoding(pcmEncoding)
               .setInitializationData(initializationData)
               .setDrmInitData(drmInitData)
-              .setLanguage(language)
-              .build();
+              .setLanguage(language);
+
+      if (esdsData != null) {
+        formatBuilder
+            .setAverageBitrate(Ints.saturatedCast(esdsData.bitrate))
+            .setPeakBitrate(Ints.saturatedCast(esdsData.peakBitrate));
+      }
+
+      out.format = formatBuilder.build();
     }
   }
 
   /**
    * Returns the position of the first box with the given {@code boxType} within {@code parent}, or
-   * {@link C#POSITION_UNSET} if no such box is found.
+   * {@link C#INDEX_UNSET} if no such box is found.
    *
    * @param parent The {@link ParsableByteArray} to search. The search will start from the {@link
    *     ParsableByteArray#getPosition() current position}.
@@ -1616,7 +1759,7 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
    * @param parentBoxPosition The position in {@code parent} of the box we are searching.
    * @param parentBoxSize The size of the parent box we are searching in bytes.
    * @return The position of the first box with the given {@code boxType} within {@code parent}, or
-   *     {@link C#POSITION_UNSET} if no such box is found.
+   *     {@link C#INDEX_UNSET} if no such box is found.
    */
   private static int findBoxPosition(
       ParsableByteArray parent, int boxType, int parentBoxPosition, int parentBoxSize)
@@ -1633,12 +1776,11 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
       }
       childAtomPosition += childAtomSize;
     }
-    return C.POSITION_UNSET;
+    return C.INDEX_UNSET;
   }
 
   /** Returns codec-specific initialization data contained in an esds box. */
-  private static Pair<@NullableType String, byte @NullableType []> parseEsdsFromParent(
-      ParsableByteArray parent, int position) {
+  private static EsdsData parseEsdsFromParent(ParsableByteArray parent, int position) {
     parent.setPosition(position + Atom.HEADER_SIZE + 4);
     // Start of the ES_Descriptor (defined in ISO/IEC 14496-1)
     parent.skipBytes(1); // ES_Descriptor tag
@@ -1650,7 +1792,7 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
       parent.skipBytes(2);
     }
     if ((flags & 0x40 /* URL_Flag */) != 0) {
-      parent.skipBytes(parent.readUnsignedShort());
+      parent.skipBytes(parent.readUnsignedByte());
     }
     if ((flags & 0x20 /* OCRstreamFlag */) != 0) {
       parent.skipBytes(2);
@@ -1666,17 +1808,29 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
     if (MimeTypes.AUDIO_MPEG.equals(mimeType)
         || MimeTypes.AUDIO_DTS.equals(mimeType)
         || MimeTypes.AUDIO_DTS_HD.equals(mimeType)) {
-      return Pair.create(mimeType, null);
+      return new EsdsData(
+          mimeType,
+          /* initializationData= */ null,
+          /* bitrate= */ Format.NO_VALUE,
+          /* peakBitrate= */ Format.NO_VALUE);
     }
 
-    parent.skipBytes(12);
+    parent.skipBytes(4);
+    long peakBitrate = parent.readUnsignedInt();
+    long bitrate = parent.readUnsignedInt();
 
     // Start of the DecoderSpecificInfo.
     parent.skipBytes(1); // DecoderSpecificInfo tag
     int initializationDataSize = parseExpandableClassSize(parent);
     byte[] initializationData = new byte[initializationDataSize];
     parent.readBytes(initializationData, 0, initializationDataSize);
-    return Pair.create(mimeType, initializationData);
+
+    // Skipping zero values as unknown.
+    return new EsdsData(
+        mimeType,
+        /* initializationData= */ initializationData,
+        /* bitrate= */ bitrate > 0 ? bitrate : Format.NO_VALUE,
+        /* peakBitrate= */ peakBitrate > 0 ? peakBitrate : Format.NO_VALUE);
   }
 
   /**
@@ -1710,7 +1864,7 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
   /* package */ static Pair<Integer, TrackEncryptionBox> parseCommonEncryptionSinfFromParent(
       ParsableByteArray parent, int position, int size) throws ParserException {
     int childPosition = position + Atom.HEADER_SIZE;
-    int schemeInformationBoxPosition = C.POSITION_UNSET;
+    int schemeInformationBoxPosition = C.INDEX_UNSET;
     int schemeInformationBoxSize = 0;
     @Nullable String schemeType = null;
     @Nullable Integer dataFormat = null;
@@ -1737,7 +1891,7 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
         || C.CENC_TYPE_cbcs.equals(schemeType)) {
       ExtractorUtil.checkContainerInput(dataFormat != null, "frma atom is mandatory");
       ExtractorUtil.checkContainerInput(
-          schemeInformationBoxPosition != C.POSITION_UNSET, "schi atom is mandatory");
+          schemeInformationBoxPosition != C.INDEX_UNSET, "schi atom is mandatory");
       @Nullable
       TrackEncryptionBox encryptionBox =
           parseSchiFromParent(
@@ -1915,6 +2069,25 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
     public StsdData(int numberOfEntries) {
       trackEncryptionBoxes = new TrackEncryptionBox[numberOfEntries];
       requiredSampleTransformation = Track.TRANSFORMATION_NONE;
+    }
+  }
+
+  /** Data parsed from an esds box. */
+  private static final class EsdsData {
+    private final @NullableType String mimeType;
+    private final byte @NullableType [] initializationData;
+    private final long bitrate;
+    private final long peakBitrate;
+
+    public EsdsData(
+        @NullableType String mimeType,
+        byte @NullableType [] initializationData,
+        long bitrate,
+        long peakBitrate) {
+      this.mimeType = mimeType;
+      this.initializationData = initializationData;
+      this.bitrate = bitrate;
+      this.peakBitrate = peakBitrate;
     }
   }
 

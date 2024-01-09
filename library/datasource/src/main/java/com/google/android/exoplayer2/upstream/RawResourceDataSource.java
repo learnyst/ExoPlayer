@@ -51,18 +51,28 @@ import java.nio.channels.FileChannel;
  * </ul>
  *
  * <p>{@link #buildRawResourceUri(int)} can be used to build supported {@link Uri}s.
+ *
+ * @deprecated com.google.android.exoplayer2 is deprecated. Please migrate to androidx.media3 (which
+ *     contains the same ExoPlayer code). See <a
+ *     href="https://developer.android.com/guide/topics/media/media3/getting-started/migration-guide">the
+ *     migration guide</a> for more details, including a script to help with the migration.
  */
+@Deprecated
 public final class RawResourceDataSource extends BaseDataSource {
 
   /** Thrown when an {@link IOException} is encountered reading from a raw resource. */
   public static class RawResourceDataSourceException extends DataSourceException {
-    /** @deprecated Use {@link #RawResourceDataSourceException(String, Throwable, int)}. */
+    /**
+     * @deprecated Use {@link #RawResourceDataSourceException(String, Throwable, int)}.
+     */
     @Deprecated
     public RawResourceDataSourceException(String message) {
       super(message, /* cause= */ null, PlaybackException.ERROR_CODE_IO_UNSPECIFIED);
     }
 
-    /** @deprecated Use {@link #RawResourceDataSourceException(String, Throwable, int)}. */
+    /**
+     * @deprecated Use {@link #RawResourceDataSourceException(String, Throwable, int)}.
+     */
     @Deprecated
     public RawResourceDataSourceException(Throwable cause) {
       super(cause, PlaybackException.ERROR_CODE_IO_UNSPECIFIED);
@@ -99,7 +109,9 @@ public final class RawResourceDataSource extends BaseDataSource {
   private long bytesRemaining;
   private boolean opened;
 
-  /** @param context A context. */
+  /**
+   * @param context A context.
+   */
   public RawResourceDataSource(Context context) {
     super(/* isNetwork= */ false);
     this.resources = context.getResources();
@@ -108,7 +120,7 @@ public final class RawResourceDataSource extends BaseDataSource {
 
   @Override
   public long open(DataSpec dataSpec) throws RawResourceDataSourceException {
-    Uri uri = dataSpec.uri;
+    Uri uri = dataSpec.uri.normalizeScheme();
     this.uri = uri;
 
     int resourceId;
@@ -142,10 +154,13 @@ public final class RawResourceDataSource extends BaseDataSource {
       }
     } else {
       throw new RawResourceDataSourceException(
-          "URI must either use scheme "
+          "Unsupported URI scheme ("
+              + uri.getScheme()
+              + "). Only "
               + RAW_RESOURCE_SCHEME
-              + " or "
-              + ContentResolver.SCHEME_ANDROID_RESOURCE,
+              + " and "
+              + ContentResolver.SCHEME_ANDROID_RESOURCE
+              + " are supported.",
           /* cause= */ null,
           PlaybackException.ERROR_CODE_FAILED_RUNTIME_CHECK);
     }

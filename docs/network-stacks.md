@@ -2,6 +2,10 @@
 title: Network stacks
 ---
 
+This documentation may be out-of-date. Please refer to the
+[documentation for the latest ExoPlayer release][] on developer.android.com.
+{:.info}
+
 ExoPlayer is commonly used for streaming media over the internet. It supports
 multiple network stacks for making its underlying network requests. Your choice
 of network stack can have a significant impact on streaming performance.
@@ -22,14 +26,14 @@ that corresponds to the network stack you wish to use. If your application also
 needs to play non-http(s) content such as local files, use
 
 ~~~
-new DefaultDataSourceFactory(
+new DefaultDataSource.Factory(
     ...
     /* baseDataSourceFactory= */ new PreferredHttpDataSource.Factory(...));
 ~~~
 {: .language-java}
 
 where `PreferredHttpDataSource.Factory` is the factory corresponding to your
-preferred network stack. The `DefaultDataSourceFactory` layer adds in support
+preferred network stack. The `DefaultDataSource.Factory` layer adds in support
 for non-http(s) sources such as local files.
 
 The example below shows how to build an `ExoPlayer` that will use the Cronet
@@ -48,10 +52,12 @@ DefaultDataSource.Factory dataSourceFactory =
         context,
         /* baseDataSourceFactory= */ cronetDataSourceFactory);
 
-// Inject the DefaultDataSourceFactory when creating the player.
+// Inject the DefaultDataSource.Factory when creating the player.
 ExoPlayer player =
     new ExoPlayer.Builder(context)
-        .setMediaSourceFactory(new DefaultMediaSourceFactory(dataSourceFactory))
+        .setMediaSourceFactory(
+            new DefaultMediaSourceFactory(context)
+                .setDataSourceFactory(dataSourceFactory))
         .build();
 ~~~
 {: .language-java}
@@ -174,3 +180,5 @@ to media playback, your choice of network stack should ultimately factor in our
 recommendations above for media streaming in isolation, the requirements of any
 other components that perform networking, and their relative importance to your
 application.
+
+[documentation for the latest ExoPlayer release]: https://developer.android.com/guide/topics/media/exoplayer/network-stacks

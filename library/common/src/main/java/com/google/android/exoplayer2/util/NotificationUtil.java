@@ -32,8 +32,16 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-/** Utility methods for displaying {@link Notification Notifications}. */
+/**
+ * Utility methods for displaying {@link Notification Notifications}.
+ *
+ * @deprecated com.google.android.exoplayer2 is deprecated. Please migrate to androidx.media3 (which
+ *     contains the same ExoPlayer code). See <a
+ *     href="https://developer.android.com/guide/topics/media/media3/getting-started/migration-guide">the
+ *     migration guide</a> for more details, including a script to help with the migration.
+ */
 @SuppressLint("InlinedApi")
+@Deprecated
 public final class NotificationUtil {
 
   /**
@@ -53,17 +61,29 @@ public final class NotificationUtil {
     IMPORTANCE_HIGH
   })
   public @interface Importance {}
-  /** @see NotificationManager#IMPORTANCE_UNSPECIFIED */
+  /**
+   * @see NotificationManager#IMPORTANCE_UNSPECIFIED
+   */
   public static final int IMPORTANCE_UNSPECIFIED = NotificationManager.IMPORTANCE_UNSPECIFIED;
-  /** @see NotificationManager#IMPORTANCE_NONE */
+  /**
+   * @see NotificationManager#IMPORTANCE_NONE
+   */
   public static final int IMPORTANCE_NONE = NotificationManager.IMPORTANCE_NONE;
-  /** @see NotificationManager#IMPORTANCE_MIN */
+  /**
+   * @see NotificationManager#IMPORTANCE_MIN
+   */
   public static final int IMPORTANCE_MIN = NotificationManager.IMPORTANCE_MIN;
-  /** @see NotificationManager#IMPORTANCE_LOW */
+  /**
+   * @see NotificationManager#IMPORTANCE_LOW
+   */
   public static final int IMPORTANCE_LOW = NotificationManager.IMPORTANCE_LOW;
-  /** @see NotificationManager#IMPORTANCE_DEFAULT */
+  /**
+   * @see NotificationManager#IMPORTANCE_DEFAULT
+   */
   public static final int IMPORTANCE_DEFAULT = NotificationManager.IMPORTANCE_DEFAULT;
-  /** @see NotificationManager#IMPORTANCE_HIGH */
+  /**
+   * @see NotificationManager#IMPORTANCE_HIGH
+   */
   public static final int IMPORTANCE_HIGH = NotificationManager.IMPORTANCE_HIGH;
 
   /**

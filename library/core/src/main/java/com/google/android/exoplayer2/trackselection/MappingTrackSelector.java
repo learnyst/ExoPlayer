@@ -36,13 +36,11 @@ import com.google.android.exoplayer2.RendererCapabilities.AdaptiveSupport;
 import com.google.android.exoplayer2.RendererCapabilities.Capabilities;
 import com.google.android.exoplayer2.RendererConfiguration;
 import com.google.android.exoplayer2.Timeline;
-import com.google.android.exoplayer2.TracksInfo;
+import com.google.android.exoplayer2.Tracks;
 import com.google.android.exoplayer2.source.MediaSource.MediaPeriodId;
 import com.google.android.exoplayer2.source.TrackGroup;
 import com.google.android.exoplayer2.source.TrackGroupArray;
-import com.google.android.exoplayer2.util.MimeTypes;
 import com.google.android.exoplayer2.util.Util;
-import com.google.common.collect.ImmutableList;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -54,7 +52,13 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
  * Base class for {@link TrackSelector}s that first establish a mapping between {@link TrackGroup}s
  * and {@link Renderer}s, and then from that mapping create a {@link ExoTrackSelection} for each
  * renderer.
+ *
+ * @deprecated com.google.android.exoplayer2 is deprecated. Please migrate to androidx.media3 (which
+ *     contains the same ExoPlayer code). See <a
+ *     href="https://developer.android.com/guide/topics/media/media3/getting-started/migration-guide">the
+ *     migration guide</a> for more details, including a script to help with the migration.
  */
+@Deprecated
 public abstract class MappingTrackSelector extends TrackSelector {
 
   /** Provides mapped track information for each renderer. */
@@ -289,6 +293,7 @@ public abstract class MappingTrackSelector extends TrackSelector {
      *
      * @param rendererIndex The renderer index.
      * @param groupIndex The index of the track group.
+     * @param trackIndices The indices of the tracks in the track group for which to query support.
      * @return The {@link AdaptiveSupport}.
      */
     public @AdaptiveSupport int getAdaptiveSupport(
@@ -370,8 +375,7 @@ public abstract class MappingTrackSelector extends TrackSelector {
     for (int groupIndex = 0; groupIndex < trackGroups.length; groupIndex++) {
       TrackGroup group = trackGroups.get(groupIndex);
       // Associate the group to a preferred renderer.
-      boolean preferUnassociatedRenderer =
-          MimeTypes.getTrackType(group.getFormat(0).sampleMimeType) == C.TRACK_TYPE_METADATA;
+      boolean preferUnassociatedRenderer = group.type == C.TRACK_TYPE_METADATA;
       int rendererIndex =
           findRenderer(
               rendererCapabilities, group, rendererTrackGroupCounts, preferUnassociatedRenderer);
@@ -428,16 +432,16 @@ public abstract class MappingTrackSelector extends TrackSelector {
             periodId,
             timeline);
 
-    TracksInfo tracksInfo = buildTracksInfo(result.second, mappedTrackInfo);
+    Tracks tracks = TrackSelectionUtil.buildTracks(mappedTrackInfo, result.second);
 
-    return new TrackSelectorResult(result.first, result.second, tracksInfo, mappedTrackInfo);
+    return new TrackSelectorResult(result.first, result.second, tracks, mappedTrackInfo);
   }
 
   /**
    * Given mapped track information, returns a track selection and configuration for each renderer.
    *
    * @param mappedTrackInfo Mapped track information.
-   * @param rendererFormatSupports The {@link Capabilities} for ach mapped track, indexed by
+   * @param rendererFormatSupports The {@link Capabilities} for each mapped track, indexed by
    *     renderer, track group and track (in that order).
    * @param rendererMixedMimeTypeAdaptationSupport The {@link AdaptiveSupport} for mixed MIME type
    *     adaptation for the renderer.
@@ -557,47 +561,5 @@ public abstract class MappingTrackSelector extends TrackSelector {
       mixedMimeTypeAdaptationSupport[i] = rendererCapabilities[i].supportsMixedMimeTypeAdaptation();
     }
     return mixedMimeTypeAdaptationSupport;
-  }
-
-  @VisibleForTesting
-  /* package */ static TracksInfo buildTracksInfo(
-      @NullableType TrackSelection[] selections, MappedTrackInfo mappedTrackInfo) {
-    ImmutableList.Builder<TracksInfo.TrackGroupInfo> builder = new ImmutableList.Builder<>();
-    for (int rendererIndex = 0;
-        rendererIndex < mappedTrackInfo.getRendererCount();
-        rendererIndex++) {
-      TrackGroupArray trackGroupArray = mappedTrackInfo.getTrackGroups(rendererIndex);
-      @Nullable TrackSelection trackSelection = selections[rendererIndex];
-      for (int groupIndex = 0; groupIndex < trackGroupArray.length; groupIndex++) {
-        TrackGroup trackGroup = trackGroupArray.get(groupIndex);
-        @C.FormatSupport int[] trackSupport = new int[trackGroup.length];
-        boolean[] selected = new boolean[trackGroup.length];
-        for (int trackIndex = 0; trackIndex < trackGroup.length; trackIndex++) {
-          trackSupport[trackIndex] =
-              mappedTrackInfo.getTrackSupport(rendererIndex, groupIndex, trackIndex);
-          boolean isTrackSelected =
-              trackSelection != null
-                  && trackSelection.getTrackGroup().equals(trackGroup)
-                  && trackSelection.indexOf(trackIndex) != C.INDEX_UNSET;
-          selected[trackIndex] = isTrackSelected;
-        }
-        @C.TrackType int trackGroupType = mappedTrackInfo.getRendererType(rendererIndex);
-        builder.add(
-            new TracksInfo.TrackGroupInfo(trackGroup, trackSupport, trackGroupType, selected));
-      }
-    }
-    TrackGroupArray unmappedTrackGroups = mappedTrackInfo.getUnmappedTrackGroups();
-    for (int groupIndex = 0; groupIndex < unmappedTrackGroups.length; groupIndex++) {
-      TrackGroup trackGroup = unmappedTrackGroups.get(groupIndex);
-      @C.FormatSupport int[] trackSupport = new int[trackGroup.length];
-      Arrays.fill(trackSupport, C.FORMAT_UNSUPPORTED_TYPE);
-      // A track group only contains tracks of the same type, thus only consider the first track.
-      @C.TrackType
-      int trackGroupType = MimeTypes.getTrackType(trackGroup.getFormat(0).sampleMimeType);
-      boolean[] selected = new boolean[trackGroup.length]; // Initialized to false.
-      builder.add(
-          new TracksInfo.TrackGroupInfo(trackGroup, trackSupport, trackGroupType, selected));
-    }
-    return new TracksInfo(builder.build());
   }
 }

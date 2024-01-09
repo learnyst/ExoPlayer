@@ -2,6 +2,10 @@
 title: Ad insertion
 ---
 
+This documentation may be out-of-date. Please refer to the
+[documentation for the latest ExoPlayer release][] on developer.android.com.
+{:.info}
+
 ExoPlayer can be used for both client-side and server-side ad insertion.
 
 ## Client-side ad insertion ##
@@ -51,8 +55,8 @@ build and inject a `DefaultMediaSourceFactory` configured with an
 ~~~
 MediaSource.Factory mediaSourceFactory =
     new DefaultMediaSourceFactory(context)
-        .setAdsLoaderProvider(adsLoaderProvider)
-        .setAdViewProvider(playerView);
+        .setLocalAdInsertionComponents(
+            adsLoaderProvider, /* adViewProvider= */ playerView);
 ExoPlayer player = new ExoPlayer.Builder(context)
     .setMediaSourceFactory(mediaSourceFactory)
     .build();
@@ -220,7 +224,7 @@ server-side ad insertion `MediaSource` for URIs using the `ssai://` scheme:
 Player player =
     new ExoPlayer.Builder(context)
         .setMediaSourceFactory(
-            new DefaultMediaSourceFactory(dataSourceFactory)
+            new DefaultMediaSourceFactory(context)
                 .setServerSideAdInsertionMediaSourceFactory(ssaiFactory))
         .build();
 ```
@@ -241,7 +245,7 @@ In order to use this class, you need to set up the
 ```
 // MediaSource.Factory to load the actual media stream.
 DefaultMediaSourceFactory defaultMediaSourceFactory =
-    new DefaultMediaSourceFactory(dataSourceFactory);
+    new DefaultMediaSourceFactory(context);
 // AdsLoader that can be reused for multiple playbacks.
 ImaServerSideAdInsertionMediaSource.AdsLoader adsLoader =
     new ImaServerSideAdInsertionMediaSource.AdsLoader.Builder(context, adViewProvider)
@@ -267,7 +271,10 @@ with `ImaServerSideAdInsertionUriBuilder`:
 
 ```
 Uri ssaiUri =
-    new ImaServerSideAdInsertionUriBuilder().setAssetKey(assetKey).build();
+    new ImaServerSideAdInsertionUriBuilder()
+        .setAssetKey(assetKey)
+        .setFormat(C.TYPE_HLS)
+        .build();
 player.setMediaItem(MediaItem.fromUri(ssaiUri));
 ```
 
@@ -307,10 +314,11 @@ metadata.
 
 Often, server-side inserted ad streams contain timed events to notify the player
 about ad metadata. Please see [supported formats][] for information on what
-timed metadata formats are supported by ExoPlayer. Custom ads SDK `MediaSource`s
-can listen for timed metadata events from the player, e.g., via
-`ExoPlayer.addMetadataOutput`.
+timed metadata formats are supported by ExoPlayer. Custom ads SDK `MediaSource`
+implementations can listen for timed metadata events from the player via
+`Player.Listener.onMetadata`.
 
+[documentation for the latest ExoPlayer release]: https://developer.android.com/guide/topics/media/exoplayer/ad-insertion
 [VAST]: https://www.iab.com/wp-content/uploads/2015/06/VASTv3_0.pdf
 [VMAP]: https://www.iab.com/guidelines/digital-video-multiple-ad-playlist-vmap-1-0-1/
 [ExoPlayer UI components]: {{ site.baseurl }}/ui-components.html

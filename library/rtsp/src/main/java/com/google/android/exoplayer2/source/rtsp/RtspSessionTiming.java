@@ -15,8 +15,8 @@
  */
 package com.google.android.exoplayer2.source.rtsp;
 
-import static com.google.android.exoplayer2.util.Assertions.checkArgument;
-import static com.google.android.exoplayer2.util.Assertions.checkNotNull;
+import static com.google.android.exoplayer2.source.rtsp.RtspMessageUtil.checkManifestExpression;
+import static com.google.android.exoplayer2.util.Util.castNonNull;
 
 import androidx.annotation.Nullable;
 import com.google.android.exoplayer2.C;
@@ -29,15 +29,22 @@ import java.util.regex.Pattern;
  * Represent the timing (RTSP Normal Playback Time format) of an RTSP session.
  *
  * <p>Currently only NPT is supported. See RFC2326 Section 3.6 for detail of NPT.
+ *
+ * @deprecated com.google.android.exoplayer2 is deprecated. Please migrate to androidx.media3 (which
+ *     contains the same ExoPlayer code). See <a
+ *     href="https://developer.android.com/guide/topics/media/media3/getting-started/migration-guide">the
+ *     migration guide</a> for more details, including a script to help with the migration.
  */
+@Deprecated
 /* package */ final class RtspSessionTiming {
   /** The default session timing starting from 0.000 and indefinite length, effectively live. */
   public static final RtspSessionTiming DEFAULT =
       new RtspSessionTiming(/* startTimeMs= */ 0, /* stopTimeMs= */ C.TIME_UNSET);
 
   // We only support npt=xxx-[xxx], but not npt=-xxx. See RFC2326 Section 3.6.
+  // Supports both npt= and npt: identifier.
   private static final Pattern NPT_RANGE_PATTERN =
-      Pattern.compile("npt=([.\\d]+|now)\\s?-\\s?([.\\d]+)?");
+      Pattern.compile("npt[:=]([.\\d]+|now)\\s?-\\s?([.\\d]+)?");
   private static final String START_TIMING_NTP_FORMAT = "npt=%.3f-";
 
   private static final long LIVE_START_TIME = 0;
@@ -47,10 +54,11 @@ import java.util.regex.Pattern;
     long startTimeMs;
     long stopTimeMs;
     Matcher matcher = NPT_RANGE_PATTERN.matcher(sdpRangeAttribute);
-    checkArgument(matcher.matches());
+    checkManifestExpression(matcher.matches(), /* message= */ sdpRangeAttribute);
 
-    String startTimeString = checkNotNull(matcher.group(1));
-    if (startTimeString.equals("now")) {
+    @Nullable String startTimeString = matcher.group(1);
+    checkManifestExpression(startTimeString != null, /* message= */ sdpRangeAttribute);
+    if (castNonNull(startTimeString).equals("now")) {
       startTimeMs = LIVE_START_TIME;
     } else {
       startTimeMs = (long) (Float.parseFloat(startTimeString) * C.MILLIS_PER_SECOND);
@@ -63,7 +71,7 @@ import java.util.regex.Pattern;
       } catch (NumberFormatException e) {
         throw ParserException.createForMalformedManifest(stopTimeString, e);
       }
-      checkArgument(stopTimeMs > startTimeMs);
+      checkManifestExpression(stopTimeMs >= startTimeMs, /* message= */ sdpRangeAttribute);
     } else {
       stopTimeMs = C.TIME_UNSET;
     }

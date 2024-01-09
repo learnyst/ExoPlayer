@@ -15,7 +15,17 @@
  */
 package com.google.android.exoplayer2.transformer;
 
-/** A custom interface that determines the speed for media at specific timestamps. */
+import com.google.android.exoplayer2.C;
+
+/**
+ * A custom interface that determines the speed for media at specific timestamps.
+ *
+ * @deprecated com.google.android.exoplayer2 is deprecated. Please migrate to androidx.media3 (which
+ *     contains the same ExoPlayer code). See <a
+ *     href="https://developer.android.com/guide/topics/media/media3/getting-started/migration-guide">the
+ *     migration guide</a> for more details, including a script to help with the migration.
+ */
+@Deprecated
 /* package */ interface SpeedProvider {
 
   /**
@@ -25,4 +35,14 @@ package com.google.android.exoplayer2.transformer;
    * @return The speed that the media should be played at, based on the timeUs.
    */
   float getSpeed(long timeUs);
+
+  /**
+   * Returns the timestamp of the next speed change, if there is any.
+   *
+   * @param timeUs A timestamp, in microseconds.
+   * @return The timestamp of the next speed change, in microseconds, or {@link C#TIME_UNSET} if
+   *     there is no next speed change. If {@code timeUs} corresponds to a speed change, the
+   *     returned value corresponds to the following speed change.
+   */
+  long getNextSpeedChangeTimeUs(long timeUs);
 }

@@ -26,7 +26,15 @@ import com.google.android.exoplayer2.upstream.Loader.UnexpectedLoaderException;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 
-/** Default implementation of {@link LoadErrorHandlingPolicy}. */
+/**
+ * Default implementation of {@link LoadErrorHandlingPolicy}.
+ *
+ * @deprecated com.google.android.exoplayer2 is deprecated. Please migrate to androidx.media3 (which
+ *     contains the same ExoPlayer code). See <a
+ *     href="https://developer.android.com/guide/topics/media/media3/getting-started/migration-guide">the
+ *     migration guide</a> for more details, including a script to help with the migration.
+ */
+@Deprecated
 public class DefaultLoadErrorHandlingPolicy implements LoadErrorHandlingPolicy {
 
   /** The default minimum number of times to retry loading data prior to propagating the error. */
@@ -38,7 +46,9 @@ public class DefaultLoadErrorHandlingPolicy implements LoadErrorHandlingPolicy {
   public static final int DEFAULT_MIN_LOADABLE_RETRY_COUNT_PROGRESSIVE_LIVE = 6;
   /** The default duration for which a track is excluded in milliseconds. */
   public static final long DEFAULT_TRACK_EXCLUSION_MS = 60_000;
-  /** @deprecated Use {@link #DEFAULT_TRACK_EXCLUSION_MS} instead. */
+  /**
+   * @deprecated Use {@link #DEFAULT_TRACK_EXCLUSION_MS} instead.
+   */
   @Deprecated public static final long DEFAULT_TRACK_BLACKLIST_MS = DEFAULT_TRACK_EXCLUSION_MS;
   /** The default duration for which a location is excluded in milliseconds. */
   public static final long DEFAULT_LOCATION_EXCLUSION_MS = 5 * 60_000;

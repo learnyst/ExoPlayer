@@ -30,8 +30,16 @@ import com.google.android.exoplayer2.util.Util;
 import java.util.ArrayDeque;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
-/** A {@link MediaCodec.Callback} that routes callbacks on a separate thread. */
+/**
+ * A {@link MediaCodec.Callback} that routes callbacks on a separate thread.
+ *
+ * @deprecated com.google.android.exoplayer2 is deprecated. Please migrate to androidx.media3 (which
+ *     contains the same ExoPlayer code). See <a
+ *     href="https://developer.android.com/guide/topics/media/media3/getting-started/migration-guide">the
+ *     migration guide</a> for more details, including a script to help with the migration.
+ */
 @RequiresApi(23)
+@Deprecated
 /* package */ final class AsynchronousMediaCodecCallback extends MediaCodec.Callback {
   private final Object lock;
   private final HandlerThread callbackThread;
@@ -126,10 +134,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    */
   public int dequeueInputBufferIndex() {
     synchronized (lock) {
+      maybeThrowException();
       if (isFlushingOrShutdown()) {
         return MediaCodec.INFO_TRY_AGAIN_LATER;
       } else {
-        maybeThrowException();
         return availableInputBuffers.isEmpty()
             ? MediaCodec.INFO_TRY_AGAIN_LATER
             : availableInputBuffers.remove();
@@ -145,10 +153,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    */
   public int dequeueOutputBufferIndex(MediaCodec.BufferInfo bufferInfo) {
     synchronized (lock) {
+      maybeThrowException();
       if (isFlushingOrShutdown()) {
         return MediaCodec.INFO_TRY_AGAIN_LATER;
       } else {
-        maybeThrowException();
         if (availableOutputBuffers.isEmpty()) {
           return MediaCodec.INFO_TRY_AGAIN_LATER;
         } else {
@@ -191,14 +199,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   /**
    * Initiates a flush asynchronously, which will be completed on the callback thread. When the
    * flush is complete, it will trigger {@code onFlushCompleted} from the callback thread.
-   *
-   * @param codec A {@link MediaCodec} to {@link MediaCodec#start start} after all pending callbacks
-   *     are handled, or {@code null} if starting the {@link MediaCodec} is performed elsewhere.
    */
-  public void flush(@Nullable MediaCodec codec) {
+  public void flush() {
     synchronized (lock) {
       ++pendingFlushCount;
-      Util.castNonNull(handler).post(() -> this.onFlushCompleted(codec));
+      Util.castNonNull(handler).post(this::onFlushCompleted);
     }
   }
 
@@ -238,7 +243,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
   }
 
-  private void onFlushCompleted(@Nullable MediaCodec codec) {
+  private void onFlushCompleted() {
     synchronized (lock) {
       if (shutDown) {
         return;
@@ -254,15 +259,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         return;
       }
       flushInternal();
-      if (codec != null) {
-        try {
-          codec.start();
-        } catch (IllegalStateException e) {
-          setInternalException(e);
-        } catch (Exception e) {
-          setInternalException(new IllegalStateException(e));
-        }
-      }
     }
   }
 
@@ -275,11 +271,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     // else, pendingOutputFormat may already be non-null following a previous flush, and remains
     // set in this case.
 
+    // mediaCodecException is not reset to null. If the codec has raised an error, then it remains
+    // in FAILED_STATE even after flushing.
     availableInputBuffers.clear();
     availableOutputBuffers.clear();
     bufferInfos.clear();
     formats.clear();
-    mediaCodecException = null;
   }
 
   @GuardedBy("lock")

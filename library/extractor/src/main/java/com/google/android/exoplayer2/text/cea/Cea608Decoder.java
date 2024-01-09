@@ -39,14 +39,21 @@ import com.google.android.exoplayer2.util.Assertions;
 import com.google.android.exoplayer2.util.Log;
 import com.google.android.exoplayer2.util.MimeTypes;
 import com.google.android.exoplayer2.util.ParsableByteArray;
-import com.google.android.exoplayer2.util.Util;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import org.checkerframework.checker.nullness.compatqual.NullableType;
 
-/** A {@link SubtitleDecoder} for CEA-608 (also known as "line 21 captions" and "EIA-608"). */
+/**
+ * A {@link SubtitleDecoder} for CEA-608 (also known as "line 21 captions" and "EIA-608").
+ *
+ * @deprecated com.google.android.exoplayer2 is deprecated. Please migrate to androidx.media3 (which
+ *     contains the same ExoPlayer code). See <a
+ *     href="https://developer.android.com/guide/topics/media/media3/getting-started/migration-guide">the
+ *     migration guide</a> for more details, including a script to help with the migration.
+ */
+@Deprecated
 public final class Cea608Decoder extends CeaDecoder {
 
   /**
@@ -458,8 +465,8 @@ public final class Cea608Decoder extends CeaDecoder {
     ccData.reset(subtitleData.array(), subtitleData.limit());
     boolean captionDataProcessed = false;
     while (ccData.bytesLeft() >= packetLength) {
-      byte ccHeader =
-          packetLength == 2 ? CC_IMPLICIT_DATA_HEADER : (byte) ccData.readUnsignedByte();
+      int ccHeader = packetLength == 2 ? CC_IMPLICIT_DATA_HEADER : ccData.readUnsignedByte();
+
       int ccByte1 = ccData.readUnsignedByte();
       int ccByte2 = ccData.readUnsignedByte();
 
@@ -872,8 +879,8 @@ public final class Cea608Decoder extends CeaDecoder {
   }
 
   private static boolean isServiceSwitchCommand(byte cc1) {
-    // cc1 - 0|0|0|1|C|1|0|0
-    return (cc1 & 0xF7) == 0x14;
+    // cc1 - 0|0|0|1|C|1|0|F
+    return (cc1 & 0xF6) == 0x14;
   }
 
   private static final class CueBuilder {
@@ -947,8 +954,7 @@ public final class Cea608Decoder extends CeaDecoder {
     }
 
     public void append(char text) {
-      // Don't accept more than 32 chars. We'll trim further, considering indent & tabOffset, in
-      // build().
+      // Don't accept more than 32 chars.
       if (captionStringBuilder.length() < SCREEN_CHARWIDTH) {
         captionStringBuilder.append(text);
       }
@@ -966,17 +972,14 @@ public final class Cea608Decoder extends CeaDecoder {
 
     @Nullable
     public Cue build(@Cue.AnchorType int forcedPositionAnchor) {
-      // The number of empty columns before the start of the text, in the range [0-31].
-      int startPadding = indent + tabOffset;
-      int maxTextLength = SCREEN_CHARWIDTH - startPadding;
       SpannableStringBuilder cueString = new SpannableStringBuilder();
       // Add any rolled up captions, separated by new lines.
       for (int i = 0; i < rolledUpCaptions.size(); i++) {
-        cueString.append(Util.truncateAscii(rolledUpCaptions.get(i), maxTextLength));
+        cueString.append(rolledUpCaptions.get(i));
         cueString.append('\n');
       }
       // Add the current line.
-      cueString.append(Util.truncateAscii(buildCurrentLine(), maxTextLength));
+      cueString.append(buildCurrentLine());
 
       if (cueString.length() == 0) {
         // The cue is empty.
@@ -984,6 +987,8 @@ public final class Cea608Decoder extends CeaDecoder {
       }
 
       int positionAnchor;
+      // The number of empty columns before the start of the text, in the range [0-31].
+      int startPadding = indent + tabOffset;
       // The number of empty columns after the end of the text, in the same range.
       int endPadding = SCREEN_CHARWIDTH - startPadding - cueString.length();
       int startEndPaddingDelta = startPadding - endPadding;

@@ -16,6 +16,8 @@
 package com.google.android.exoplayer2.util;
 
 import static android.content.Context.UI_MODE_SERVICE;
+import static com.google.android.exoplayer2.Player.COMMAND_PLAY_PAUSE;
+import static com.google.android.exoplayer2.Player.COMMAND_PREPARE;
 import static com.google.android.exoplayer2.Player.COMMAND_SEEK_BACK;
 import static com.google.android.exoplayer2.Player.COMMAND_SEEK_FORWARD;
 import static com.google.android.exoplayer2.Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM;
@@ -25,6 +27,7 @@ import static com.google.android.exoplayer2.Player.COMMAND_SEEK_TO_NEXT;
 import static com.google.android.exoplayer2.Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM;
 import static com.google.android.exoplayer2.Player.COMMAND_SEEK_TO_PREVIOUS;
 import static com.google.android.exoplayer2.Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM;
+import static com.google.android.exoplayer2.util.Assertions.checkArgument;
 import static com.google.android.exoplayer2.util.Assertions.checkNotNull;
 import static java.lang.Math.abs;
 import static java.lang.Math.max;
@@ -34,9 +37,11 @@ import android.Manifest.permission;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.UiModeManager;
+import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
@@ -45,9 +50,11 @@ import android.content.res.Resources;
 import android.database.DatabaseUtils;
 import android.database.sqlite.SQLiteDatabase;
 import android.graphics.Point;
+import android.graphics.drawable.Drawable;
 import android.hardware.display.DisplayManager;
 import android.media.AudioFormat;
 import android.media.AudioManager;
+import android.media.MediaCodec;
 import android.media.MediaDrm;
 import android.net.Uri;
 import android.os.Build;
@@ -55,6 +62,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.Parcel;
 import android.os.SystemClock;
+import android.provider.MediaStore;
 import android.security.NetworkSecurityPolicy;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
@@ -63,6 +71,8 @@ import android.util.SparseLongArray;
 import android.view.Display;
 import android.view.SurfaceView;
 import android.view.WindowManager;
+import androidx.annotation.DoNotInline;
+import androidx.annotation.DrawableRes;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import com.google.android.exoplayer2.C;
@@ -76,6 +86,11 @@ import com.google.android.exoplayer2.Player;
 import com.google.android.exoplayer2.Player.Commands;
 import com.google.common.base.Ascii;
 import com.google.common.base.Charsets;
+import com.google.common.util.concurrent.AsyncFunction;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
+import com.google.common.util.concurrent.SettableFuture;
 import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
 import java.io.File;
@@ -98,8 +113,11 @@ import java.util.MissingResourceException;
 import java.util.NoSuchElementException;
 import java.util.TimeZone;
 import java.util.UUID;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.DataFormatException;
@@ -108,14 +126,23 @@ import java.util.zip.Inflater;
 import org.checkerframework.checker.initialization.qual.UnknownInitialization;
 import org.checkerframework.checker.nullness.compatqual.NullableType;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
+import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
 import org.checkerframework.checker.nullness.qual.PolyNull;
 
-/** Miscellaneous utility methods. */
+/**
+ * Miscellaneous utility methods.
+ *
+ * @deprecated com.google.android.exoplayer2 is deprecated. Please migrate to androidx.media3 (which
+ *     contains the same ExoPlayer code). See <a
+ *     href="https://developer.android.com/guide/topics/media/media3/getting-started/migration-guide">the
+ *     migration guide</a> for more details, including a script to help with the migration.
+ */
+@Deprecated
 public final class Util {
 
   /**
-   * Like {@link android.os.Build.VERSION#SDK_INT}, but in a place where it can be conveniently
-   * overridden for local testing.
+   * Like {@link Build.VERSION#SDK_INT}, but in a place where it can be conveniently overridden for
+   * local testing.
    */
   public static final int SDK_INT = Build.VERSION.SDK_INT;
 
@@ -156,8 +183,9 @@ public final class Util {
               + "(T(([0-9]*)H)?(([0-9]*)M)?(([0-9.]*)S)?)?$");
   private static final Pattern ESCAPED_CHARACTER_PATTERN = Pattern.compile("%([A-Fa-f0-9]{2})");
 
-  // https://docs.microsoft.com/en-us/azure/media-services/previous/media-services-deliver-content-overview#URLs.
-  private static final Pattern ISM_URL_PATTERN = Pattern.compile(".*\\.isml?(?:/(manifest(.*))?)?");
+  // https://docs.microsoft.com/en-us/azure/media-services/previous/media-services-deliver-content-overview#URLs
+  private static final Pattern ISM_PATH_PATTERN =
+      Pattern.compile("(?:.*\\.)?isml?(?:/(manifest(.*))?)?", Pattern.CASE_INSENSITIVE);
   private static final String ISM_HLS_FORMAT_EXTENSION = "format=m3u8-aapl";
   private static final String ISM_DASH_FORMAT_EXTENSION = "format=mpd-time-csf";
 
@@ -184,6 +212,74 @@ public final class Util {
     return outputStream.toByteArray();
   }
 
+  /** Converts an integer into an equivalent byte array. */
+  public static byte[] toByteArray(int value) {
+    return new byte[] {
+      (byte) (value >> 24), (byte) (value >> 16), (byte) (value >> 8), (byte) value
+    };
+  }
+
+  /**
+   * Converts an array of integers into an equivalent byte array.
+   *
+   * <p>Each integer is converted into 4 sequential bytes.
+   */
+  public static byte[] toByteArray(int... values) {
+    byte[] array = new byte[values.length * 4];
+    int index = 0;
+    for (int value : values) {
+      byte[] byteArray = toByteArray(value);
+      array[index++] = byteArray[0];
+      array[index++] = byteArray[1];
+      array[index++] = byteArray[2];
+      array[index++] = byteArray[3];
+    }
+    return array;
+  }
+
+  /** Converts a float into an equivalent byte array. */
+  public static byte[] toByteArray(float value) {
+    return toByteArray(Float.floatToIntBits(value));
+  }
+
+  /** Converts a byte array into a float. */
+  public static float toFloat(byte[] bytes) {
+    checkArgument(bytes.length == 4);
+    int intBits =
+        bytes[0] << 24 | (bytes[1] & 0xFF) << 16 | (bytes[2] & 0xFF) << 8 | (bytes[3] & 0xFF);
+    return Float.intBitsToFloat(intBits);
+  }
+
+  /** Converts a byte array into an integer. */
+  public static int toInteger(byte[] bytes) {
+    checkArgument(bytes.length == 4);
+    return bytes[0] << 24 | bytes[1] << 16 | bytes[2] << 8 | bytes[3];
+  }
+
+  /**
+   * Registers a {@link BroadcastReceiver} that's not intended to receive broadcasts from other
+   * apps. This will be enforced by specifying {@link Context#RECEIVER_NOT_EXPORTED} if {@link
+   * #SDK_INT} is 33 or above.
+   *
+   * <p>Do not use this method if registering a receiver for a <a
+   * href="https://android.googlesource.com/platform/frameworks/base/+/master/core/res/AndroidManifest.xml">protected
+   * system broadcast</a>.
+   *
+   * @param context The context on which {@link Context#registerReceiver} will be called.
+   * @param receiver The {@link BroadcastReceiver} to register. This value may be null.
+   * @param filter Selects the Intent broadcasts to be received.
+   * @return The first sticky intent found that matches {@code filter}, or null if there are none.
+   */
+  @Nullable
+  public static Intent registerReceiverNotExported(
+      Context context, @Nullable BroadcastReceiver receiver, IntentFilter filter) {
+    if (SDK_INT < 33) {
+      return context.registerReceiver(receiver, filter);
+    } else {
+      return context.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED);
+    }
+  }
+
   /**
    * Calls {@link Context#startForegroundService(Intent)} if {@link #SDK_INT} is 26 or higher, or
    * {@link Context#startService(Intent)} otherwise.
@@ -194,7 +290,7 @@ public final class Util {
    */
   @Nullable
   public static ComponentName startForegroundService(Context context, Intent intent) {
-    if (Util.SDK_INT >= 26) {
+    if (SDK_INT >= 26) {
       return context.startForegroundService(intent);
     } else {
       return context.startService(intent);
@@ -210,12 +306,12 @@ public final class Util {
    * @return Whether a permission request was made.
    */
   public static boolean maybeRequestReadExternalStoragePermission(Activity activity, Uri... uris) {
-    if (Util.SDK_INT < 23) {
+    if (SDK_INT < 23) {
       return false;
     }
     for (Uri uri : uris) {
-      if (isLocalFileUri(uri)) {
-        return requestExternalStoragePermission(activity);
+      if (maybeRequestReadExternalStoragePermission(activity, uri)) {
+        return true;
       }
     }
     return false;
@@ -233,23 +329,44 @@ public final class Util {
    */
   public static boolean maybeRequestReadExternalStoragePermission(
       Activity activity, MediaItem... mediaItems) {
-    if (Util.SDK_INT < 23) {
+    if (SDK_INT < 23) {
       return false;
     }
     for (MediaItem mediaItem : mediaItems) {
       if (mediaItem.localConfiguration == null) {
         continue;
       }
-      if (isLocalFileUri(mediaItem.localConfiguration.uri)) {
-        return requestExternalStoragePermission(activity);
+      if (maybeRequestReadExternalStoragePermission(activity, mediaItem.localConfiguration.uri)) {
+        return true;
       }
-      for (int i = 0; i < mediaItem.localConfiguration.subtitleConfigurations.size(); i++) {
-        if (isLocalFileUri(mediaItem.localConfiguration.subtitleConfigurations.get(i).uri)) {
-          return requestExternalStoragePermission(activity);
+      List<MediaItem.SubtitleConfiguration> subtitleConfigs =
+          mediaItem.localConfiguration.subtitleConfigurations;
+      for (int i = 0; i < subtitleConfigs.size(); i++) {
+        if (maybeRequestReadExternalStoragePermission(activity, subtitleConfigs.get(i).uri)) {
+          return true;
         }
       }
     }
     return false;
+  }
+
+  private static boolean maybeRequestReadExternalStoragePermission(Activity activity, Uri uri) {
+    return SDK_INT >= 23
+        && (isLocalFileUri(uri) || isMediaStoreExternalContentUri(uri))
+        && requestExternalStoragePermission(activity);
+  }
+
+  private static boolean isMediaStoreExternalContentUri(Uri uri) {
+    if (!"content".equals(uri.getScheme()) || !MediaStore.AUTHORITY.equals(uri.getAuthority())) {
+      return false;
+    }
+    List<String> pathSegments = uri.getPathSegments();
+    if (pathSegments.isEmpty()) {
+      return false;
+    }
+    String firstPathSegment = pathSegments.get(0);
+    return MediaStore.VOLUME_EXTERNAL.equals(firstPathSegment)
+        || MediaStore.VOLUME_EXTERNAL_PRIMARY.equals(firstPathSegment);
   }
 
   /**
@@ -260,7 +377,7 @@ public final class Util {
    * @return Whether it may be possible to load the URIs of the given media items.
    */
   public static boolean checkCleartextTrafficPermitted(MediaItem... mediaItems) {
-    if (Util.SDK_INT < 24) {
+    if (SDK_INT < 24) {
       // We assume cleartext traffic is permitted.
       return true;
     }
@@ -369,7 +486,7 @@ public final class Util {
    */
   @SuppressWarnings({"nullness:argument", "nullness:return"})
   public static <T> T[] nullSafeArrayCopy(T[] input, int length) {
-    Assertions.checkArgument(length <= input.length);
+    checkArgument(length <= input.length);
     return Arrays.copyOf(input, length);
   }
 
@@ -383,8 +500,8 @@ public final class Util {
    */
   @SuppressWarnings({"nullness:argument", "nullness:return"})
   public static <T> T[] nullSafeArrayCopyOfRange(T[] input, int from, int to) {
-    Assertions.checkArgument(0 <= from);
-    Assertions.checkArgument(to <= input.length);
+    checkArgument(0 <= from);
+    checkArgument(to <= input.length);
     return Arrays.copyOfRange(input, from, to);
   }
 
@@ -531,6 +648,92 @@ public final class Util {
   }
 
   /**
+   * Posts the {@link Runnable} if the calling thread differs with the {@link Looper} of the {@link
+   * Handler}. Otherwise, runs the {@link Runnable} directly. Also returns a {@link
+   * ListenableFuture} for when the {@link Runnable} has run.
+   *
+   * @param handler The handler to which the {@link Runnable} will be posted.
+   * @param runnable The runnable to either post or run.
+   * @param successValue The value to set in the {@link ListenableFuture} once the runnable
+   *     completes.
+   * @param <T> The type of {@code successValue}.
+   * @return A {@link ListenableFuture} for when the {@link Runnable} has run.
+   */
+  public static <T> ListenableFuture<T> postOrRunWithCompletion(
+      Handler handler, Runnable runnable, T successValue) {
+    SettableFuture<T> outputFuture = SettableFuture.create();
+    postOrRun(
+        handler,
+        () -> {
+          try {
+            if (outputFuture.isCancelled()) {
+              return;
+            }
+            runnable.run();
+            outputFuture.set(successValue);
+          } catch (Throwable e) {
+            outputFuture.setException(e);
+          }
+        });
+    return outputFuture;
+  }
+
+  /**
+   * Asynchronously transforms the result of a {@link ListenableFuture}.
+   *
+   * <p>The transformation function is called using a {@linkplain MoreExecutors#directExecutor()
+   * direct executor}.
+   *
+   * <p>The returned Future attempts to keep its cancellation state in sync with that of the input
+   * future and that of the future returned by the transform function. That is, if the returned
+   * Future is cancelled, it will attempt to cancel the other two, and if either of the other two is
+   * cancelled, the returned Future will also be cancelled. All forwarded cancellations will not
+   * attempt to interrupt.
+   *
+   * @param future The input {@link ListenableFuture}.
+   * @param transformFunction The function transforming the result of the input future.
+   * @param <T> The result type of the input future.
+   * @param <U> The result type of the transformation function.
+   * @return A {@link ListenableFuture} for the transformed result.
+   */
+  public static <T, U> ListenableFuture<T> transformFutureAsync(
+      ListenableFuture<U> future, AsyncFunction<U, T> transformFunction) {
+    // This is a simplified copy of Guava's Futures.transformAsync.
+    SettableFuture<T> outputFuture = SettableFuture.create();
+    outputFuture.addListener(
+        () -> {
+          if (outputFuture.isCancelled()) {
+            future.cancel(/* mayInterruptIfRunning= */ false);
+          }
+        },
+        MoreExecutors.directExecutor());
+    future.addListener(
+        () -> {
+          U inputFutureResult;
+          try {
+            inputFutureResult = Futures.getDone(future);
+          } catch (CancellationException cancellationException) {
+            outputFuture.cancel(/* mayInterruptIfRunning= */ false);
+            return;
+          } catch (ExecutionException exception) {
+            @Nullable Throwable cause = exception.getCause();
+            outputFuture.setException(cause == null ? exception : cause);
+            return;
+          } catch (RuntimeException | Error error) {
+            outputFuture.setException(error);
+            return;
+          }
+          try {
+            outputFuture.setFuture(transformFunction.apply(inputFutureResult));
+          } catch (Throwable exception) {
+            outputFuture.setException(exception);
+          }
+        },
+        MoreExecutors.directExecutor());
+    return outputFuture;
+  }
+
+  /**
    * Returns the {@link Looper} associated with the current thread, or the {@link Looper} of the
    * application's main thread if the current thread doesn't have a {@link Looper}.
    */
@@ -547,6 +750,16 @@ public final class Util {
    */
   public static ExecutorService newSingleThreadExecutor(String threadName) {
     return Executors.newSingleThreadExecutor(runnable -> new Thread(runnable, threadName));
+  }
+
+  /**
+   * Instantiates a new single threaded scheduled executor whose thread has the specified name.
+   *
+   * @param threadName The name of the thread.
+   * @return The executor.
+   */
+  public static ScheduledExecutorService newSingleThreadScheduledExecutor(String threadName) {
+    return Executors.newSingleThreadScheduledExecutor(runnable -> new Thread(runnable, threadName));
   }
 
   /**
@@ -621,7 +834,7 @@ public final class Util {
       normalizedTag = language;
     }
     normalizedTag = Ascii.toLowerCase(normalizedTag);
-    String mainLanguage = Util.splitAtFirst(normalizedTag, "-")[0];
+    String mainLanguage = splitAtFirst(normalizedTag, "-")[0];
     if (languageTagReplacementMap == null) {
       languageTagReplacementMap = createIsoLanguageReplacementMap();
     }
@@ -1120,6 +1333,25 @@ public final class Util {
   }
 
   /**
+   * Returns the maximum value in the given {@link SparseLongArray}.
+   *
+   * @param sparseLongArray The {@link SparseLongArray}.
+   * @return The maximum value.
+   * @throws NoSuchElementException If the array is empty.
+   */
+  @RequiresApi(18)
+  public static long maxValue(SparseLongArray sparseLongArray) {
+    if (sparseLongArray.size() == 0) {
+      throw new NoSuchElementException();
+    }
+    long max = Long.MIN_VALUE;
+    for (int i = 0; i < sparseLongArray.size(); i++) {
+      max = max(max, sparseLongArray.valueAt(i));
+    }
+    return max;
+  }
+
+  /**
    * Converts a time in microseconds to the corresponding time in milliseconds, preserving {@link
    * C#TIME_UNSET} and {@link C#TIME_END_OF_SOURCE} values.
    *
@@ -1142,15 +1374,35 @@ public final class Util {
   }
 
   /**
-   * Converts a time in seconds to the corresponding time in microseconds.
+   * Returns the total duration (in microseconds) of {@code sampleCount} samples of equal duration
+   * at {@code sampleRate}.
    *
-   * @param timeSec The time in seconds.
-   * @return The corresponding time in microseconds.
+   * <p>If {@code sampleRate} is less than {@link C#MICROS_PER_SECOND}, the duration produced by
+   * this method can be reversed to the original sample count using {@link
+   * #durationUsToSampleCount(long, int)}.
+   *
+   * @param sampleCount The number of samples.
+   * @param sampleRate The sample rate, in samples per second.
+   * @return The total duration, in microseconds, of {@code sampleCount} samples.
    */
-  public static long secToUs(double timeSec) {
-    return BigDecimal.valueOf(timeSec)
-        .multiply(BigDecimal.valueOf(C.MICROS_PER_SECOND))
-        .longValue();
+  public static long sampleCountToDurationUs(long sampleCount, int sampleRate) {
+    return (sampleCount * C.MICROS_PER_SECOND) / sampleRate;
+  }
+
+  /**
+   * Returns the number of samples required to represent {@code durationUs} of media at {@code
+   * sampleRate}, assuming all samples are equal duration except the last one which may be shorter.
+   *
+   * <p>The result of this method <b>cannot</b> be generally reversed to the original duration with
+   * {@link #sampleCountToDurationUs(long, int)}, due to information lost when rounding to a whole
+   * number of samples.
+   *
+   * @param durationUs The duration in microseconds.
+   * @param sampleRate The sample rate in samples per second.
+   * @return The number of samples required to represent {@code durationUs}.
+   */
+  public static long durationUsToSampleCount(long durationUs, int sampleRate) {
+    return Util.ceilDivide(durationUs * sampleRate, C.MICROS_PER_SECOND);
   }
 
   /**
@@ -1235,7 +1487,7 @@ public final class Util {
 
     long time = dateTime.getTimeInMillis();
     if (timezoneShift != 0) {
-      time -= timezoneShift * 60000;
+      time -= timezoneShift * 60000L;
     }
 
     return time;
@@ -1338,6 +1590,7 @@ public final class Util {
    * Returns the playout duration of {@code mediaDuration} of media.
    *
    * @param mediaDuration The duration to scale.
+   * @param speed The factor by which playback is sped up.
    * @return The scaled duration, in the same units as {@code mediaDuration}.
    */
   public static long getPlayoutDurationForMediaDuration(long mediaDuration, float speed) {
@@ -1355,7 +1608,7 @@ public final class Util {
    */
   public static int getIntegerCodeForString(String string) {
     int length = string.length();
-    Assertions.checkArgument(length <= 4);
+    checkArgument(length <= 4);
     int result = 0;
     for (int i = 0; i < length; i++) {
       result <<= 8;
@@ -1385,24 +1638,6 @@ public final class Util {
    */
   public static long toLong(int mostSignificantBits, int leastSignificantBits) {
     return (toUnsignedLong(mostSignificantBits) << 32) | toUnsignedLong(leastSignificantBits);
-  }
-
-  /**
-   * Truncates a sequence of ASCII characters to a maximum length.
-   *
-   * <p>This preserves span styling in the {@link CharSequence}. If that's not important, use {@link
-   * Ascii#truncate(CharSequence, int, String)}.
-   *
-   * <p><b>Note:</b> This is not safe to use in general on Unicode text because it may separate
-   * characters from combining characters or split up surrogate pairs.
-   *
-   * @param sequence The character sequence to truncate.
-   * @param maxLength The max length to truncate to.
-   * @return {@code sequence} directly if {@code sequence.length() <= maxLength}, otherwise {@code
-   *     sequence.subsequence(0, maxLength}.
-   */
-  public static CharSequence truncateAscii(CharSequence sequence, int maxLength) {
-    return sequence.length() <= maxLength ? sequence : sequence.subSequence(0, maxLength);
   }
 
   /**
@@ -1608,6 +1843,7 @@ public final class Util {
    * @return The channel configuration or {@link AudioFormat#CHANNEL_INVALID} if output is not
    *     possible.
    */
+  @SuppressLint("InlinedApi") // Inlined AudioFormat constants.
   public static int getAudioTrackChannelConfig(int channelCount) {
     switch (channelCount) {
       case 1:
@@ -1625,17 +1861,17 @@ public final class Util {
       case 7:
         return AudioFormat.CHANNEL_OUT_5POINT1 | AudioFormat.CHANNEL_OUT_BACK_CENTER;
       case 8:
-        if (Util.SDK_INT >= 23) {
-          return AudioFormat.CHANNEL_OUT_7POINT1_SURROUND;
-        } else if (Util.SDK_INT >= 21) {
-          // Equal to AudioFormat.CHANNEL_OUT_7POINT1_SURROUND, which is hidden before Android M.
-          return AudioFormat.CHANNEL_OUT_5POINT1
-              | AudioFormat.CHANNEL_OUT_SIDE_LEFT
-              | AudioFormat.CHANNEL_OUT_SIDE_RIGHT;
+        return AudioFormat.CHANNEL_OUT_7POINT1_SURROUND;
+      case 10:
+        if (Util.SDK_INT >= 32) {
+          return AudioFormat.CHANNEL_OUT_5POINT1POINT4;
         } else {
-          // 8 ch output is not supported before Android L.
-          return AudioFormat.CHANNEL_INVALID;
+          // Before API 32, height channel masks are not available. For those 10-channel streams
+          // supported on the audio output devices (e.g. DTS:X P2), we use 7.1-surround instead.
+          return AudioFormat.CHANNEL_OUT_7POINT1_SURROUND;
         }
+      case 12:
+        return AudioFormat.CHANNEL_OUT_7POINT1POINT4;
       default:
         return AudioFormat.CHANNEL_INVALID;
     }
@@ -1697,12 +1933,12 @@ public final class Util {
       case C.STREAM_TYPE_NOTIFICATION:
       case C.STREAM_TYPE_RING:
       case C.STREAM_TYPE_SYSTEM:
-        return C.CONTENT_TYPE_SONIFICATION;
+        return C.AUDIO_CONTENT_TYPE_SONIFICATION;
       case C.STREAM_TYPE_VOICE_CALL:
-        return C.CONTENT_TYPE_SPEECH;
+        return C.AUDIO_CONTENT_TYPE_SPEECH;
       case C.STREAM_TYPE_MUSIC:
       default:
-        return C.CONTENT_TYPE_MUSIC;
+        return C.AUDIO_CONTENT_TYPE_MUSIC;
     }
   }
 
@@ -1811,16 +2047,14 @@ public final class Util {
   }
 
   /**
-   * Makes a best guess to infer the {@link ContentType} from a {@link Uri}.
-   *
-   * @param uri The {@link Uri}.
-   * @param overrideExtension If not null, used to infer the type.
-   * @return The content type.
+   * @deprecated Use {@link #inferContentTypeForExtension(String)} when {@code overrideExtension} is
+   *     non-empty, and {@link #inferContentType(Uri)} otherwise.
    */
+  @Deprecated
   public static @ContentType int inferContentType(Uri uri, @Nullable String overrideExtension) {
     return TextUtils.isEmpty(overrideExtension)
         ? inferContentType(uri)
-        : inferContentType("." + overrideExtension);
+        : inferContentTypeForExtension(overrideExtension);
   }
 
   /**
@@ -1832,39 +2066,70 @@ public final class Util {
   public static @ContentType int inferContentType(Uri uri) {
     @Nullable String scheme = uri.getScheme();
     if (scheme != null && Ascii.equalsIgnoreCase("rtsp", scheme)) {
-      return C.TYPE_RTSP;
+      return C.CONTENT_TYPE_RTSP;
     }
 
-    @Nullable String path = uri.getPath();
-    return path == null ? C.TYPE_OTHER : inferContentType(path);
-  }
-
-  /**
-   * Makes a best guess to infer the {@link ContentType} from a file name.
-   *
-   * @param fileName Name of the file. It can include the path of the file.
-   * @return The content type.
-   */
-  public static @ContentType int inferContentType(String fileName) {
-    fileName = Ascii.toLowerCase(fileName);
-    if (fileName.endsWith(".mpd")) {
-      return C.TYPE_DASH;
-    } else if (fileName.endsWith(".m3u8")) {
-      return C.TYPE_HLS;
+    @Nullable String lastPathSegment = uri.getLastPathSegment();
+    if (lastPathSegment == null) {
+      return C.CONTENT_TYPE_OTHER;
     }
-    Matcher ismMatcher = ISM_URL_PATTERN.matcher(fileName);
+    int lastDotIndex = lastPathSegment.lastIndexOf('.');
+    if (lastDotIndex >= 0) {
+      @C.ContentType
+      int contentType = inferContentTypeForExtension(lastPathSegment.substring(lastDotIndex + 1));
+      if (contentType != C.CONTENT_TYPE_OTHER) {
+        // If contentType is TYPE_SS that indicates the extension is .ism or .isml and shows the ISM
+        // URI is missing the "/manifest" suffix, which contains the information used to
+        // disambiguate between Smooth Streaming, HLS and DASH below - so we can just return TYPE_SS
+        // here without further checks.
+        return contentType;
+      }
+    }
+
+    Matcher ismMatcher = ISM_PATH_PATTERN.matcher(checkNotNull(uri.getPath()));
     if (ismMatcher.matches()) {
       @Nullable String extensions = ismMatcher.group(2);
       if (extensions != null) {
         if (extensions.contains(ISM_DASH_FORMAT_EXTENSION)) {
-          return C.TYPE_DASH;
+          return C.CONTENT_TYPE_DASH;
         } else if (extensions.contains(ISM_HLS_FORMAT_EXTENSION)) {
-          return C.TYPE_HLS;
+          return C.CONTENT_TYPE_HLS;
         }
       }
-      return C.TYPE_SS;
+      return C.CONTENT_TYPE_SS;
     }
-    return C.TYPE_OTHER;
+
+    return C.CONTENT_TYPE_OTHER;
+  }
+
+  /**
+   * @deprecated Use {@link Uri#parse(String)} and {@link #inferContentType(Uri)} for full file
+   *     paths or {@link #inferContentTypeForExtension(String)} for extensions.
+   */
+  @Deprecated
+  public static @ContentType int inferContentType(String fileName) {
+    return inferContentType(Uri.parse("file:///" + fileName));
+  }
+
+  /**
+   * Makes a best guess to infer the {@link ContentType} from a file extension.
+   *
+   * @param fileExtension The extension of the file (excluding the '.').
+   * @return The content type.
+   */
+  public static @ContentType int inferContentTypeForExtension(String fileExtension) {
+    fileExtension = Ascii.toLowerCase(fileExtension);
+    switch (fileExtension) {
+      case "mpd":
+        return C.CONTENT_TYPE_DASH;
+      case "m3u8":
+        return C.CONTENT_TYPE_HLS;
+      case "ism":
+      case "isml":
+        return C.TYPE_SS;
+      default:
+        return C.CONTENT_TYPE_OTHER;
+    }
   }
 
   /**
@@ -1877,36 +2142,37 @@ public final class Util {
   public static @ContentType int inferContentTypeForUriAndMimeType(
       Uri uri, @Nullable String mimeType) {
     if (mimeType == null) {
-      return Util.inferContentType(uri);
+      return inferContentType(uri);
     }
     switch (mimeType) {
       case MimeTypes.APPLICATION_MPD:
-        return C.TYPE_DASH;
+        return C.CONTENT_TYPE_DASH;
       case MimeTypes.APPLICATION_M3U8:
-        return C.TYPE_HLS;
+        return C.CONTENT_TYPE_HLS;
       case MimeTypes.APPLICATION_SS:
-        return C.TYPE_SS;
+        return C.CONTENT_TYPE_SS;
       case MimeTypes.APPLICATION_RTSP:
-        return C.TYPE_RTSP;
+        return C.CONTENT_TYPE_RTSP;
       default:
-        return C.TYPE_OTHER;
+        return C.CONTENT_TYPE_OTHER;
     }
   }
 
   /**
    * Returns the MIME type corresponding to the given adaptive {@link ContentType}, or {@code null}
-   * if the content type is {@link C#TYPE_OTHER}.
+   * if the content type is not adaptive.
    */
   @Nullable
-  public static String getAdaptiveMimeTypeForContentType(int contentType) {
+  public static String getAdaptiveMimeTypeForContentType(@ContentType int contentType) {
     switch (contentType) {
-      case C.TYPE_DASH:
+      case C.CONTENT_TYPE_DASH:
         return MimeTypes.APPLICATION_MPD;
-      case C.TYPE_HLS:
+      case C.CONTENT_TYPE_HLS:
         return MimeTypes.APPLICATION_M3U8;
-      case C.TYPE_SS:
+      case C.CONTENT_TYPE_SS:
         return MimeTypes.APPLICATION_SS;
-      case C.TYPE_OTHER:
+      case C.CONTENT_TYPE_RTSP:
+      case C.CONTENT_TYPE_OTHER:
       default:
         return null;
     }
@@ -1925,7 +2191,7 @@ public final class Util {
     if (path == null) {
       return uri;
     }
-    Matcher ismMatcher = ISM_URL_PATTERN.matcher(Ascii.toLowerCase(path));
+    Matcher ismMatcher = ISM_PATH_PATTERN.matcher(path);
     if (ismMatcher.matches() && ismMatcher.group(1) == null) {
       // Add missing "Manifest" suffix.
       return Uri.withAppendedPath(uri, "Manifest");
@@ -2200,7 +2466,7 @@ public final class Util {
 
   /** Returns the default {@link Locale.Category#DISPLAY DISPLAY} {@link Locale}. */
   public static Locale getDefaultDisplayLocale() {
-    return Util.SDK_INT >= 24 ? Locale.getDefault(Locale.Category.DISPLAY) : Locale.getDefault();
+    return SDK_INT >= 24 ? Locale.getDefault(Locale.Category.DISPLAY) : Locale.getDefault();
   }
 
   /**
@@ -2272,7 +2538,7 @@ public final class Util {
    * @return Whether the app is running on an automotive device.
    */
   public static boolean isAutomotive(Context context) {
-    return Util.SDK_INT >= 23
+    return SDK_INT >= 23
         && context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE);
   }
 
@@ -2290,7 +2556,7 @@ public final class Util {
    */
   public static Point getCurrentDisplayModeSize(Context context) {
     @Nullable Display defaultDisplay = null;
-    if (Util.SDK_INT >= 17) {
+    if (SDK_INT >= 17) {
       @Nullable
       DisplayManager displayManager =
           (DisplayManager) context.getSystemService(Context.DISPLAY_SERVICE);
@@ -2338,7 +2604,7 @@ public final class Util {
       // vendor.display-size instead.
       @Nullable
       String displaySize =
-          Util.SDK_INT < 28
+          SDK_INT < 28
               ? getSystemProperty("sys.display-size")
               : getSystemProperty("vendor.display-size");
       // If we managed to read the display size, attempt to parse it.
@@ -2359,17 +2625,17 @@ public final class Util {
       }
 
       // Sony Android TVs advertise support for 4k output via a system feature.
-      if ("Sony".equals(Util.MANUFACTURER)
-          && Util.MODEL.startsWith("BRAVIA")
+      if ("Sony".equals(MANUFACTURER)
+          && MODEL.startsWith("BRAVIA")
           && context.getPackageManager().hasSystemFeature("com.sony.dtv.hardware.panel.qfhd")) {
         return new Point(3840, 2160);
       }
     }
 
     Point displaySize = new Point();
-    if (Util.SDK_INT >= 23) {
+    if (SDK_INT >= 23) {
       getDisplaySizeV23(display, displaySize);
-    } else if (Util.SDK_INT >= 17) {
+    } else if (SDK_INT >= 17) {
       getDisplaySizeV17(display, displaySize);
     } else {
       getDisplaySizeV16(display, displaySize);
@@ -2429,6 +2695,7 @@ public final class Util {
    * @param toIndex The index up to which elements should be moved (exclusive).
    * @param newFromIndex The new from index.
    */
+  @SuppressWarnings("ExtendsObject") // See go/lsc-extends-object
   public static <T extends Object> void moveItems(
       List<T> items, int fromIndex, int toIndex, int newFromIndex) {
     ArrayDeque<T> removedItems = new ArrayDeque<>();
@@ -2473,6 +2740,39 @@ public final class Util {
     } catch (NumberFormatException e) {
       return 0;
     }
+  }
+
+  /**
+   * Returns the number of maximum pending output frames that are allowed on a {@link MediaCodec}
+   * decoder.
+   */
+  public static int getMaxPendingFramesCountForMediaCodecDecoders(
+      Context context, String codecName, boolean requestedHdrToneMapping) {
+    if (SDK_INT < 29
+        || context.getApplicationContext().getApplicationInfo().targetSdkVersion < 29) {
+      // Prior to API 29, decoders may drop frames to keep their output surface from growing out of
+      // bounds. From API 29, if the app targets API 29 or later, the {@link
+      // MediaFormat#KEY_ALLOW_FRAME_DROP} key prevents frame dropping even when the surface is
+      // full.
+      // Frame dropping is never desired, so a workaround is needed for older API levels.
+      // Allow a maximum of one frame to be pending at a time to prevent frame dropping.
+      // TODO(b/226330223): Investigate increasing this limit.
+      return 1;
+    }
+    // Limit the maximum amount of frames for all decoders. This is a tentative value that should be
+    // large enough to avoid significant performance degradation, but small enough to bypass decoder
+    // issues.
+    //
+    // TODO: b/278234847 - Evaluate whether this reduces decoder timeouts, and consider restoring
+    // prior higher limits as appropriate.
+    //
+    // Some OMX decoders don't correctly track their number of output buffers available, and get
+    // stuck if too many frames are rendered without being processed. This value is experimentally
+    // determined. See also
+    // b/213455700, b/230097284, b/229978305, and b/245491744.
+    //
+    // OMX video codecs should no longer exist from android.os.Build.DEVICE_INITIAL_SDK_INT 31+.
+    return 5;
   }
 
   /**
@@ -2549,6 +2849,112 @@ public final class Util {
     return sum;
   }
 
+  /**
+   * Returns a {@link Drawable} for the given resource or throws a {@link
+   * Resources.NotFoundException} if not found.
+   *
+   * @param context The context to get the theme from starting with API 21.
+   * @param resources The resources to load the drawable from.
+   * @param drawableRes The drawable resource int.
+   * @return The loaded {@link Drawable}.
+   */
+  public static Drawable getDrawable(
+      Context context, Resources resources, @DrawableRes int drawableRes) {
+    return SDK_INT >= 21
+        ? Api21.getDrawable(context, resources, drawableRes)
+        : resources.getDrawable(drawableRes);
+  }
+
+  /**
+   * Returns a string representation of the integer using radix value {@link Character#MAX_RADIX}.
+   *
+   * @param i An integer to be converted to String.
+   */
+  public static String intToStringMaxRadix(int i) {
+    return Integer.toString(i, Character.MAX_RADIX);
+  }
+
+  /**
+   * Returns whether a play button should be presented on a UI element for playback control. If
+   * {@code false}, a pause button should be shown instead.
+   *
+   * <p>Use {@link #handlePlayPauseButtonAction}, {@link #handlePlayButtonAction} or {@link
+   * #handlePauseButtonAction} to handle the interaction with the play or pause button UI element.
+   *
+   * @param player The {@link Player}. May be null.
+   */
+  @EnsuresNonNullIf(result = false, expression = "#1")
+  public static boolean shouldShowPlayButton(@Nullable Player player) {
+    return player == null
+        || !player.getPlayWhenReady()
+        || player.getPlaybackState() == Player.STATE_IDLE
+        || player.getPlaybackState() == Player.STATE_ENDED;
+  }
+
+  /**
+   * Updates the player to handle an interaction with a play button.
+   *
+   * <p>This method assumes the play button is enabled if {@link #shouldShowPlayButton} returns
+   * true.
+   *
+   * @param player The {@link Player}. May be null.
+   * @return Whether a player method was triggered to handle this action.
+   */
+  public static boolean handlePlayButtonAction(@Nullable Player player) {
+    if (player == null) {
+      return false;
+    }
+    @Player.State int state = player.getPlaybackState();
+    boolean methodTriggered = false;
+    if (state == Player.STATE_IDLE && player.isCommandAvailable(COMMAND_PREPARE)) {
+      player.prepare();
+      methodTriggered = true;
+    } else if (state == Player.STATE_ENDED
+        && player.isCommandAvailable(COMMAND_SEEK_TO_DEFAULT_POSITION)) {
+      player.seekToDefaultPosition();
+      methodTriggered = true;
+    }
+    if (player.isCommandAvailable(COMMAND_PLAY_PAUSE)) {
+      player.play();
+      methodTriggered = true;
+    }
+    return methodTriggered;
+  }
+
+  /**
+   * Updates the player to handle an interaction with a pause button.
+   *
+   * <p>This method assumes the pause button is enabled if {@link #shouldShowPlayButton} returns
+   * false.
+   *
+   * @param player The {@link Player}. May be null.
+   * @return Whether a player method was triggered to handle this action.
+   */
+  public static boolean handlePauseButtonAction(@Nullable Player player) {
+    if (player != null && player.isCommandAvailable(COMMAND_PLAY_PAUSE)) {
+      player.pause();
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Updates the player to handle an interaction with a play or pause button.
+   *
+   * <p>This method assumes that the UI element enables a play button if {@link
+   * #shouldShowPlayButton} returns true and a pause button otherwise.
+   *
+   * @param player The {@link Player}. May be null.
+   * @return Whether a player method was triggered to handle this action.
+   */
+  public static boolean handlePlayPauseButtonAction(@Nullable Player player) {
+    if (shouldShowPlayButton(player)) {
+      return handlePlayButtonAction(player);
+    } else {
+      return handlePauseButtonAction(player);
+    }
+  }
+
   @Nullable
   private static String getSystemProperty(String name) {
     try {
@@ -2587,7 +2993,7 @@ public final class Util {
 
   @RequiresApi(24)
   private static String[] getSystemLocalesV24(Configuration config) {
-    return Util.split(config.getLocales().toLanguageTags(), ",");
+    return split(config.getLocales().toLanguageTags(), ",");
   }
 
   @RequiresApi(21)
@@ -2681,6 +3087,7 @@ public final class Util {
         "ji", "yi",
         // Individual macrolanguage codes mapped back to full macrolanguage code.
         // See https://en.wikipedia.org/wiki/ISO_639_macrolanguage
+        "arb", "ar-arb",
         "in", "ms-ind",
         "ind", "ms-ind",
         "nb", "no-nob",
@@ -2784,4 +3191,12 @@ public final class Util {
     0xDE, 0xD9, 0xD0, 0xD7, 0xC2, 0xC5, 0xCC, 0xCB, 0xE6, 0xE1, 0xE8, 0xEF, 0xFA, 0xFD, 0xF4,
     0xF3
   };
+
+  @RequiresApi(21)
+  private static final class Api21 {
+    @DoNotInline
+    public static Drawable getDrawable(Context context, Resources resources, @DrawableRes int res) {
+      return resources.getDrawable(res, context.getTheme());
+    }
+  }
 }

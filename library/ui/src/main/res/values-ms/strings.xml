@@ -1,18 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Copyright (C) 2019 The Android Open Source Project
-
-     Licensed under the Apache License, Version 2.0 (the "License");
-     you may not use this file except in compliance with the License.
-     You may obtain a copy of the License at
-
-          http://www.apache.org/licenses/LICENSE-2.0
-
-     Unless required by applicable law or agreed to in writing, software
-     distributed under the License is distributed on an "AS IS" BASIS,
-     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-     See the License for the specific language governing permissions and
-     limitations under the License.
--->
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
   <string name="exo_controls_show">Tunjukkan kawalan pemain</string>
   <string name="exo_controls_hide">Sembunyikan kawalan pemain</string>
@@ -37,11 +23,11 @@
     <item quantity="one">Mundar laju %d saat</item>
     <item quantity="other">Mundar laju %d saat</item>
   </plurals>
-  <string name="exo_controls_repeat_off_description">Jangan ulang</string>
-  <string name="exo_controls_repeat_one_description">Ulang satu</string>
-  <string name="exo_controls_repeat_all_description">Ulang semua</string>
-  <string name="exo_controls_shuffle_on_description">Hidupkan rombak</string>
-  <string name="exo_controls_shuffle_off_description">Matikan rombak</string>
+  <string name="exo_controls_repeat_off_description">Mod semasa: Tidak berulang. Togol mod ulang.</string>
+  <string name="exo_controls_repeat_one_description">Mod semasa: Ulang satu. Togol mod ulang.</string>
+  <string name="exo_controls_repeat_all_description">Mod semasa: Ulang semua. Togol mod ulang.</string>
+  <string name="exo_controls_shuffle_on_description">Lumpuhkan mod rombak</string>
+  <string name="exo_controls_shuffle_off_description">Dayakan mod rombak</string>
   <string name="exo_controls_vr_description">Mod VR</string>
   <string name="exo_controls_cc_enabled_description">Lumpuhkan sari kata</string>
   <string name="exo_controls_cc_disabled_description">Dayakan sari kata</string>

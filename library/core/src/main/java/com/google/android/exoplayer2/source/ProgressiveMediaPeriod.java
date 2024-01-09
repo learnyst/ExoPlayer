@@ -15,6 +15,7 @@
  */
 package com.google.android.exoplayer2.source;
 
+import static com.google.android.exoplayer2.util.Assertions.checkNotNull;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 
@@ -67,7 +68,15 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
-/** A {@link MediaPeriod} that extracts data using an {@link Extractor}. */
+/**
+ * A {@link MediaPeriod} that extracts data using an {@link Extractor}.
+ *
+ * @deprecated com.google.android.exoplayer2 is deprecated. Please migrate to androidx.media3 (which
+ *     contains the same ExoPlayer code). See <a
+ *     href="https://developer.android.com/guide/topics/media/media3/getting-started/migration-guide">the
+ *     migration guide</a> for more details, including a script to help with the migration.
+ */
+@Deprecated
 /* package */ final class ProgressiveMediaPeriod
     implements MediaPeriod,
         ExtractorOutput,
@@ -134,7 +143,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private boolean seenFirstTrackSelection;
   private boolean notifyDiscontinuity;
   private int enabledTrackCount;
-  private long length;
+  private boolean isLengthKnown;
 
   private long lastSeekPositionUs;
   private long pendingResetPositionUs;
@@ -192,15 +201,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     onContinueLoadingRequestedRunnable =
         () -> {
           if (!released) {
-            Assertions.checkNotNull(callback)
-                .onContinueLoadingRequested(ProgressiveMediaPeriod.this);
+            checkNotNull(callback).onContinueLoadingRequested(ProgressiveMediaPeriod.this);
           }
         };
     handler = Util.createHandlerForCurrentLooper();
     sampleQueueTrackIds = new TrackId[0];
     sampleQueues = new SampleQueue[0];
     pendingResetPositionUs = C.TIME_UNSET;
-    length = C.LENGTH_UNSET;
     durationUs = C.TIME_UNSET;
     dataType = C.DATA_TYPE_MEDIA;
   }
@@ -366,7 +373,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   @Override
   public long getNextLoadPositionUs() {
-    return enabledTrackCount == 0 ? C.TIME_END_OF_SOURCE : getBufferedPositionUs();
+    return getBufferedPositionUs();
   }
 
   @Override
@@ -382,8 +389,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   @Override
   public long getBufferedPositionUs() {
     assertPrepared();
-    boolean[] trackIsAudioVideoFlags = trackState.trackIsAudioVideoFlags;
-    if (loadingFinished) {
+    if (loadingFinished || enabledTrackCount == 0) {
       return C.TIME_END_OF_SOURCE;
     } else if (isPendingReset()) {
       return pendingResetPositionUs;
@@ -393,14 +399,16 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       // Ignore non-AV tracks, which may be sparse or poorly interleaved.
       int trackCount = sampleQueues.length;
       for (int i = 0; i < trackCount; i++) {
-        if (trackIsAudioVideoFlags[i] && !sampleQueues[i].isLastSampleQueued()) {
+        if (trackState.trackIsAudioVideoFlags[i]
+            && trackState.trackEnabledStates[i]
+            && !sampleQueues[i].isLastSampleQueued()) {
           largestQueuedTimestampUs =
               min(largestQueuedTimestampUs, sampleQueues[i].getLargestQueuedTimestampUs());
         }
       }
     }
     if (largestQueuedTimestampUs == Long.MAX_VALUE) {
-      largestQueuedTimestampUs = getLargestQueuedTimestampUs();
+      largestQueuedTimestampUs = getLargestQueuedTimestampUs(/* includeDisabledTracks= */ false);
     }
     return largestQueuedTimestampUs == Long.MIN_VALUE
         ? lastSeekPositionUs
@@ -536,7 +544,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     for (SampleQueue sampleQueue : sampleQueues) {
       sampleQueue.reset();
     }
-    Assertions.checkNotNull(callback).onContinueLoadingRequested(this);
+    checkNotNull(callback).onContinueLoadingRequested(this);
   }
 
   private boolean suppressRead() {
@@ -550,7 +558,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       ExtractingLoadable loadable, long elapsedRealtimeMs, long loadDurationMs) {
     if (durationUs == C.TIME_UNSET && seekMap != null) {
       boolean isSeekable = seekMap.isSeekable();
-      long largestQueuedTimestampUs = getLargestQueuedTimestampUs();
+      long largestQueuedTimestampUs =
+          getLargestQueuedTimestampUs(/* includeDisabledTracks= */ true);
       durationUs =
           largestQueuedTimestampUs == Long.MIN_VALUE
               ? 0
@@ -577,9 +586,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         /* trackSelectionData= */ null,
         /* mediaStartTimeUs= */ loadable.seekTimeUs,
         durationUs);
-    copyLengthFromLoader(loadable);
     loadingFinished = true;
-    Assertions.checkNotNull(callback).onContinueLoadingRequested(this);
+    checkNotNull(callback).onContinueLoadingRequested(this);
   }
 
   @Override
@@ -606,12 +614,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         /* mediaStartTimeUs= */ loadable.seekTimeUs,
         durationUs);
     if (!released) {
-      copyLengthFromLoader(loadable);
       for (SampleQueue sampleQueue : sampleQueues) {
         sampleQueue.reset();
       }
       if (enabledTrackCount > 0) {
-        Assertions.checkNotNull(callback).onContinueLoadingRequested(this);
+        checkNotNull(callback).onContinueLoadingRequested(this);
       }
     }
   }
@@ -623,7 +630,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       long loadDurationMs,
       IOException error,
       int errorCount) {
-    copyLengthFromLoader(loadable);
     StatsDataSource dataSource = loadable.dataSource;
     LoadEventInfo loadEventInfo =
         new LoadEventInfo(
@@ -709,6 +715,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   // Internal methods.
 
+  private void onLengthKnown() {
+    handler.post(() -> isLengthKnown = true);
+  }
+
   private TrackOutput prepareTrackOutput(TrackId id) {
     int trackCount = sampleQueues.length;
     for (int i = 0; i < trackCount; i++) {
@@ -732,7 +742,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private void setSeekMap(SeekMap seekMap) {
     this.seekMap = icyHeaders == null ? seekMap : new Unseekable(/* durationUs= */ C.TIME_UNSET);
     durationUs = seekMap.getDurationUs();
-    isLive = length == C.LENGTH_UNSET && seekMap.getDurationUs() == C.TIME_UNSET;
+    isLive = !isLengthKnown && seekMap.getDurationUs() == C.TIME_UNSET;
     dataType = isLive ? C.DATA_TYPE_MEDIA_PROGRESSIVE_LIVE : C.DATA_TYPE_MEDIA;
     listener.onSourceInfoRefreshed(durationUs, seekMap.isSeekable(), isLive);
     if (!prepared) {
@@ -754,7 +764,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     TrackGroup[] trackArray = new TrackGroup[trackCount];
     boolean[] trackIsAudioVideoFlags = new boolean[trackCount];
     for (int i = 0; i < trackCount; i++) {
-      Format trackFormat = Assertions.checkNotNull(sampleQueues[i].getUpstreamFormat());
+      Format trackFormat = checkNotNull(sampleQueues[i].getUpstreamFormat());
       @Nullable String mimeType = trackFormat.sampleMimeType;
       boolean isAudio = MimeTypes.isAudio(mimeType);
       boolean isAudioVideo = isAudio || MimeTypes.isVideo(mimeType);
@@ -785,13 +795,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
     trackState = new TrackState(new TrackGroupArray(trackArray), trackIsAudioVideoFlags);
     prepared = true;
-    Assertions.checkNotNull(callback).onPrepared(this);
-  }
-
-  private void copyLengthFromLoader(ExtractingLoadable loadable) {
-    if (length == C.LENGTH_UNSET) {
-      length = loadable.length;
-    }
+    checkNotNull(callback).onPrepared(this);
   }
 
   private void startLoading() {
@@ -806,7 +810,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         return;
       }
       loadable.setLoadPosition(
-          Assertions.checkNotNull(seekMap).getSeekPoints(pendingResetPositionUs).first.position,
+          checkNotNull(seekMap).getSeekPoints(pendingResetPositionUs).first.position,
           pendingResetPositionUs);
       for (SampleQueue sampleQueue : sampleQueues) {
         sampleQueue.setStartTimeUs(pendingResetPositionUs);
@@ -839,7 +843,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    *     retry.
    */
   private boolean configureRetry(ExtractingLoadable loadable, int currentExtractedSampleCount) {
-    if (length != C.LENGTH_UNSET || (seekMap != null && seekMap.getDurationUs() != C.TIME_UNSET)) {
+    if (isLengthKnown || (seekMap != null && seekMap.getDurationUs() != C.TIME_UNSET)) {
       // We're playing an on-demand stream. Resume the current loadable, which will
       // request data starting from the point it left off.
       extractedSamplesCountAtStartOfLoad = currentExtractedSampleCount;
@@ -903,11 +907,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     return extractedSamplesCount;
   }
 
-  private long getLargestQueuedTimestampUs() {
+  private long getLargestQueuedTimestampUs(boolean includeDisabledTracks) {
     long largestQueuedTimestampUs = Long.MIN_VALUE;
-    for (SampleQueue sampleQueue : sampleQueues) {
-      largestQueuedTimestampUs =
-          max(largestQueuedTimestampUs, sampleQueue.getLargestQueuedTimestampUs());
+    for (int i = 0; i < sampleQueues.length; i++) {
+      if (includeDisabledTracks || checkNotNull(trackState).trackEnabledStates[i]) {
+        largestQueuedTimestampUs =
+            max(largestQueuedTimestampUs, sampleQueues[i].getLargestQueuedTimestampUs());
+      }
     }
     return largestQueuedTimestampUs;
   }
@@ -919,8 +925,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   @EnsuresNonNull({"trackState", "seekMap"})
   private void assertPrepared() {
     Assertions.checkState(prepared);
-    Assertions.checkNotNull(trackState);
-    Assertions.checkNotNull(seekMap);
+    checkNotNull(trackState);
+    checkNotNull(seekMap);
   }
 
   private final class SampleStreamImpl implements SampleStream {
@@ -969,7 +975,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     private boolean pendingExtractorSeek;
     private long seekTimeUs;
     private DataSpec dataSpec;
-    private long length;
     @Nullable private TrackOutput icyTrackOutput;
     private boolean seenIcyMetadata;
 
@@ -987,7 +992,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       this.loadCondition = loadCondition;
       this.positionHolder = new PositionHolder();
       this.pendingExtractorSeek = true;
-      this.length = C.LENGTH_UNSET;
       loadTaskId = LoadEventInfo.getNewId();
       dataSpec = buildDataSpec(/* position= */ 0);
     }
@@ -1006,9 +1010,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         try {
           long position = positionHolder.position;
           dataSpec = buildDataSpec(position);
-          length = dataSource.open(dataSpec);
+          long length = dataSource.open(dataSpec);
           if (length != C.LENGTH_UNSET) {
             length += position;
+            onLengthKnown();
           }
           icyHeaders = IcyHeaders.parse(dataSource.getResponseHeaders());
           DataSource extractorDataSource = dataSource;
@@ -1050,7 +1055,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         } finally {
           if (result == Extractor.RESULT_SEEK) {
             result = Extractor.RESULT_CONTINUE;
-          } else if (progressiveMediaExtractor.getCurrentInputPosition() != C.POSITION_UNSET) {
+          } else if (progressiveMediaExtractor.getCurrentInputPosition() != C.INDEX_UNSET) {
             positionHolder.position = progressiveMediaExtractor.getCurrentInputPosition();
           }
           DataSourceUtil.closeQuietly(dataSource);
@@ -1064,9 +1069,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     public void onIcyMetadata(ParsableByteArray metadata) {
       // Always output the first ICY metadata at the start time. This helps minimize any delay
       // between the start of playback and the first ICY metadata event.
-      long timeUs = !seenIcyMetadata ? seekTimeUs : max(getLargestQueuedTimestampUs(), seekTimeUs);
+      long timeUs =
+          !seenIcyMetadata
+              ? seekTimeUs
+              : max(getLargestQueuedTimestampUs(/* includeDisabledTracks= */ true), seekTimeUs);
       int length = metadata.bytesLeft();
-      TrackOutput icyTrackOutput = Assertions.checkNotNull(this.icyTrackOutput);
+      TrackOutput icyTrackOutput = checkNotNull(this.icyTrackOutput);
       icyTrackOutput.sampleData(metadata, length);
       icyTrackOutput.sampleMetadata(
           timeUs, C.BUFFER_FLAG_KEY_FRAME, length, /* offset= */ 0, /* cryptoData= */ null);

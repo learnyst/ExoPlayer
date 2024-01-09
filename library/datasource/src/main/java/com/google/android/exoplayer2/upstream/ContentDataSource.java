@@ -21,30 +21,34 @@ import static java.lang.Math.min;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.res.AssetFileDescriptor;
-import android.media.ApplicationMediaCapabilities;
-import android.media.MediaFeature;
-import android.media.MediaFormat;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.MediaStore;
-import androidx.annotation.DoNotInline;
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
 import com.google.android.exoplayer2.C;
 import com.google.android.exoplayer2.PlaybackException;
-import com.google.android.exoplayer2.util.Util;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.channels.FileChannel;
 
-/** A {@link DataSource} for reading from a content URI. */
+/**
+ * A {@link DataSource} for reading from a content URI.
+ *
+ * @deprecated com.google.android.exoplayer2 is deprecated. Please migrate to androidx.media3 (which
+ *     contains the same ExoPlayer code). See <a
+ *     href="https://developer.android.com/guide/topics/media/media3/getting-started/migration-guide">the
+ *     migration guide</a> for more details, including a script to help with the migration.
+ */
+@Deprecated
 public final class ContentDataSource extends BaseDataSource {
 
   /** Thrown when an {@link IOException} is encountered reading from a content URI. */
   public static class ContentDataSourceException extends DataSourceException {
 
-    /** @deprecated Use {@link #ContentDataSourceException(IOException, int)}. */
+    /**
+     * @deprecated Use {@link #ContentDataSourceException(IOException, int)}.
+     */
     @Deprecated
     public ContentDataSourceException(IOException cause) {
       this(cause, PlaybackException.ERROR_CODE_IO_UNSPECIFIED);
@@ -65,26 +69,28 @@ public final class ContentDataSource extends BaseDataSource {
   private long bytesRemaining;
   private boolean opened;
 
-  /** @param context A context. */
+  /**
+   * @param context A context.
+   */
   public ContentDataSource(Context context) {
     super(/* isNetwork= */ false);
     this.resolver = context.getContentResolver();
   }
 
   @Override
+  @SuppressWarnings("InlinedApi") // We are inlining EXTRA_ACCEPT_ORIGINAL_MEDIA_FORMAT.
   public long open(DataSpec dataSpec) throws ContentDataSourceException {
     try {
-      Uri uri = dataSpec.uri;
+      Uri uri = dataSpec.uri.normalizeScheme();
       this.uri = uri;
 
       transferInitializing(dataSpec);
 
       AssetFileDescriptor assetFileDescriptor;
-      if ("content".equals(dataSpec.uri.getScheme())) {
+      if ("content".equals(uri.getScheme())) {
         Bundle providerOptions = new Bundle();
-        if (Util.SDK_INT >= 31) {
-          Api31.disableTranscoding(providerOptions);
-        }
+        // We don't want compatible media transcoding.
+        providerOptions.putBoolean(MediaStore.EXTRA_ACCEPT_ORIGINAL_MEDIA_FORMAT, true);
         assetFileDescriptor =
             resolver.openTypedAssetFileDescriptor(uri, /* mimeType= */ "*/*", providerOptions);
       } else {
@@ -224,23 +230,6 @@ public final class ContentDataSource extends BaseDataSource {
           transferEnded();
         }
       }
-    }
-  }
-
-  @RequiresApi(31)
-  private static final class Api31 {
-
-    @DoNotInline
-    public static void disableTranscoding(Bundle providerOptions) {
-      ApplicationMediaCapabilities mediaCapabilities =
-          new ApplicationMediaCapabilities.Builder()
-              .addSupportedVideoMimeType(MediaFormat.MIMETYPE_VIDEO_HEVC)
-              .addSupportedHdrType(MediaFeature.HdrType.DOLBY_VISION)
-              .addSupportedHdrType(MediaFeature.HdrType.HDR10)
-              .addSupportedHdrType(MediaFeature.HdrType.HDR10_PLUS)
-              .addSupportedHdrType(MediaFeature.HdrType.HLG)
-              .build();
-      providerOptions.putParcelable(MediaStore.EXTRA_MEDIA_CAPABILITIES, mediaCapabilities);
     }
   }
 }

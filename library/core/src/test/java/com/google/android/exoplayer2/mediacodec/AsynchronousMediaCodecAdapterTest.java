@@ -54,8 +54,7 @@ public class AsynchronousMediaCodecAdapterTest {
         new AsynchronousMediaCodecAdapter.Factory(
                 /* callbackThreadSupplier= */ () -> callbackThread,
                 /* queueingThreadSupplier= */ () -> queueingThread,
-                /* synchronizeCodecInteractionsWithQueueing= */ false,
-                /* enableImmediateCodecStartAfterFlush= */ false)
+                /* synchronizeCodecInteractionsWithQueueing= */ false)
             .createAdapter(configuration);
     bufferInfo = new MediaCodec.BufferInfo();
     // After starting the MediaCodec, the ShadowMediaCodec offers input buffer 0. We advance the
@@ -77,6 +76,20 @@ public class AsynchronousMediaCodecAdapterTest {
   public void dequeueInputBufferIndex_withMediaCodecError_throwsException() throws Exception {
     // Set an error directly on the adapter (not through the looper).
     adapter.onError(createCodecException());
+
+    assertThrows(IllegalStateException.class, () -> adapter.dequeueInputBufferIndex());
+  }
+
+  @Test
+  public void dequeueInputBufferIndex_withPendingQueueingError_throwsException() {
+    // Force MediaCodec to throw an error by attempting to queue input buffer -1.
+    adapter.queueInputBuffer(
+        /* index= */ -1,
+        /* offset= */ 0,
+        /* size= */ 0,
+        /* presentationTimeUs= */ 0,
+        /* flags= */ 0);
+    shadowOf(queueingThread.getLooper()).idle();
 
     assertThrows(IllegalStateException.class, () -> adapter.dequeueInputBufferIndex());
   }
@@ -120,6 +133,20 @@ public class AsynchronousMediaCodecAdapterTest {
   public void dequeueOutputBufferIndex_withMediaCodecError_throwsException() throws Exception {
     // Set an error directly on the adapter.
     adapter.onError(createCodecException());
+
+    assertThrows(IllegalStateException.class, () -> adapter.dequeueOutputBufferIndex(bufferInfo));
+  }
+
+  @Test
+  public void dequeueOutputBufferIndex_withPendingQueueingError_throwsException() {
+    // Force MediaCodec to throw an error by attempting to queue input buffer -1.
+    adapter.queueInputBuffer(
+        /* index= */ -1,
+        /* offset= */ 0,
+        /* size= */ 0,
+        /* presentationTimeUs= */ 0,
+        /* flags= */ 0);
+    shadowOf(queueingThread.getLooper()).idle();
 
     assertThrows(IllegalStateException.class, () -> adapter.dequeueOutputBufferIndex(bufferInfo));
   }
@@ -193,6 +220,7 @@ public class AsynchronousMediaCodecAdapterTest {
     Constructor<MediaCodec.CodecException> constructor =
         MediaCodec.CodecException.class.getDeclaredConstructor(
             Integer.TYPE, Integer.TYPE, String.class);
+    constructor.setAccessible(true);
     return constructor.newInstance(
         /* errorCode= */ 0, /* actionCode= */ 0, /* detailMessage= */ "error from codec");
   }

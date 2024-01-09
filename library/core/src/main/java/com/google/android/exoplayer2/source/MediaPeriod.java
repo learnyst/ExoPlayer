@@ -35,7 +35,13 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
  * <p>A {@link MediaPeriod} may only able to provide one {@link SampleStream} corresponding to a
  * group at any given time, however this {@link SampleStream} may adapt between multiple tracks
  * within the group.
+ *
+ * @deprecated com.google.android.exoplayer2 is deprecated. Please migrate to androidx.media3 (which
+ *     contains the same ExoPlayer code). See <a
+ *     href="https://developer.android.com/guide/topics/media/media3/getting-started/migration-guide">the
+ *     migration guide</a> for more details, including a script to help with the migration.
  */
+@Deprecated
 public interface MediaPeriod extends SequenceableLoader {
 
   /** A callback to be notified of {@link MediaPeriod} events. */
@@ -155,14 +161,18 @@ public interface MediaPeriod extends SequenceableLoader {
   /**
    * Attempts to read a discontinuity.
    *
+   * <p>A discontinuity implies that the provided {@link SampleStream SampleStreams} will start from
+   * a new playback position and any output pipelines need to be reset. This happens for example if
+   * the streams provide decode-only samples before the intended playback start position that need
+   * to be dropped.
+   *
    * <p>After this method has returned a value other than {@link C#TIME_UNSET}, all {@link
-   * SampleStream}s provided by the period are guaranteed to start from a key frame.
+   * SampleStream SampleStreams} provided by the period are guaranteed to start from a key frame.
    *
-   * <p>This method is only called after the period has been prepared and before reading from any
-   * {@link SampleStream}s provided by the period.
+   * <p>This method is only called after the period has been prepared.
    *
-   * @return If a discontinuity was read then the playback position in microseconds after the
-   *     discontinuity. Else {@link C#TIME_UNSET}.
+   * @return The playback position after the discontinuity, in microseconds, or {@link C#TIME_UNSET}
+   *     if there is no discontinuity.
    */
   long readDiscontinuity();
 
@@ -234,6 +244,7 @@ public interface MediaPeriod extends SequenceableLoader {
   boolean continueLoading(long positionUs);
 
   /** Returns whether the media period is currently loading. */
+  @Override
   boolean isLoading();
 
   /**

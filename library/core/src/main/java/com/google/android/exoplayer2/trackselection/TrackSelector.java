@@ -15,17 +15,21 @@
  */
 package com.google.android.exoplayer2.trackselection;
 
+import static com.google.android.exoplayer2.util.Assertions.checkStateNotNull;
+
+import androidx.annotation.CallSuper;
 import androidx.annotation.Nullable;
 import com.google.android.exoplayer2.ExoPlaybackException;
 import com.google.android.exoplayer2.ExoPlayer;
+import com.google.android.exoplayer2.Player;
 import com.google.android.exoplayer2.Renderer;
 import com.google.android.exoplayer2.RendererCapabilities;
 import com.google.android.exoplayer2.RendererConfiguration;
 import com.google.android.exoplayer2.Timeline;
+import com.google.android.exoplayer2.audio.AudioAttributes;
 import com.google.android.exoplayer2.source.MediaSource.MediaPeriodId;
 import com.google.android.exoplayer2.source.TrackGroupArray;
 import com.google.android.exoplayer2.upstream.BandwidthMeter;
-import com.google.android.exoplayer2.util.Assertions;
 
 /**
  * The component of an {@link ExoPlayer} responsible for selecting tracks to be consumed by each of
@@ -63,6 +67,8 @@ import com.google.android.exoplayer2.util.Assertions;
  *       track selection for the currently playing period differs from the one that was invalidated.
  *       Implementing subclasses can trigger invalidation by calling {@link #invalidate()}, which
  *       will call {@link InvalidationListener#onTrackSelectionsInvalidated()}.
+ *   <li>When the player is {@linkplain Player#release() released}, it will release the track
+ *       selector by calling {@link #release()}.
  * </ul>
  *
  * <h2>Renderer configuration</h2>
@@ -82,7 +88,13 @@ import com.google.android.exoplayer2.util.Assertions;
  * All calls made by the player into the track selector are on the player's internal playback
  * thread. The track selector may call {@link InvalidationListener#onTrackSelectionsInvalidated()}
  * from any thread.
+ *
+ * @deprecated com.google.android.exoplayer2 is deprecated. Please migrate to androidx.media3 (which
+ *     contains the same ExoPlayer code). See <a
+ *     href="https://developer.android.com/guide/topics/media/media3/getting-started/migration-guide">the
+ *     migration guide</a> for more details, including a script to help with the migration.
  */
+@Deprecated
 public abstract class TrackSelector {
 
   /** Notified when selections previously made by a {@link TrackSelector} are no longer valid. */
@@ -93,6 +105,15 @@ public abstract class TrackSelector {
      * longer valid. May be called from any thread.
      */
     void onTrackSelectionsInvalidated();
+
+    /**
+     * Called by a {@link TrackSelector} to indicate that selections it has previously made may no
+     * longer be valid due to the renderer capabilities change. This method is called from playback
+     * thread.
+     *
+     * @param renderer The renderer whose capabilities changed.
+     */
+    default void onRendererCapabilitiesChanged(Renderer renderer) {}
   }
 
   @Nullable private InvalidationListener listener;
@@ -105,9 +126,20 @@ public abstract class TrackSelector {
    *     it has previously made are no longer valid.
    * @param bandwidthMeter A bandwidth meter which can be used by track selections to select tracks.
    */
-  public final void init(InvalidationListener listener, BandwidthMeter bandwidthMeter) {
+  @CallSuper
+  public void init(InvalidationListener listener, BandwidthMeter bandwidthMeter) {
     this.listener = listener;
     this.bandwidthMeter = bandwidthMeter;
+  }
+
+  /**
+   * Called by the player to release the selector. The selector cannot be used until {@link
+   * #init(InvalidationListener, BandwidthMeter)} is called again.
+   */
+  @CallSuper
+  public void release() {
+    listener = null;
+    bandwidthMeter = null;
   }
 
   /**
@@ -162,6 +194,21 @@ public abstract class TrackSelector {
     return false;
   }
 
+  /** Called by the player to set the {@link AudioAttributes} that will be used for playback. */
+  public void setAudioAttributes(AudioAttributes audioAttributes) {
+    // Default implementation is no-op.
+  }
+
+  /**
+   * Returns the {@link RendererCapabilities.Listener} that the concrete instance uses to listen to
+   * the renderer capabilities changes. May be {@code null} if the implementation does not listen to
+   * the renderer capabilities changes.
+   */
+  @Nullable
+  public RendererCapabilities.Listener getRendererCapabilitiesListener() {
+    return null;
+  }
+
   /**
    * Calls {@link InvalidationListener#onTrackSelectionsInvalidated()} to invalidate all previously
    * generated track selections.
@@ -173,10 +220,23 @@ public abstract class TrackSelector {
   }
 
   /**
+   * Calls {@link InvalidationListener#onRendererCapabilitiesChanged(Renderer)} to invalidate all
+   * previously generated track selections because a renderer's capabilities have changed.
+   *
+   * @param renderer The renderer whose capabilities changed.
+   */
+  protected final void invalidateForRendererCapabilitiesChange(Renderer renderer) {
+    if (listener != null) {
+      listener.onRendererCapabilitiesChanged(renderer);
+    }
+  }
+
+  /**
    * Returns a bandwidth meter which can be used by track selections to select tracks. Must only be
-   * called after {@link #init(InvalidationListener, BandwidthMeter)} has been called.
+   * called when the track selector is {@linkplain #init(InvalidationListener, BandwidthMeter)
+   * initialized}.
    */
   protected final BandwidthMeter getBandwidthMeter() {
-    return Assertions.checkNotNull(bandwidthMeter);
+    return checkStateNotNull(bandwidthMeter);
   }
 }

@@ -15,11 +15,14 @@
  */
 package com.google.android.exoplayer2.gldemo;
 
+import static com.google.android.exoplayer2.util.Assertions.checkNotNull;
+
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.text.TextUtils;
 import android.widget.FrameLayout;
 import android.widget.Toast;
 import androidx.annotation.Nullable;
@@ -38,7 +41,6 @@ import com.google.android.exoplayer2.ui.StyledPlayerView;
 import com.google.android.exoplayer2.upstream.DataSource;
 import com.google.android.exoplayer2.upstream.DefaultDataSource;
 import com.google.android.exoplayer2.upstream.DefaultHttpDataSource;
-import com.google.android.exoplayer2.upstream.HttpDataSource;
 import com.google.android.exoplayer2.util.Assertions;
 import com.google.android.exoplayer2.util.EventLogger;
 import com.google.android.exoplayer2.util.GlUtil;
@@ -48,7 +50,13 @@ import java.util.UUID;
 /**
  * Activity that demonstrates playback of video to an {@link android.opengl.GLSurfaceView} with
  * postprocessing of the video content using GL.
+ *
+ * @deprecated com.google.android.exoplayer2 is deprecated. Please migrate to androidx.media3 (which
+ *     contains the same ExoPlayer code). See <a
+ *     href="https://developer.android.com/guide/topics/media/media3/getting-started/migration-guide">the
+ *     migration guide</a> for more details, including a script to help with the migration.
  */
+@Deprecated
 public final class MainActivity extends Activity {
 
   private static final String TAG = "MainActivity";
@@ -83,7 +91,8 @@ public final class MainActivity extends Activity {
     VideoProcessingGLSurfaceView videoProcessingGLSurfaceView =
         new VideoProcessingGLSurfaceView(
             context, requestSecureSurface, new BitmapOverlayVideoProcessor(context));
-    FrameLayout contentFrame = findViewById(R.id.exo_content_frame);
+    checkNotNull(playerView);
+    FrameLayout contentFrame = playerView.findViewById(R.id.exo_content_frame);
     contentFrame.addView(videoProcessingGLSurfaceView);
     this.videoProcessingGLSurfaceView = videoProcessingGLSurfaceView;
   }
@@ -144,7 +153,7 @@ public final class MainActivity extends Activity {
       String drmScheme = Assertions.checkNotNull(intent.getStringExtra(DRM_SCHEME_EXTRA));
       String drmLicenseUrl = Assertions.checkNotNull(intent.getStringExtra(DRM_LICENSE_URL_EXTRA));
       UUID drmSchemeUuid = Assertions.checkNotNull(Util.getDrmUuid(drmScheme));
-      HttpDataSource.Factory licenseDataSourceFactory = new DefaultHttpDataSource.Factory();
+      DataSource.Factory licenseDataSourceFactory = new DefaultHttpDataSource.Factory();
       HttpMediaDrmCallback drmCallback =
           new HttpMediaDrmCallback(drmLicenseUrl, licenseDataSourceFactory);
       drmSessionManager =
@@ -157,13 +166,18 @@ public final class MainActivity extends Activity {
 
     DataSource.Factory dataSourceFactory = new DefaultDataSource.Factory(this);
     MediaSource mediaSource;
-    @C.ContentType int type = Util.inferContentType(uri, intent.getStringExtra(EXTENSION_EXTRA));
-    if (type == C.TYPE_DASH) {
+    @Nullable String fileExtension = intent.getStringExtra(EXTENSION_EXTRA);
+    @C.ContentType
+    int type =
+        TextUtils.isEmpty(fileExtension)
+            ? Util.inferContentType(uri)
+            : Util.inferContentTypeForExtension(fileExtension);
+    if (type == C.CONTENT_TYPE_DASH) {
       mediaSource =
           new DashMediaSource.Factory(dataSourceFactory)
               .setDrmSessionManagerProvider(unusedMediaItem -> drmSessionManager)
               .createMediaSource(MediaItem.fromUri(uri));
-    } else if (type == C.TYPE_OTHER) {
+    } else if (type == C.CONTENT_TYPE_OTHER) {
       mediaSource =
           new ProgressiveMediaSource.Factory(dataSourceFactory)
               .setDrmSessionManagerProvider(unusedMediaItem -> drmSessionManager)
@@ -181,7 +195,7 @@ public final class MainActivity extends Activity {
         Assertions.checkNotNull(this.videoProcessingGLSurfaceView);
     videoProcessingGLSurfaceView.setPlayer(player);
     Assertions.checkNotNull(playerView).setPlayer(player);
-    player.addAnalyticsListener(new EventLogger(/* trackSelector= */ null));
+    player.addAnalyticsListener(new EventLogger());
     this.player = player;
   }
 

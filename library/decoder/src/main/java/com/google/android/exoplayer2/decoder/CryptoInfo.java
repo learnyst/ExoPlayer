@@ -25,7 +25,13 @@ import com.google.android.exoplayer2.util.Util;
  * Metadata describing the structure of an encrypted input sample.
  *
  * <p>This class is a compatibility wrapper for {@link android.media.MediaCodec.CryptoInfo}.
+ *
+ * @deprecated com.google.android.exoplayer2 is deprecated. Please migrate to androidx.media3 (which
+ *     contains the same ExoPlayer code). See <a
+ *     href="https://developer.android.com/guide/topics/media/media3/getting-started/migration-guide">the
+ *     migration guide</a> for more details, including a script to help with the migration.
  */
+@Deprecated
 public final class CryptoInfo {
 
   /**
@@ -67,9 +73,13 @@ public final class CryptoInfo {
    * @see android.media.MediaCodec.CryptoInfo#numSubSamples
    */
   public int numSubSamples;
-  /** @see android.media.MediaCodec.CryptoInfo.Pattern */
+  /**
+   * @see android.media.MediaCodec.CryptoInfo.Pattern
+   */
   public int encryptedBlocks;
-  /** @see android.media.MediaCodec.CryptoInfo.Pattern */
+  /**
+   * @see android.media.MediaCodec.CryptoInfo.Pattern
+   */
   public int clearBlocks;
 
   private final android.media.MediaCodec.CryptoInfo frameworkCryptoInfo;
@@ -80,7 +90,9 @@ public final class CryptoInfo {
     patternHolder = Util.SDK_INT >= 24 ? new PatternHolderV24(frameworkCryptoInfo) : null;
   }
 
-  /** @see android.media.MediaCodec.CryptoInfo#set(int, int[], int[], byte[], byte[], int) */
+  /**
+   * @see android.media.MediaCodec.CryptoInfo#set(int, int[], int[], byte[], byte[], int)
+   */
   public void set(
       int numSubSamples,
       int[] numBytesOfClearData,

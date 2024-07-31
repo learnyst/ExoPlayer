@@ -16,38 +16,42 @@
 package com.google.android.exoplayer2.trackselection;
 
 import static com.google.android.exoplayer2.util.Assertions.checkNotNull;
-import static com.google.android.exoplayer2.util.BundleableUtil.fromNullableBundle;
+import static com.google.android.exoplayer2.util.BundleableUtil.toBundleArrayList;
 import static com.google.common.base.MoreObjects.firstNonNull;
-import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.content.Context;
 import android.graphics.Point;
 import android.os.Bundle;
 import android.os.Looper;
 import android.view.accessibility.CaptioningManager;
-import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import com.google.android.exoplayer2.Bundleable;
 import com.google.android.exoplayer2.C;
+import com.google.android.exoplayer2.Player;
+import com.google.android.exoplayer2.source.TrackGroup;
+import com.google.android.exoplayer2.util.BundleableUtil;
 import com.google.android.exoplayer2.util.Util;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Ints;
-import java.lang.annotation.Documented;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import org.checkerframework.checker.initialization.qual.UnknownInitialization;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 
 /**
- * Constraint parameters for track selection.
+ * Parameters for controlling track selection.
  *
- * <p>For example the following code modifies the parameters to restrict video track selections to
- * SD, and to select a German audio track if there is one:
+ * <p>Parameters can be queried and set on a {@link Player}. For example the following code modifies
+ * the parameters to restrict video track selections to SD, and to select a German audio track if
+ * there is one:
  *
  * <pre>{@code
  * // Build on the current parameters.
@@ -61,7 +65,13 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
  * // Set the new parameters.
  * player.setTrackSelectionParameters(newParameters);
  * }</pre>
+ *
+ * @deprecated com.google.android.exoplayer2 is deprecated. Please migrate to androidx.media3 (which
+ *     contains the same ExoPlayer code). See <a
+ *     href="https://developer.android.com/guide/topics/media/media3/getting-started/migration-guide">the
+ *     migration guide</a> for more details, including a script to help with the migration.
  */
+@Deprecated
 public class TrackSelectionParameters implements Bundleable {
 
   /**
@@ -92,12 +102,13 @@ public class TrackSelectionParameters implements Bundleable {
     // Text
     private ImmutableList<String> preferredTextLanguages;
     private @C.RoleFlags int preferredTextRoleFlags;
+    private @C.SelectionFlags int ignoredTextSelectionFlags;
     private boolean selectUndeterminedTextLanguage;
     // General
     private boolean forceLowestBitrate;
     private boolean forceHighestSupportedBitrate;
-    private TrackSelectionOverrides trackSelectionOverrides;
-    private ImmutableSet<@C.TrackType Integer> disabledTrackTypes;
+    private HashMap<TrackGroup, TrackSelectionOverride> overrides;
+    private HashSet<@C.TrackType Integer> disabledTrackTypes;
 
     /**
      * @deprecated {@link Context} constraints will not be set using this constructor. Use {@link
@@ -124,12 +135,13 @@ public class TrackSelectionParameters implements Bundleable {
       // Text
       preferredTextLanguages = ImmutableList.of();
       preferredTextRoleFlags = 0;
+      ignoredTextSelectionFlags = 0;
       selectUndeterminedTextLanguage = false;
       // General
       forceLowestBitrate = false;
       forceHighestSupportedBitrate = false;
-      trackSelectionOverrides = TrackSelectionOverrides.EMPTY;
-      disabledTrackTypes = ImmutableSet.of();
+      overrides = new HashMap<>();
+      disabledTrackTypes = new HashSet<>();
     }
 
     /**
@@ -152,98 +164,86 @@ public class TrackSelectionParameters implements Bundleable {
     /** Creates a builder with the initial values specified in {@code bundle}. */
     protected Builder(Bundle bundle) {
       // Video
-      maxVideoWidth =
-          bundle.getInt(keyForField(FIELD_MAX_VIDEO_WIDTH), DEFAULT_WITHOUT_CONTEXT.maxVideoWidth);
+      maxVideoWidth = bundle.getInt(FIELD_MAX_VIDEO_WIDTH, DEFAULT_WITHOUT_CONTEXT.maxVideoWidth);
       maxVideoHeight =
-          bundle.getInt(
-              keyForField(FIELD_MAX_VIDEO_HEIGHT), DEFAULT_WITHOUT_CONTEXT.maxVideoHeight);
+          bundle.getInt(FIELD_MAX_VIDEO_HEIGHT, DEFAULT_WITHOUT_CONTEXT.maxVideoHeight);
       maxVideoFrameRate =
-          bundle.getInt(
-              keyForField(FIELD_MAX_VIDEO_FRAMERATE), DEFAULT_WITHOUT_CONTEXT.maxVideoFrameRate);
+          bundle.getInt(FIELD_MAX_VIDEO_FRAMERATE, DEFAULT_WITHOUT_CONTEXT.maxVideoFrameRate);
       maxVideoBitrate =
-          bundle.getInt(
-              keyForField(FIELD_MAX_VIDEO_BITRATE), DEFAULT_WITHOUT_CONTEXT.maxVideoBitrate);
-      minVideoWidth =
-          bundle.getInt(keyForField(FIELD_MIN_VIDEO_WIDTH), DEFAULT_WITHOUT_CONTEXT.minVideoWidth);
+          bundle.getInt(FIELD_MAX_VIDEO_BITRATE, DEFAULT_WITHOUT_CONTEXT.maxVideoBitrate);
+      minVideoWidth = bundle.getInt(FIELD_MIN_VIDEO_WIDTH, DEFAULT_WITHOUT_CONTEXT.minVideoWidth);
       minVideoHeight =
-          bundle.getInt(
-              keyForField(FIELD_MIN_VIDEO_HEIGHT), DEFAULT_WITHOUT_CONTEXT.minVideoHeight);
+          bundle.getInt(FIELD_MIN_VIDEO_HEIGHT, DEFAULT_WITHOUT_CONTEXT.minVideoHeight);
       minVideoFrameRate =
-          bundle.getInt(
-              keyForField(FIELD_MIN_VIDEO_FRAMERATE), DEFAULT_WITHOUT_CONTEXT.minVideoFrameRate);
+          bundle.getInt(FIELD_MIN_VIDEO_FRAMERATE, DEFAULT_WITHOUT_CONTEXT.minVideoFrameRate);
       minVideoBitrate =
-          bundle.getInt(
-              keyForField(FIELD_MIN_VIDEO_BITRATE), DEFAULT_WITHOUT_CONTEXT.minVideoBitrate);
-      viewportWidth =
-          bundle.getInt(keyForField(FIELD_VIEWPORT_WIDTH), DEFAULT_WITHOUT_CONTEXT.viewportWidth);
-      viewportHeight =
-          bundle.getInt(keyForField(FIELD_VIEWPORT_HEIGHT), DEFAULT_WITHOUT_CONTEXT.viewportHeight);
+          bundle.getInt(FIELD_MIN_VIDEO_BITRATE, DEFAULT_WITHOUT_CONTEXT.minVideoBitrate);
+      viewportWidth = bundle.getInt(FIELD_VIEWPORT_WIDTH, DEFAULT_WITHOUT_CONTEXT.viewportWidth);
+      viewportHeight = bundle.getInt(FIELD_VIEWPORT_HEIGHT, DEFAULT_WITHOUT_CONTEXT.viewportHeight);
       viewportOrientationMayChange =
           bundle.getBoolean(
-              keyForField(FIELD_VIEWPORT_ORIENTATION_MAY_CHANGE),
+              FIELD_VIEWPORT_ORIENTATION_MAY_CHANGE,
               DEFAULT_WITHOUT_CONTEXT.viewportOrientationMayChange);
       preferredVideoMimeTypes =
           ImmutableList.copyOf(
-              firstNonNull(
-                  bundle.getStringArray(keyForField(FIELD_PREFERRED_VIDEO_MIMETYPES)),
-                  new String[0]));
+              firstNonNull(bundle.getStringArray(FIELD_PREFERRED_VIDEO_MIMETYPES), new String[0]));
       preferredVideoRoleFlags =
           bundle.getInt(
-              keyForField(FIELD_PREFERRED_VIDEO_ROLE_FLAGS),
-              DEFAULT_WITHOUT_CONTEXT.preferredVideoRoleFlags);
+              FIELD_PREFERRED_VIDEO_ROLE_FLAGS, DEFAULT_WITHOUT_CONTEXT.preferredVideoRoleFlags);
       // Audio
       String[] preferredAudioLanguages1 =
-          firstNonNull(
-              bundle.getStringArray(keyForField(FIELD_PREFERRED_AUDIO_LANGUAGES)), new String[0]);
+          firstNonNull(bundle.getStringArray(FIELD_PREFERRED_AUDIO_LANGUAGES), new String[0]);
       preferredAudioLanguages = normalizeLanguageCodes(preferredAudioLanguages1);
       preferredAudioRoleFlags =
           bundle.getInt(
-              keyForField(FIELD_PREFERRED_AUDIO_ROLE_FLAGS),
-              DEFAULT_WITHOUT_CONTEXT.preferredAudioRoleFlags);
+              FIELD_PREFERRED_AUDIO_ROLE_FLAGS, DEFAULT_WITHOUT_CONTEXT.preferredAudioRoleFlags);
       maxAudioChannelCount =
           bundle.getInt(
-              keyForField(FIELD_MAX_AUDIO_CHANNEL_COUNT),
-              DEFAULT_WITHOUT_CONTEXT.maxAudioChannelCount);
+              FIELD_MAX_AUDIO_CHANNEL_COUNT, DEFAULT_WITHOUT_CONTEXT.maxAudioChannelCount);
       maxAudioBitrate =
-          bundle.getInt(
-              keyForField(FIELD_MAX_AUDIO_BITRATE), DEFAULT_WITHOUT_CONTEXT.maxAudioBitrate);
+          bundle.getInt(FIELD_MAX_AUDIO_BITRATE, DEFAULT_WITHOUT_CONTEXT.maxAudioBitrate);
       preferredAudioMimeTypes =
           ImmutableList.copyOf(
-              firstNonNull(
-                  bundle.getStringArray(keyForField(FIELD_PREFERRED_AUDIO_MIME_TYPES)),
-                  new String[0]));
+              firstNonNull(bundle.getStringArray(FIELD_PREFERRED_AUDIO_MIME_TYPES), new String[0]));
       // Text
       preferredTextLanguages =
           normalizeLanguageCodes(
-              firstNonNull(
-                  bundle.getStringArray(keyForField(FIELD_PREFERRED_TEXT_LANGUAGES)),
-                  new String[0]));
+              firstNonNull(bundle.getStringArray(FIELD_PREFERRED_TEXT_LANGUAGES), new String[0]));
       preferredTextRoleFlags =
           bundle.getInt(
-              keyForField(FIELD_PREFERRED_TEXT_ROLE_FLAGS),
-              DEFAULT_WITHOUT_CONTEXT.preferredTextRoleFlags);
+              FIELD_PREFERRED_TEXT_ROLE_FLAGS, DEFAULT_WITHOUT_CONTEXT.preferredTextRoleFlags);
+      ignoredTextSelectionFlags =
+          bundle.getInt(
+              FIELD_IGNORED_TEXT_SELECTION_FLAGS,
+              DEFAULT_WITHOUT_CONTEXT.ignoredTextSelectionFlags);
       selectUndeterminedTextLanguage =
           bundle.getBoolean(
-              keyForField(FIELD_SELECT_UNDETERMINED_TEXT_LANGUAGE),
+              FIELD_SELECT_UNDETERMINED_TEXT_LANGUAGE,
               DEFAULT_WITHOUT_CONTEXT.selectUndeterminedTextLanguage);
       // General
       forceLowestBitrate =
-          bundle.getBoolean(
-              keyForField(FIELD_FORCE_LOWEST_BITRATE), DEFAULT_WITHOUT_CONTEXT.forceLowestBitrate);
+          bundle.getBoolean(FIELD_FORCE_LOWEST_BITRATE, DEFAULT_WITHOUT_CONTEXT.forceLowestBitrate);
       forceHighestSupportedBitrate =
           bundle.getBoolean(
-              keyForField(FIELD_FORCE_HIGHEST_SUPPORTED_BITRATE),
+              FIELD_FORCE_HIGHEST_SUPPORTED_BITRATE,
               DEFAULT_WITHOUT_CONTEXT.forceHighestSupportedBitrate);
-      trackSelectionOverrides =
-          fromNullableBundle(
-              TrackSelectionOverrides.CREATOR,
-              bundle.getBundle(keyForField(FIELD_SELECTION_OVERRIDE_KEYS)),
-              TrackSelectionOverrides.EMPTY);
-      disabledTrackTypes =
-          ImmutableSet.copyOf(
-              Ints.asList(
-                  firstNonNull(
-                      bundle.getIntArray(keyForField(FIELD_DISABLED_TRACK_TYPE)), new int[0])));
+      @Nullable
+      List<Bundle> overrideBundleList = bundle.getParcelableArrayList(FIELD_SELECTION_OVERRIDES);
+      List<TrackSelectionOverride> overrideList =
+          overrideBundleList == null
+              ? ImmutableList.of()
+              : BundleableUtil.fromBundleList(TrackSelectionOverride.CREATOR, overrideBundleList);
+      overrides = new HashMap<>();
+      for (int i = 0; i < overrideList.size(); i++) {
+        TrackSelectionOverride override = overrideList.get(i);
+        overrides.put(override.mediaTrackGroup, override);
+      }
+      int[] disabledTrackTypeArray =
+          firstNonNull(bundle.getIntArray(FIELD_DISABLED_TRACK_TYPE), new int[0]);
+      disabledTrackTypes = new HashSet<>();
+      for (@C.TrackType int disabledTrackType : disabledTrackTypeArray) {
+        disabledTrackTypes.add(disabledTrackType);
+      }
     }
 
     /** Overrides the value of the builder with the value of {@link TrackSelectionParameters}. */
@@ -252,7 +252,7 @@ public class TrackSelectionParameters implements Bundleable {
       "preferredAudioLanguages",
       "preferredAudioMimeTypes",
       "preferredTextLanguages",
-      "trackSelectionOverrides",
+      "overrides",
       "disabledTrackTypes",
     })
     private void init(@UnknownInitialization Builder this, TrackSelectionParameters parameters) {
@@ -279,15 +279,17 @@ public class TrackSelectionParameters implements Bundleable {
       // Text
       preferredTextLanguages = parameters.preferredTextLanguages;
       preferredTextRoleFlags = parameters.preferredTextRoleFlags;
+      ignoredTextSelectionFlags = parameters.ignoredTextSelectionFlags;
       selectUndeterminedTextLanguage = parameters.selectUndeterminedTextLanguage;
       // General
       forceLowestBitrate = parameters.forceLowestBitrate;
       forceHighestSupportedBitrate = parameters.forceHighestSupportedBitrate;
-      trackSelectionOverrides = parameters.trackSelectionOverrides;
-      disabledTrackTypes = parameters.disabledTrackTypes;
+      disabledTrackTypes = new HashSet<>(parameters.disabledTrackTypes);
+      overrides = new HashMap<>(parameters.overrides);
     }
 
     /** Overrides the value of the builder with the value of {@link TrackSelectionParameters}. */
+    @CanIgnoreReturnValue
     protected Builder set(TrackSelectionParameters parameters) {
       init(parameters);
       return this;
@@ -300,6 +302,7 @@ public class TrackSelectionParameters implements Bundleable {
      *
      * @return This builder.
      */
+    @CanIgnoreReturnValue
     public Builder setMaxVideoSizeSd() {
       return setMaxVideoSize(1279, 719);
     }
@@ -309,6 +312,7 @@ public class TrackSelectionParameters implements Bundleable {
      *
      * @return This builder.
      */
+    @CanIgnoreReturnValue
     public Builder clearVideoSizeConstraints() {
       return setMaxVideoSize(Integer.MAX_VALUE, Integer.MAX_VALUE);
     }
@@ -320,6 +324,7 @@ public class TrackSelectionParameters implements Bundleable {
      * @param maxVideoHeight Maximum allowed video height in pixels.
      * @return This builder.
      */
+    @CanIgnoreReturnValue
     public Builder setMaxVideoSize(int maxVideoWidth, int maxVideoHeight) {
       this.maxVideoWidth = maxVideoWidth;
       this.maxVideoHeight = maxVideoHeight;
@@ -332,6 +337,7 @@ public class TrackSelectionParameters implements Bundleable {
      * @param maxVideoFrameRate Maximum allowed video frame rate in hertz.
      * @return This builder.
      */
+    @CanIgnoreReturnValue
     public Builder setMaxVideoFrameRate(int maxVideoFrameRate) {
       this.maxVideoFrameRate = maxVideoFrameRate;
       return this;
@@ -343,6 +349,7 @@ public class TrackSelectionParameters implements Bundleable {
      * @param maxVideoBitrate Maximum allowed video bitrate in bits per second.
      * @return This builder.
      */
+    @CanIgnoreReturnValue
     public Builder setMaxVideoBitrate(int maxVideoBitrate) {
       this.maxVideoBitrate = maxVideoBitrate;
       return this;
@@ -355,6 +362,7 @@ public class TrackSelectionParameters implements Bundleable {
      * @param minVideoHeight Minimum allowed video height in pixels.
      * @return This builder.
      */
+    @CanIgnoreReturnValue
     public Builder setMinVideoSize(int minVideoWidth, int minVideoHeight) {
       this.minVideoWidth = minVideoWidth;
       this.minVideoHeight = minVideoHeight;
@@ -367,6 +375,7 @@ public class TrackSelectionParameters implements Bundleable {
      * @param minVideoFrameRate Minimum allowed video frame rate in hertz.
      * @return This builder.
      */
+    @CanIgnoreReturnValue
     public Builder setMinVideoFrameRate(int minVideoFrameRate) {
       this.minVideoFrameRate = minVideoFrameRate;
       return this;
@@ -378,6 +387,7 @@ public class TrackSelectionParameters implements Bundleable {
      * @param minVideoBitrate Minimum allowed video bitrate in bits per second.
      * @return This builder.
      */
+    @CanIgnoreReturnValue
     public Builder setMinVideoBitrate(int minVideoBitrate) {
       this.minVideoBitrate = minVideoBitrate;
       return this;
@@ -392,6 +402,7 @@ public class TrackSelectionParameters implements Bundleable {
      *     playback.
      * @return This builder.
      */
+    @CanIgnoreReturnValue
     public Builder setViewportSizeToPhysicalDisplaySize(
         Context context, boolean viewportOrientationMayChange) {
       // Assume the viewport is fullscreen.
@@ -405,6 +416,7 @@ public class TrackSelectionParameters implements Bundleable {
      *
      * @return This builder.
      */
+    @CanIgnoreReturnValue
     public Builder clearViewportSizeConstraints() {
       return setViewportSize(Integer.MAX_VALUE, Integer.MAX_VALUE, true);
     }
@@ -419,6 +431,7 @@ public class TrackSelectionParameters implements Bundleable {
      *     playback.
      * @return This builder.
      */
+    @CanIgnoreReturnValue
     public Builder setViewportSize(
         int viewportWidth, int viewportHeight, boolean viewportOrientationMayChange) {
       this.viewportWidth = viewportWidth;
@@ -445,6 +458,7 @@ public class TrackSelectionParameters implements Bundleable {
      *     empty list for no preference.
      * @return This builder.
      */
+    @CanIgnoreReturnValue
     public Builder setPreferredVideoMimeTypes(String... mimeTypes) {
       preferredVideoMimeTypes = ImmutableList.copyOf(mimeTypes);
       return this;
@@ -456,6 +470,7 @@ public class TrackSelectionParameters implements Bundleable {
      * @param preferredVideoRoleFlags Preferred video role flags.
      * @return This builder.
      */
+    @CanIgnoreReturnValue
     public Builder setPreferredVideoRoleFlags(@C.RoleFlags int preferredVideoRoleFlags) {
       this.preferredVideoRoleFlags = preferredVideoRoleFlags;
       return this;
@@ -484,6 +499,7 @@ public class TrackSelectionParameters implements Bundleable {
      *     there's no default.
      * @return This builder.
      */
+    @CanIgnoreReturnValue
     public Builder setPreferredAudioLanguages(String... preferredAudioLanguages) {
       this.preferredAudioLanguages = normalizeLanguageCodes(preferredAudioLanguages);
       return this;
@@ -495,6 +511,7 @@ public class TrackSelectionParameters implements Bundleable {
      * @param preferredAudioRoleFlags Preferred audio role flags.
      * @return This builder.
      */
+    @CanIgnoreReturnValue
     public Builder setPreferredAudioRoleFlags(@C.RoleFlags int preferredAudioRoleFlags) {
       this.preferredAudioRoleFlags = preferredAudioRoleFlags;
       return this;
@@ -506,6 +523,7 @@ public class TrackSelectionParameters implements Bundleable {
      * @param maxAudioChannelCount Maximum allowed audio channel count.
      * @return This builder.
      */
+    @CanIgnoreReturnValue
     public Builder setMaxAudioChannelCount(int maxAudioChannelCount) {
       this.maxAudioChannelCount = maxAudioChannelCount;
       return this;
@@ -517,6 +535,7 @@ public class TrackSelectionParameters implements Bundleable {
      * @param maxAudioBitrate Maximum allowed audio bitrate in bits per second.
      * @return This builder.
      */
+    @CanIgnoreReturnValue
     public Builder setMaxAudioBitrate(int maxAudioBitrate) {
       this.maxAudioBitrate = maxAudioBitrate;
       return this;
@@ -540,6 +559,7 @@ public class TrackSelectionParameters implements Bundleable {
      *     empty list for no preference.
      * @return This builder.
      */
+    @CanIgnoreReturnValue
     public Builder setPreferredAudioMimeTypes(String... mimeTypes) {
       preferredAudioMimeTypes = ImmutableList.copyOf(mimeTypes);
       return this;
@@ -556,6 +576,7 @@ public class TrackSelectionParameters implements Bundleable {
      * @param context A {@link Context}.
      * @return This builder.
      */
+    @CanIgnoreReturnValue
     public Builder setPreferredTextLanguageAndRoleFlagsToCaptioningManagerSettings(
         Context context) {
       if (Util.SDK_INT >= 19) {
@@ -585,6 +606,7 @@ public class TrackSelectionParameters implements Bundleable {
      *     track otherwise.
      * @return This builder.
      */
+    @CanIgnoreReturnValue
     public Builder setPreferredTextLanguages(String... preferredTextLanguages) {
       this.preferredTextLanguages = normalizeLanguageCodes(preferredTextLanguages);
       return this;
@@ -596,8 +618,22 @@ public class TrackSelectionParameters implements Bundleable {
      * @param preferredTextRoleFlags Preferred text role flags.
      * @return This builder.
      */
+    @CanIgnoreReturnValue
     public Builder setPreferredTextRoleFlags(@C.RoleFlags int preferredTextRoleFlags) {
       this.preferredTextRoleFlags = preferredTextRoleFlags;
+      return this;
+    }
+
+    /**
+     * Sets a bitmask of selection flags that are ignored for text track selections.
+     *
+     * @param ignoredTextSelectionFlags A bitmask of {@link C.SelectionFlags} that are ignored for
+     *     text track selections.
+     * @return This builder.
+     */
+    @CanIgnoreReturnValue
+    public Builder setIgnoredTextSelectionFlags(@C.SelectionFlags int ignoredTextSelectionFlags) {
+      this.ignoredTextSelectionFlags = ignoredTextSelectionFlags;
       return this;
     }
 
@@ -610,6 +646,7 @@ public class TrackSelectionParameters implements Bundleable {
      *     be selected if no preferred language track is available.
      * @return This builder.
      */
+    @CanIgnoreReturnValue
     public Builder setSelectUndeterminedTextLanguage(boolean selectUndeterminedTextLanguage) {
       this.selectUndeterminedTextLanguage = selectUndeterminedTextLanguage;
       return this;
@@ -625,6 +662,7 @@ public class TrackSelectionParameters implements Bundleable {
      *     video tracks.
      * @return This builder.
      */
+    @CanIgnoreReturnValue
     public Builder setForceLowestBitrate(boolean forceLowestBitrate) {
       this.forceLowestBitrate = forceLowestBitrate;
       return this;
@@ -638,31 +676,85 @@ public class TrackSelectionParameters implements Bundleable {
      *     and video tracks.
      * @return This builder.
      */
+    @CanIgnoreReturnValue
     public Builder setForceHighestSupportedBitrate(boolean forceHighestSupportedBitrate) {
       this.forceHighestSupportedBitrate = forceHighestSupportedBitrate;
       return this;
     }
 
-    /**
-     * Sets the selection overrides.
-     *
-     * @param trackSelectionOverrides The track selection overrides.
-     * @return This builder.
-     */
-    public Builder setTrackSelectionOverrides(TrackSelectionOverrides trackSelectionOverrides) {
-      this.trackSelectionOverrides = trackSelectionOverrides;
+    /** Adds an override, replacing any override for the same {@link TrackGroup}. */
+    @CanIgnoreReturnValue
+    public Builder addOverride(TrackSelectionOverride override) {
+      overrides.put(override.mediaTrackGroup, override);
+      return this;
+    }
+
+    /** Sets an override, replacing all existing overrides with the same track type. */
+    @CanIgnoreReturnValue
+    public Builder setOverrideForType(TrackSelectionOverride override) {
+      clearOverridesOfType(override.getType());
+      overrides.put(override.mediaTrackGroup, override);
+      return this;
+    }
+
+    /** Removes the override for the provided media {@link TrackGroup}, if there is one. */
+    @CanIgnoreReturnValue
+    public Builder clearOverride(TrackGroup mediaTrackGroup) {
+      overrides.remove(mediaTrackGroup);
+      return this;
+    }
+
+    /** Removes all overrides of the provided track type. */
+    @CanIgnoreReturnValue
+    public Builder clearOverridesOfType(@C.TrackType int trackType) {
+      Iterator<TrackSelectionOverride> it = overrides.values().iterator();
+      while (it.hasNext()) {
+        TrackSelectionOverride override = it.next();
+        if (override.getType() == trackType) {
+          it.remove();
+        }
+      }
+      return this;
+    }
+
+    /** Removes all overrides. */
+    @CanIgnoreReturnValue
+    public Builder clearOverrides() {
+      overrides.clear();
       return this;
     }
 
     /**
      * Sets the disabled track types, preventing all tracks of those types from being selected for
-     * playback.
+     * playback. Any previously disabled track types are cleared.
      *
      * @param disabledTrackTypes The track types to disable.
      * @return This builder.
+     * @deprecated Use {@link #setTrackTypeDisabled(int, boolean)}.
      */
+    @CanIgnoreReturnValue
+    @Deprecated
     public Builder setDisabledTrackTypes(Set<@C.TrackType Integer> disabledTrackTypes) {
-      this.disabledTrackTypes = ImmutableSet.copyOf(disabledTrackTypes);
+      this.disabledTrackTypes.clear();
+      this.disabledTrackTypes.addAll(disabledTrackTypes);
+      return this;
+    }
+
+    /**
+     * Sets whether a track type is disabled. If disabled, no tracks of the specified type will be
+     * selected for playback.
+     *
+     * @param trackType The track type.
+     * @param disabled Whether the track type should be disabled.
+     * @return This builder.
+     */
+    @CanIgnoreReturnValue
+    public Builder setTrackTypeDisabled(@C.TrackType int trackType, boolean disabled) {
+      if (disabled) {
+        disabledTrackTypes.add(trackType);
+      } else {
+        disabledTrackTypes.remove(trackType);
+      }
       return this;
     }
 
@@ -838,6 +930,11 @@ public class TrackSelectionParameters implements Bundleable {
    */
   public final @C.RoleFlags int preferredTextRoleFlags;
   /**
+   * Bitmask of selection flags that are ignored for text track selections. See {@link
+   * C.SelectionFlags}. The default value is {@code 0} (i.e., no flags are ignored).
+   */
+  public final @C.SelectionFlags int ignoredTextSelectionFlags;
+  /**
    * Whether a text track with undetermined language should be selected if no track with {@link
    * #preferredTextLanguages} is available, or if {@link #preferredTextLanguages} is unset. The
    * default value is {@code false}.
@@ -855,8 +952,9 @@ public class TrackSelectionParameters implements Bundleable {
    */
   public final boolean forceHighestSupportedBitrate;
 
-  /** Overrides to force tracks to be selected. */
-  public final TrackSelectionOverrides trackSelectionOverrides;
+  /** Overrides to force selection of specific tracks. */
+  public final ImmutableMap<TrackGroup, TrackSelectionOverride> overrides;
+
   /**
    * The track types that are disabled. No track of a disabled type will be selected, thus no track
    * type contained in the set will be played. The default value is that no track type is disabled
@@ -888,12 +986,13 @@ public class TrackSelectionParameters implements Bundleable {
     // Text
     this.preferredTextLanguages = builder.preferredTextLanguages;
     this.preferredTextRoleFlags = builder.preferredTextRoleFlags;
+    this.ignoredTextSelectionFlags = builder.ignoredTextSelectionFlags;
     this.selectUndeterminedTextLanguage = builder.selectUndeterminedTextLanguage;
     // General
     this.forceLowestBitrate = builder.forceLowestBitrate;
     this.forceHighestSupportedBitrate = builder.forceHighestSupportedBitrate;
-    this.trackSelectionOverrides = builder.trackSelectionOverrides;
-    this.disabledTrackTypes = builder.disabledTrackTypes;
+    this.overrides = ImmutableMap.copyOf(builder.overrides);
+    this.disabledTrackTypes = ImmutableSet.copyOf(builder.disabledTrackTypes);
   }
 
   /** Creates a new {@link Builder}, copying the initial values from this instance. */
@@ -931,13 +1030,15 @@ public class TrackSelectionParameters implements Bundleable {
         && maxAudioChannelCount == other.maxAudioChannelCount
         && maxAudioBitrate == other.maxAudioBitrate
         && preferredAudioMimeTypes.equals(other.preferredAudioMimeTypes)
+        // Text
         && preferredTextLanguages.equals(other.preferredTextLanguages)
         && preferredTextRoleFlags == other.preferredTextRoleFlags
+        && ignoredTextSelectionFlags == other.ignoredTextSelectionFlags
         && selectUndeterminedTextLanguage == other.selectUndeterminedTextLanguage
         // General
         && forceLowestBitrate == other.forceLowestBitrate
         && forceHighestSupportedBitrate == other.forceHighestSupportedBitrate
-        && trackSelectionOverrides.equals(other.trackSelectionOverrides)
+        && overrides.equals(other.overrides)
         && disabledTrackTypes.equals(other.disabledTrackTypes);
   }
 
@@ -967,130 +1068,106 @@ public class TrackSelectionParameters implements Bundleable {
     // Text
     result = 31 * result + preferredTextLanguages.hashCode();
     result = 31 * result + preferredTextRoleFlags;
+    result = 31 * result + ignoredTextSelectionFlags;
     result = 31 * result + (selectUndeterminedTextLanguage ? 1 : 0);
     // General
     result = 31 * result + (forceLowestBitrate ? 1 : 0);
     result = 31 * result + (forceHighestSupportedBitrate ? 1 : 0);
-    result = 31 * result + trackSelectionOverrides.hashCode();
+    result = 31 * result + overrides.hashCode();
     result = 31 * result + disabledTrackTypes.hashCode();
     return result;
   }
 
   // Bundleable implementation
 
-  @Documented
-  @Retention(RetentionPolicy.SOURCE)
-  @Target(TYPE_USE)
-  @IntDef({
-    FIELD_PREFERRED_AUDIO_LANGUAGES,
-    FIELD_PREFERRED_AUDIO_ROLE_FLAGS,
-    FIELD_PREFERRED_TEXT_LANGUAGES,
-    FIELD_PREFERRED_TEXT_ROLE_FLAGS,
-    FIELD_SELECT_UNDETERMINED_TEXT_LANGUAGE,
-    FIELD_MAX_VIDEO_WIDTH,
-    FIELD_MAX_VIDEO_HEIGHT,
-    FIELD_MAX_VIDEO_FRAMERATE,
-    FIELD_MAX_VIDEO_BITRATE,
-    FIELD_MIN_VIDEO_WIDTH,
-    FIELD_MIN_VIDEO_HEIGHT,
-    FIELD_MIN_VIDEO_FRAMERATE,
-    FIELD_MIN_VIDEO_BITRATE,
-    FIELD_VIEWPORT_WIDTH,
-    FIELD_VIEWPORT_HEIGHT,
-    FIELD_VIEWPORT_ORIENTATION_MAY_CHANGE,
-    FIELD_PREFERRED_VIDEO_MIMETYPES,
-    FIELD_MAX_AUDIO_CHANNEL_COUNT,
-    FIELD_MAX_AUDIO_BITRATE,
-    FIELD_PREFERRED_AUDIO_MIME_TYPES,
-    FIELD_FORCE_LOWEST_BITRATE,
-    FIELD_FORCE_HIGHEST_SUPPORTED_BITRATE,
-    FIELD_SELECTION_OVERRIDE_KEYS,
-    FIELD_SELECTION_OVERRIDE_VALUES,
-    FIELD_DISABLED_TRACK_TYPE,
-    FIELD_PREFERRED_VIDEO_ROLE_FLAGS
-  })
-  private @interface FieldNumber {}
+  private static final String FIELD_PREFERRED_AUDIO_LANGUAGES = Util.intToStringMaxRadix(1);
+  private static final String FIELD_PREFERRED_AUDIO_ROLE_FLAGS = Util.intToStringMaxRadix(2);
+  private static final String FIELD_PREFERRED_TEXT_LANGUAGES = Util.intToStringMaxRadix(3);
+  private static final String FIELD_PREFERRED_TEXT_ROLE_FLAGS = Util.intToStringMaxRadix(4);
+  private static final String FIELD_SELECT_UNDETERMINED_TEXT_LANGUAGE = Util.intToStringMaxRadix(5);
+  private static final String FIELD_MAX_VIDEO_WIDTH = Util.intToStringMaxRadix(6);
+  private static final String FIELD_MAX_VIDEO_HEIGHT = Util.intToStringMaxRadix(7);
+  private static final String FIELD_MAX_VIDEO_FRAMERATE = Util.intToStringMaxRadix(8);
+  private static final String FIELD_MAX_VIDEO_BITRATE = Util.intToStringMaxRadix(9);
+  private static final String FIELD_MIN_VIDEO_WIDTH = Util.intToStringMaxRadix(10);
+  private static final String FIELD_MIN_VIDEO_HEIGHT = Util.intToStringMaxRadix(11);
+  private static final String FIELD_MIN_VIDEO_FRAMERATE = Util.intToStringMaxRadix(12);
+  private static final String FIELD_MIN_VIDEO_BITRATE = Util.intToStringMaxRadix(13);
+  private static final String FIELD_VIEWPORT_WIDTH = Util.intToStringMaxRadix(14);
+  private static final String FIELD_VIEWPORT_HEIGHT = Util.intToStringMaxRadix(15);
+  private static final String FIELD_VIEWPORT_ORIENTATION_MAY_CHANGE = Util.intToStringMaxRadix(16);
+  private static final String FIELD_PREFERRED_VIDEO_MIMETYPES = Util.intToStringMaxRadix(17);
+  private static final String FIELD_MAX_AUDIO_CHANNEL_COUNT = Util.intToStringMaxRadix(18);
+  private static final String FIELD_MAX_AUDIO_BITRATE = Util.intToStringMaxRadix(19);
+  private static final String FIELD_PREFERRED_AUDIO_MIME_TYPES = Util.intToStringMaxRadix(20);
+  private static final String FIELD_FORCE_LOWEST_BITRATE = Util.intToStringMaxRadix(21);
+  private static final String FIELD_FORCE_HIGHEST_SUPPORTED_BITRATE = Util.intToStringMaxRadix(22);
+  private static final String FIELD_SELECTION_OVERRIDES = Util.intToStringMaxRadix(23);
+  private static final String FIELD_DISABLED_TRACK_TYPE = Util.intToStringMaxRadix(24);
+  private static final String FIELD_PREFERRED_VIDEO_ROLE_FLAGS = Util.intToStringMaxRadix(25);
+  private static final String FIELD_IGNORED_TEXT_SELECTION_FLAGS = Util.intToStringMaxRadix(26);
 
-  private static final int FIELD_PREFERRED_AUDIO_LANGUAGES = 1;
-  private static final int FIELD_PREFERRED_AUDIO_ROLE_FLAGS = 2;
-  private static final int FIELD_PREFERRED_TEXT_LANGUAGES = 3;
-  private static final int FIELD_PREFERRED_TEXT_ROLE_FLAGS = 4;
-  private static final int FIELD_SELECT_UNDETERMINED_TEXT_LANGUAGE = 5;
-  private static final int FIELD_MAX_VIDEO_WIDTH = 6;
-  private static final int FIELD_MAX_VIDEO_HEIGHT = 7;
-  private static final int FIELD_MAX_VIDEO_FRAMERATE = 8;
-  private static final int FIELD_MAX_VIDEO_BITRATE = 9;
-  private static final int FIELD_MIN_VIDEO_WIDTH = 10;
-  private static final int FIELD_MIN_VIDEO_HEIGHT = 11;
-  private static final int FIELD_MIN_VIDEO_FRAMERATE = 12;
-  private static final int FIELD_MIN_VIDEO_BITRATE = 13;
-  private static final int FIELD_VIEWPORT_WIDTH = 14;
-  private static final int FIELD_VIEWPORT_HEIGHT = 15;
-  private static final int FIELD_VIEWPORT_ORIENTATION_MAY_CHANGE = 16;
-  private static final int FIELD_PREFERRED_VIDEO_MIMETYPES = 17;
-  private static final int FIELD_MAX_AUDIO_CHANNEL_COUNT = 18;
-  private static final int FIELD_MAX_AUDIO_BITRATE = 19;
-  private static final int FIELD_PREFERRED_AUDIO_MIME_TYPES = 20;
-  private static final int FIELD_FORCE_LOWEST_BITRATE = 21;
-  private static final int FIELD_FORCE_HIGHEST_SUPPORTED_BITRATE = 22;
-  private static final int FIELD_SELECTION_OVERRIDE_KEYS = 23;
-  private static final int FIELD_SELECTION_OVERRIDE_VALUES = 24;
-  private static final int FIELD_DISABLED_TRACK_TYPE = 25;
-  private static final int FIELD_PREFERRED_VIDEO_ROLE_FLAGS = 26;
+  /**
+   * Defines a minimum field ID value for subclasses to use when implementing {@link #toBundle()}
+   * and {@link Bundleable.Creator}.
+   *
+   * <p>Subclasses should obtain keys for their {@link Bundle} representation by applying a
+   * non-negative offset on this constant and passing the result to {@link
+   * Util#intToStringMaxRadix(int)}.
+   */
+  protected static final int FIELD_CUSTOM_ID_BASE = 1000;
 
   @Override
   public Bundle toBundle() {
     Bundle bundle = new Bundle();
 
     // Video
-    bundle.putInt(keyForField(FIELD_MAX_VIDEO_WIDTH), maxVideoWidth);
-    bundle.putInt(keyForField(FIELD_MAX_VIDEO_HEIGHT), maxVideoHeight);
-    bundle.putInt(keyForField(FIELD_MAX_VIDEO_FRAMERATE), maxVideoFrameRate);
-    bundle.putInt(keyForField(FIELD_MAX_VIDEO_BITRATE), maxVideoBitrate);
-    bundle.putInt(keyForField(FIELD_MIN_VIDEO_WIDTH), minVideoWidth);
-    bundle.putInt(keyForField(FIELD_MIN_VIDEO_HEIGHT), minVideoHeight);
-    bundle.putInt(keyForField(FIELD_MIN_VIDEO_FRAMERATE), minVideoFrameRate);
-    bundle.putInt(keyForField(FIELD_MIN_VIDEO_BITRATE), minVideoBitrate);
-    bundle.putInt(keyForField(FIELD_VIEWPORT_WIDTH), viewportWidth);
-    bundle.putInt(keyForField(FIELD_VIEWPORT_HEIGHT), viewportHeight);
-    bundle.putBoolean(
-        keyForField(FIELD_VIEWPORT_ORIENTATION_MAY_CHANGE), viewportOrientationMayChange);
+    bundle.putInt(FIELD_MAX_VIDEO_WIDTH, maxVideoWidth);
+    bundle.putInt(FIELD_MAX_VIDEO_HEIGHT, maxVideoHeight);
+    bundle.putInt(FIELD_MAX_VIDEO_FRAMERATE, maxVideoFrameRate);
+    bundle.putInt(FIELD_MAX_VIDEO_BITRATE, maxVideoBitrate);
+    bundle.putInt(FIELD_MIN_VIDEO_WIDTH, minVideoWidth);
+    bundle.putInt(FIELD_MIN_VIDEO_HEIGHT, minVideoHeight);
+    bundle.putInt(FIELD_MIN_VIDEO_FRAMERATE, minVideoFrameRate);
+    bundle.putInt(FIELD_MIN_VIDEO_BITRATE, minVideoBitrate);
+    bundle.putInt(FIELD_VIEWPORT_WIDTH, viewportWidth);
+    bundle.putInt(FIELD_VIEWPORT_HEIGHT, viewportHeight);
+    bundle.putBoolean(FIELD_VIEWPORT_ORIENTATION_MAY_CHANGE, viewportOrientationMayChange);
     bundle.putStringArray(
-        keyForField(FIELD_PREFERRED_VIDEO_MIMETYPES),
-        preferredVideoMimeTypes.toArray(new String[0]));
-    bundle.putInt(keyForField(FIELD_PREFERRED_VIDEO_ROLE_FLAGS), preferredVideoRoleFlags);
+        FIELD_PREFERRED_VIDEO_MIMETYPES, preferredVideoMimeTypes.toArray(new String[0]));
+    bundle.putInt(FIELD_PREFERRED_VIDEO_ROLE_FLAGS, preferredVideoRoleFlags);
     // Audio
     bundle.putStringArray(
-        keyForField(FIELD_PREFERRED_AUDIO_LANGUAGES),
-        preferredAudioLanguages.toArray(new String[0]));
-    bundle.putInt(keyForField(FIELD_PREFERRED_AUDIO_ROLE_FLAGS), preferredAudioRoleFlags);
-    bundle.putInt(keyForField(FIELD_MAX_AUDIO_CHANNEL_COUNT), maxAudioChannelCount);
-    bundle.putInt(keyForField(FIELD_MAX_AUDIO_BITRATE), maxAudioBitrate);
+        FIELD_PREFERRED_AUDIO_LANGUAGES, preferredAudioLanguages.toArray(new String[0]));
+    bundle.putInt(FIELD_PREFERRED_AUDIO_ROLE_FLAGS, preferredAudioRoleFlags);
+    bundle.putInt(FIELD_MAX_AUDIO_CHANNEL_COUNT, maxAudioChannelCount);
+    bundle.putInt(FIELD_MAX_AUDIO_BITRATE, maxAudioBitrate);
     bundle.putStringArray(
-        keyForField(FIELD_PREFERRED_AUDIO_MIME_TYPES),
-        preferredAudioMimeTypes.toArray(new String[0]));
+        FIELD_PREFERRED_AUDIO_MIME_TYPES, preferredAudioMimeTypes.toArray(new String[0]));
     // Text
     bundle.putStringArray(
-        keyForField(FIELD_PREFERRED_TEXT_LANGUAGES), preferredTextLanguages.toArray(new String[0]));
-    bundle.putInt(keyForField(FIELD_PREFERRED_TEXT_ROLE_FLAGS), preferredTextRoleFlags);
-    bundle.putBoolean(
-        keyForField(FIELD_SELECT_UNDETERMINED_TEXT_LANGUAGE), selectUndeterminedTextLanguage);
+        FIELD_PREFERRED_TEXT_LANGUAGES, preferredTextLanguages.toArray(new String[0]));
+    bundle.putInt(FIELD_PREFERRED_TEXT_ROLE_FLAGS, preferredTextRoleFlags);
+    bundle.putInt(FIELD_IGNORED_TEXT_SELECTION_FLAGS, ignoredTextSelectionFlags);
+    bundle.putBoolean(FIELD_SELECT_UNDETERMINED_TEXT_LANGUAGE, selectUndeterminedTextLanguage);
     // General
-    bundle.putBoolean(keyForField(FIELD_FORCE_LOWEST_BITRATE), forceLowestBitrate);
-    bundle.putBoolean(
-        keyForField(FIELD_FORCE_HIGHEST_SUPPORTED_BITRATE), forceHighestSupportedBitrate);
-    bundle.putBundle(
-        keyForField(FIELD_SELECTION_OVERRIDE_KEYS), trackSelectionOverrides.toBundle());
-    bundle.putIntArray(keyForField(FIELD_DISABLED_TRACK_TYPE), Ints.toArray(disabledTrackTypes));
+    bundle.putBoolean(FIELD_FORCE_LOWEST_BITRATE, forceLowestBitrate);
+    bundle.putBoolean(FIELD_FORCE_HIGHEST_SUPPORTED_BITRATE, forceHighestSupportedBitrate);
+    bundle.putParcelableArrayList(FIELD_SELECTION_OVERRIDES, toBundleArrayList(overrides.values()));
+    bundle.putIntArray(FIELD_DISABLED_TRACK_TYPE, Ints.toArray(disabledTrackTypes));
 
     return bundle;
   }
 
-  /** Object that can restore {@code TrackSelectionParameters} from a {@link Bundle}. */
-  public static final Creator<TrackSelectionParameters> CREATOR =
-      bundle -> new Builder(bundle).build();
-
-  private static String keyForField(@FieldNumber int field) {
-    return Integer.toString(field, Character.MAX_RADIX);
+  /** Construct an instance from a {@link Bundle} produced by {@link #toBundle()}. */
+  public static TrackSelectionParameters fromBundle(Bundle bundle) {
+    return new Builder(bundle).build();
   }
+
+  /**
+   * @deprecated Use {@link #fromBundle(Bundle)} instead.
+   */
+  @Deprecated
+  public static final Creator<TrackSelectionParameters> CREATOR =
+      TrackSelectionParameters::fromBundle;
 }

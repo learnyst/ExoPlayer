@@ -1,18 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Copyright (C) 2019 The Android Open Source Project
-
-     Licensed under the Apache License, Version 2.0 (the "License");
-     you may not use this file except in compliance with the License.
-     You may obtain a copy of the License at
-
-          http://www.apache.org/licenses/LICENSE-2.0
-
-     Unless required by applicable law or agreed to in writing, software
-     distributed under the License is distributed on an "AS IS" BASIS,
-     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-     See the License for the specific language governing permissions and
-     limitations under the License.
--->
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
   <string name="exo_controls_show">Prikaži kontrole plejera</string>
   <string name="exo_controls_hide">Sakrij kontrole plejera</string>
@@ -39,11 +25,11 @@
     <item quantity="few">Premotavanje %d sekunde naprijed</item>
     <item quantity="other">Premotavanje %d sekundi naprijed</item>
   </plurals>
-  <string name="exo_controls_repeat_off_description">Ne ponavljaj</string>
-  <string name="exo_controls_repeat_one_description">Ponovi jedno</string>
-  <string name="exo_controls_repeat_all_description">Ponovi sve</string>
-  <string name="exo_controls_shuffle_on_description">Uključi nasumično</string>
-  <string name="exo_controls_shuffle_off_description">Isključi nasumično</string>
+  <string name="exo_controls_repeat_off_description">Trenutni način: Ne ponavljaj. Uklj./isklj. ponavlj.</string>
+  <string name="exo_controls_repeat_one_description">Trenutni način: Ponovi jedno. Uklj./isklj. ponavlj.</string>
+  <string name="exo_controls_repeat_all_description">Trenutni način: Ponovi sve. Uklj./isklj. ponavlj.</string>
+  <string name="exo_controls_shuffle_on_description">Onemogućavanje nasumičnog načina rada</string>
+  <string name="exo_controls_shuffle_off_description">Omogućavanje nasumičnog načina rada</string>
   <string name="exo_controls_vr_description">VR način rada</string>
   <string name="exo_controls_cc_enabled_description">Onemogućavanje titlova</string>
   <string name="exo_controls_cc_disabled_description">Omogućavanje titlova</string>

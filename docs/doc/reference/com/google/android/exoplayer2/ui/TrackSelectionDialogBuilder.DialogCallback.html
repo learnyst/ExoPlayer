@@ -3,6 +3,7 @@
 <html lang="en">
 <head><!-- start favicons snippet, use https://realfavicongenerator.net/ --><link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png"><link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png"><link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16x16.png"><link rel="manifest" href="/assets/site.webmanifest"><link rel="mask-icon" href="/assets/safari-pinned-tab.svg" color="#fc4d50"><link rel="shortcut icon" href="/assets/favicon.ico"><meta name="msapplication-TileColor" content="#ffc40d"><meta name="msapplication-config" content="/assets/browserconfig.xml"><meta name="theme-color" content="#ffffff"><!-- end favicons snippet -->
 <title>TrackSelectionDialogBuilder.DialogCallback (ExoPlayer library)</title>
+<meta name="robots" content="noindex">
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 <link rel="stylesheet" type="text/css" href="../../../../../stylesheet.css" title="Style">
 <link rel="stylesheet" type="text/css" href="../../../../../jquery/jquery-ui.css" title="Style">
@@ -149,8 +150,8 @@ $('.navPadding').css('padding-top', $('.fixedNav').css("height"));
 </tr>
 <tr id="i0" class="altColor">
 <td class="colFirst"><code>void</code></td>
-<th class="colSecond" scope="row"><code><span class="memberNameLink"><a href="#onTracksSelected(boolean,java.util.List)">onTracksSelected</a></span>&#8203;(boolean&nbsp;isDisabled,
-                <a href="https://developer.android.com/reference/java/util/List.html" title="class or interface in java.util" class="externalLink">List</a>&lt;<a href="../trackselection/DefaultTrackSelector.SelectionOverride.html" title="class in com.google.android.exoplayer2.trackselection" target="_top">DefaultTrackSelector.SelectionOverride</a>&gt;&nbsp;overrides)</code></th>
+<th class="colSecond" scope="row"><code><span class="memberNameLink"><a href="#onTracksSelected(boolean,java.util.Map)">onTracksSelected</a></span>&#8203;(boolean&nbsp;isDisabled,
+                <a href="https://developer.android.com/reference/java/util/Map.html" title="class or interface in java.util" class="externalLink">Map</a>&lt;<a href="../source/TrackGroup.html" title="class in com.google.android.exoplayer2.source">TrackGroup</a>,&#8203;<a href="../trackselection/TrackSelectionOverride.html" title="class in com.google.android.exoplayer2.trackselection" target="_top">TrackSelectionOverride</a>&gt;&nbsp;overrides)</code></th>
 <td class="colLast">
 <div class="block">Called when tracks are selected.</div>
 </td>
@@ -172,19 +173,19 @@ $('.navPadding').css('padding-top', $('.fixedNav').css("height"));
 <!--   -->
 </a>
 <h3>Method Detail</h3>
-<a id="onTracksSelected(boolean,java.util.List)">
+<a id="onTracksSelected(boolean,java.util.Map)">
 <!--   -->
 </a>
 <ul class="blockListLast">
 <li class="blockList">
 <h4>onTracksSelected</h4>
 <pre class="methodSignature">void&nbsp;onTracksSelected&#8203;(boolean&nbsp;isDisabled,
-                      <a href="https://developer.android.com/reference/java/util/List.html" title="class or interface in java.util" class="externalLink">List</a>&lt;<a href="../trackselection/DefaultTrackSelector.SelectionOverride.html" title="class in com.google.android.exoplayer2.trackselection" target="_top">DefaultTrackSelector.SelectionOverride</a>&gt;&nbsp;overrides)</pre>
+                      <a href="https://developer.android.com/reference/java/util/Map.html" title="class or interface in java.util" class="externalLink">Map</a>&lt;<a href="../source/TrackGroup.html" title="class in com.google.android.exoplayer2.source">TrackGroup</a>,&#8203;<a href="../trackselection/TrackSelectionOverride.html" title="class in com.google.android.exoplayer2.trackselection" target="_top">TrackSelectionOverride</a>&gt;&nbsp;overrides)</pre>
 <div class="block">Called when tracks are selected.</div>
 <dl>
 <dt><span class="paramLabel">Parameters:</span></dt>
-<dd><code>isDisabled</code> - Whether the renderer is disabled.</dd>
-<dd><code>overrides</code> - List of selected track selection overrides for the renderer.</dd>
+<dd><code>isDisabled</code> - Whether the disabled option is selected.</dd>
+<dd><code>overrides</code> - The selected track overrides.</dd>
 </dl>
 </li>
 </ul>

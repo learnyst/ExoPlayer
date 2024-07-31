@@ -50,6 +50,7 @@ import com.google.android.exoplayer2.source.smoothstreaming.manifest.SsManifest;
 import com.google.android.exoplayer2.source.smoothstreaming.manifest.SsManifest.StreamElement;
 import com.google.android.exoplayer2.source.smoothstreaming.manifest.SsManifestParser;
 import com.google.android.exoplayer2.upstream.Allocator;
+import com.google.android.exoplayer2.upstream.CmcdConfiguration;
 import com.google.android.exoplayer2.upstream.DataSource;
 import com.google.android.exoplayer2.upstream.DefaultLoadErrorHandlingPolicy;
 import com.google.android.exoplayer2.upstream.LoadErrorHandlingPolicy;
@@ -63,11 +64,20 @@ import com.google.android.exoplayer2.util.Assertions;
 import com.google.android.exoplayer2.util.MimeTypes;
 import com.google.android.exoplayer2.util.Util;
 import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-/** A SmoothStreaming {@link MediaSource}. */
+/**
+ * A SmoothStreaming {@link MediaSource}.
+ *
+ * @deprecated com.google.android.exoplayer2 is deprecated. Please migrate to androidx.media3 (which
+ *     contains the same ExoPlayer code). See <a
+ *     href="https://developer.android.com/guide/topics/media/media3/getting-started/migration-guide">the
+ *     migration guide</a> for more details, including a script to help with the migration.
+ */
+@Deprecated
 public final class SsMediaSource extends BaseMediaSource
     implements Loader.Callback<ParsingLoadable<SsManifest>> {
 
@@ -83,6 +93,7 @@ public final class SsMediaSource extends BaseMediaSource
     @Nullable private final DataSource.Factory manifestDataSourceFactory;
 
     private CompositeSequenceableLoaderFactory compositeSequenceableLoaderFactory;
+    @Nullable private CmcdConfiguration.Factory cmcdConfigurationFactory;
     private DrmSessionManagerProvider drmSessionManagerProvider;
     private LoadErrorHandlingPolicy loadErrorHandlingPolicy;
     private long livePresentationDelayMs;
@@ -90,6 +101,15 @@ public final class SsMediaSource extends BaseMediaSource
 
     /**
      * Creates a new factory for {@link SsMediaSource}s.
+     *
+     * <p>The factory will use the following default components:
+     *
+     * <ul>
+     *   <li>{@link DefaultSsChunkSource.Factory}
+     *   <li>{@link DefaultDrmSessionManagerProvider}
+     *   <li>{@link DefaultLoadErrorHandlingPolicy}
+     *   <li>{@link DefaultCompositeSequenceableLoaderFactory}
+     * </ul>
      *
      * @param dataSourceFactory A factory for {@link DataSource} instances that will be used to load
      *     manifest and media data.
@@ -99,7 +119,14 @@ public final class SsMediaSource extends BaseMediaSource
     }
 
     /**
-     * Creates a new factory for {@link SsMediaSource}s.
+     * Creates a new factory for {@link SsMediaSource}s. The factory will use the following default
+     * components:
+     *
+     * <ul>
+     *   <li>{@link DefaultDrmSessionManagerProvider}
+     *   <li>{@link DefaultLoadErrorHandlingPolicy}
+     *   <li>{@link DefaultCompositeSequenceableLoaderFactory}
+     * </ul>
      *
      * @param chunkSourceFactory A factory for {@link SsChunkSource} instances.
      * @param manifestDataSourceFactory A factory for {@link DataSource} instances that will be used
@@ -118,19 +145,15 @@ public final class SsMediaSource extends BaseMediaSource
       compositeSequenceableLoaderFactory = new DefaultCompositeSequenceableLoaderFactory();
     }
 
-    /**
-     * Sets the {@link LoadErrorHandlingPolicy}. The default value is created by calling {@link
-     * DefaultLoadErrorHandlingPolicy#DefaultLoadErrorHandlingPolicy()}.
-     *
-     * @param loadErrorHandlingPolicy A {@link LoadErrorHandlingPolicy}.
-     * @return This factory, for convenience.
-     */
-    public Factory setLoadErrorHandlingPolicy(
-        @Nullable LoadErrorHandlingPolicy loadErrorHandlingPolicy) {
+    @CanIgnoreReturnValue
+    @Override
+    public Factory setLoadErrorHandlingPolicy(LoadErrorHandlingPolicy loadErrorHandlingPolicy) {
       this.loadErrorHandlingPolicy =
-          loadErrorHandlingPolicy != null
-              ? loadErrorHandlingPolicy
-              : new DefaultLoadErrorHandlingPolicy();
+          checkNotNull(
+              loadErrorHandlingPolicy,
+              "MediaSource.Factory#setLoadErrorHandlingPolicy no longer handles null by"
+                  + " instantiating a new DefaultLoadErrorHandlingPolicy. Explicitly construct and"
+                  + " pass an instance in order to retain the old behavior.");
       return this;
     }
 
@@ -143,6 +166,7 @@ public final class SsMediaSource extends BaseMediaSource
      *     default start position should precede the end of the live window.
      * @return This factory, for convenience.
      */
+    @CanIgnoreReturnValue
     public Factory setLivePresentationDelayMs(long livePresentationDelayMs) {
       this.livePresentationDelayMs = livePresentationDelayMs;
       return this;
@@ -154,6 +178,7 @@ public final class SsMediaSource extends BaseMediaSource
      * @param manifestParser A parser for loaded manifest data.
      * @return This factory, for convenience.
      */
+    @CanIgnoreReturnValue
     public Factory setManifestParser(
         @Nullable ParsingLoadable.Parser<? extends SsManifest> manifestParser) {
       this.manifestParser = manifestParser;
@@ -162,30 +187,42 @@ public final class SsMediaSource extends BaseMediaSource
 
     /**
      * Sets the factory to create composite {@link SequenceableLoader}s for when this media source
-     * loads data from multiple streams (video, audio etc.). The default is an instance of {@link
-     * DefaultCompositeSequenceableLoaderFactory}.
+     * loads data from multiple streams (video, audio etc.).
      *
      * @param compositeSequenceableLoaderFactory A factory to create composite {@link
      *     SequenceableLoader}s for when this media source loads data from multiple streams (video,
      *     audio etc.).
      * @return This factory, for convenience.
      */
+    @CanIgnoreReturnValue
     public Factory setCompositeSequenceableLoaderFactory(
-        @Nullable CompositeSequenceableLoaderFactory compositeSequenceableLoaderFactory) {
+        CompositeSequenceableLoaderFactory compositeSequenceableLoaderFactory) {
       this.compositeSequenceableLoaderFactory =
-          compositeSequenceableLoaderFactory != null
-              ? compositeSequenceableLoaderFactory
-              : new DefaultCompositeSequenceableLoaderFactory();
+          checkNotNull(
+              compositeSequenceableLoaderFactory,
+              "SsMediaSource.Factory#setCompositeSequenceableLoaderFactory no longer handles null"
+                  + " by instantiating a new DefaultCompositeSequenceableLoaderFactory. Explicitly"
+                  + " construct and pass an instance in order to retain the old behavior.");
       return this;
     }
 
+    @CanIgnoreReturnValue
+    @Override
+    public Factory setCmcdConfigurationFactory(CmcdConfiguration.Factory cmcdConfigurationFactory) {
+      this.cmcdConfigurationFactory = checkNotNull(cmcdConfigurationFactory);
+      return this;
+    }
+
+    @CanIgnoreReturnValue
     @Override
     public Factory setDrmSessionManagerProvider(
-        @Nullable DrmSessionManagerProvider drmSessionManagerProvider) {
+        DrmSessionManagerProvider drmSessionManagerProvider) {
       this.drmSessionManagerProvider =
-          drmSessionManagerProvider != null
-              ? drmSessionManagerProvider
-              : new DefaultDrmSessionManagerProvider();
+          checkNotNull(
+              drmSessionManagerProvider,
+              "MediaSource.Factory#setDrmSessionManagerProvider no longer handles null by"
+                  + " instantiating a new DefaultDrmSessionManagerProvider. Explicitly construct"
+                  + " and pass an instance in order to retain the old behavior.");
       return this;
     }
 
@@ -226,6 +263,11 @@ public final class SsMediaSource extends BaseMediaSource
               .setMimeType(MimeTypes.APPLICATION_SS)
               .setUri(hasUri ? mediaItem.localConfiguration.uri : Uri.EMPTY)
               .build();
+      @Nullable
+      CmcdConfiguration cmcdConfiguration =
+          cmcdConfigurationFactory == null
+              ? null
+              : cmcdConfigurationFactory.createCmcdConfiguration(mediaItem);
       return new SsMediaSource(
           mediaItem,
           manifest,
@@ -233,6 +275,7 @@ public final class SsMediaSource extends BaseMediaSource
           /* manifestParser= */ null,
           chunkSourceFactory,
           compositeSequenceableLoaderFactory,
+          cmcdConfiguration,
           drmSessionManagerProvider.get(mediaItem),
           loadErrorHandlingPolicy,
           livePresentationDelayMs);
@@ -256,6 +299,11 @@ public final class SsMediaSource extends BaseMediaSource
       if (!streamKeys.isEmpty()) {
         manifestParser = new FilteringManifestParser<>(manifestParser, streamKeys);
       }
+      @Nullable
+      CmcdConfiguration cmcdConfiguration =
+          cmcdConfigurationFactory == null
+              ? null
+              : cmcdConfigurationFactory.createCmcdConfiguration(mediaItem);
 
       return new SsMediaSource(
           mediaItem,
@@ -264,14 +312,15 @@ public final class SsMediaSource extends BaseMediaSource
           manifestParser,
           chunkSourceFactory,
           compositeSequenceableLoaderFactory,
+          cmcdConfiguration,
           drmSessionManagerProvider.get(mediaItem),
           loadErrorHandlingPolicy,
           livePresentationDelayMs);
     }
 
     @Override
-    public int[] getSupportedTypes() {
-      return new int[] {C.TYPE_SS};
+    public @C.ContentType int[] getSupportedTypes() {
+      return new int[] {C.CONTENT_TYPE_SS};
     }
   }
 
@@ -295,6 +344,7 @@ public final class SsMediaSource extends BaseMediaSource
   private final DataSource.Factory manifestDataSourceFactory;
   private final SsChunkSource.Factory chunkSourceFactory;
   private final CompositeSequenceableLoaderFactory compositeSequenceableLoaderFactory;
+  @Nullable private final CmcdConfiguration cmcdConfiguration;
   private final DrmSessionManager drmSessionManager;
   private final LoadErrorHandlingPolicy loadErrorHandlingPolicy;
   private final long livePresentationDelayMs;
@@ -319,6 +369,7 @@ public final class SsMediaSource extends BaseMediaSource
       @Nullable ParsingLoadable.Parser<? extends SsManifest> manifestParser,
       SsChunkSource.Factory chunkSourceFactory,
       CompositeSequenceableLoaderFactory compositeSequenceableLoaderFactory,
+      @Nullable CmcdConfiguration cmcdConfiguration,
       DrmSessionManager drmSessionManager,
       LoadErrorHandlingPolicy loadErrorHandlingPolicy,
       long livePresentationDelayMs) {
@@ -334,6 +385,7 @@ public final class SsMediaSource extends BaseMediaSource
     this.manifestParser = manifestParser;
     this.chunkSourceFactory = chunkSourceFactory;
     this.compositeSequenceableLoaderFactory = compositeSequenceableLoaderFactory;
+    this.cmcdConfiguration = cmcdConfiguration;
     this.drmSessionManager = drmSessionManager;
     this.loadErrorHandlingPolicy = loadErrorHandlingPolicy;
     this.livePresentationDelayMs = livePresentationDelayMs;
@@ -352,10 +404,10 @@ public final class SsMediaSource extends BaseMediaSource
   @Override
   protected void prepareSourceInternal(@Nullable TransferListener mediaTransferListener) {
     this.mediaTransferListener = mediaTransferListener;
-    drmSessionManager.prepare();
     drmSessionManager.setPlayer(/* playbackLooper= */ Looper.myLooper(), getPlayerId());
+    drmSessionManager.prepare();
     if (sideloadedManifest) {
-      manifestLoaderErrorThrower = new LoaderErrorThrower.Dummy();
+      manifestLoaderErrorThrower = new LoaderErrorThrower.Placeholder();
       processManifest();
     } else {
       manifestDataSource = manifestDataSourceFactory.createDataSource();
@@ -381,6 +433,7 @@ public final class SsMediaSource extends BaseMediaSource
             chunkSourceFactory,
             mediaTransferListener,
             compositeSequenceableLoaderFactory,
+            cmcdConfiguration,
             drmSessionManager,
             drmEventDispatcher,
             loadErrorHandlingPolicy,

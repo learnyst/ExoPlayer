@@ -27,7 +27,7 @@ import com.google.android.exoplayer2.PlaybackException;
 import com.google.android.exoplayer2.Player;
 import com.google.android.exoplayer2.Timeline;
 import com.google.android.exoplayer2.Timeline.Period;
-import com.google.android.exoplayer2.TracksInfo;
+import com.google.android.exoplayer2.Tracks;
 import com.google.android.exoplayer2.analytics.PlaybackStats.EventTimeAndException;
 import com.google.android.exoplayer2.analytics.PlaybackStats.EventTimeAndFormat;
 import com.google.android.exoplayer2.analytics.PlaybackStats.EventTimeAndPlaybackState;
@@ -54,7 +54,13 @@ import java.util.Map;
  *
  * <p>Playback stats are gathered separately for each playback session, i.e. each window in the
  * {@link Timeline} and each single ad.
+ *
+ * @deprecated com.google.android.exoplayer2 is deprecated. Please migrate to androidx.media3 (which
+ *     contains the same ExoPlayer code). See <a
+ *     href="https://developer.android.com/guide/topics/media/media3/getting-started/migration-guide">the
+ *     migration guide</a> for more details, including a script to help with the migration.
  */
+@Deprecated
 public final class PlaybackStatsListener
     implements AnalyticsListener, PlaybackSessionManager.Listener {
 
@@ -522,11 +528,11 @@ public final class PlaybackStatsListener
         hasFatalError = false;
       }
       if (isForeground && !isInterruptedByAd) {
-        TracksInfo currentTracksInfo = player.getCurrentTracksInfo();
-        if (!currentTracksInfo.isTypeSelected(C.TRACK_TYPE_VIDEO)) {
+        Tracks currentTracks = player.getCurrentTracks();
+        if (!currentTracks.isTypeSelected(C.TRACK_TYPE_VIDEO)) {
           maybeUpdateVideoFormat(eventTime, /* newFormat= */ null);
         }
-        if (!currentTracksInfo.isTypeSelected(C.TRACK_TYPE_AUDIO)) {
+        if (!currentTracks.isTypeSelected(C.TRACK_TYPE_AUDIO)) {
           maybeUpdateAudioFormat(eventTime, /* newFormat= */ null);
         }
       }

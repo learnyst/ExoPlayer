@@ -18,15 +18,27 @@ package com.google.android.exoplayer2.text;
 import androidx.annotation.Nullable;
 import com.google.android.exoplayer2.decoder.DecoderException;
 
-/** Thrown when an error occurs decoding subtitle data. */
+/**
+ * Thrown when an error occurs decoding subtitle data.
+ *
+ * @deprecated com.google.android.exoplayer2 is deprecated. Please migrate to androidx.media3 (which
+ *     contains the same ExoPlayer code). See <a
+ *     href="https://developer.android.com/guide/topics/media/media3/getting-started/migration-guide">the
+ *     migration guide</a> for more details, including a script to help with the migration.
+ */
+@Deprecated
 public class SubtitleDecoderException extends DecoderException {
 
-  /** @param message The detail message for this exception. */
+  /**
+   * @param message The detail message for this exception.
+   */
   public SubtitleDecoderException(String message) {
     super(message);
   }
 
-  /** @param cause The cause of this exception, or {@code null}. */
+  /**
+   * @param cause The cause of this exception, or {@code null}.
+   */
   public SubtitleDecoderException(@Nullable Throwable cause) {
     super(cause);
   }

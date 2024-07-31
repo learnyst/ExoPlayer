@@ -34,7 +34,13 @@ import com.google.android.exoplayer2.util.Assertions;
 /**
  * Listener of video {@link Renderer} events. All methods have no-op default implementations to
  * allow selective overrides.
+ *
+ * @deprecated com.google.android.exoplayer2 is deprecated. Please migrate to androidx.media3 (which
+ *     contains the same ExoPlayer code). See <a
+ *     href="https://developer.android.com/guide/topics/media/media3/getting-started/migration-guide">the
+ *     migration guide</a> for more details, including a script to help with the migration.
  */
+@Deprecated
 public interface VideoRendererEventListener {
 
   /**
@@ -56,7 +62,9 @@ public interface VideoRendererEventListener {
   default void onVideoDecoderInitialized(
       String decoderName, long initializedTimestampMs, long initializationDurationMs) {}
 
-  /** @deprecated Use {@link #onVideoInputFormatChanged(Format, DecoderReuseEvaluation)}. */
+  /**
+   * @deprecated Use {@link #onVideoInputFormatChanged(Format, DecoderReuseEvaluation)}.
+   */
   @Deprecated
   default void onVideoInputFormatChanged(Format format) {}
 

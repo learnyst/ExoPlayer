@@ -48,7 +48,13 @@ import com.google.android.gms.dynamite.DynamiteModule;
 /**
  * An activity that plays video using {@link ExoPlayer} and supports casting using ExoPlayer's Cast
  * extension.
+ *
+ * @deprecated com.google.android.exoplayer2 is deprecated. Please migrate to androidx.media3 (which
+ *     contains the same ExoPlayer code). See <a
+ *     href="https://developer.android.com/guide/topics/media/media3/getting-started/migration-guide">the
+ *     migration guide</a> for more details, including a script to help with the migration.
  */
+@Deprecated
 public class MainActivity extends AppCompatActivity
     implements OnClickListener, PlayerManager.Listener {
 
@@ -230,8 +236,8 @@ public class MainActivity extends AppCompatActivity
     @Override
     public boolean onMove(
         RecyclerView list, RecyclerView.ViewHolder origin, RecyclerView.ViewHolder target) {
-      int fromPosition = origin.getAdapterPosition();
-      int toPosition = target.getAdapterPosition();
+      int fromPosition = origin.getBindingAdapterPosition();
+      int toPosition = target.getBindingAdapterPosition();
       if (draggingFromPosition == C.INDEX_UNSET) {
         // A drag has started, but changes to the media queue will be reflected in clearView().
         draggingFromPosition = fromPosition;
@@ -243,7 +249,7 @@ public class MainActivity extends AppCompatActivity
 
     @Override
     public void onSwiped(RecyclerView.ViewHolder viewHolder, int direction) {
-      int position = viewHolder.getAdapterPosition();
+      int position = viewHolder.getBindingAdapterPosition();
       QueueItemViewHolder queueItemHolder = (QueueItemViewHolder) viewHolder;
       if (playerManager.removeItem(queueItemHolder.item)) {
         mediaQueueListAdapter.notifyItemRemoved(position);
@@ -282,7 +288,7 @@ public class MainActivity extends AppCompatActivity
 
     @Override
     public void onClick(View v) {
-      playerManager.selectQueueItem(getAdapterPosition());
+      playerManager.selectQueueItem(getBindingAdapterPosition());
     }
   }
 

@@ -15,15 +15,25 @@
  */
 package com.google.android.exoplayer2;
 
+import static androidx.annotation.VisibleForTesting.PROTECTED;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 import com.google.android.exoplayer2.util.Util;
-import java.util.Collections;
+import com.google.common.collect.ImmutableList;
 import java.util.List;
 
-/** Abstract base {@link Player} which implements common implementation independent methods. */
+/**
+ * Abstract base {@link Player} which implements common implementation independent methods.
+ *
+ * @deprecated com.google.android.exoplayer2 is deprecated. Please migrate to androidx.media3 (which
+ *     contains the same ExoPlayer code). See <a
+ *     href="https://developer.android.com/guide/topics/media/media3/getting-started/migration-guide">the
+ *     migration guide</a> for more details, including a script to help with the migration.
+ */
+@Deprecated
 public abstract class BasePlayer implements Player {
 
   protected final Timeline.Window window;
@@ -34,17 +44,17 @@ public abstract class BasePlayer implements Player {
 
   @Override
   public final void setMediaItem(MediaItem mediaItem) {
-    setMediaItems(Collections.singletonList(mediaItem));
+    setMediaItems(ImmutableList.of(mediaItem));
   }
 
   @Override
   public final void setMediaItem(MediaItem mediaItem, long startPositionMs) {
-    setMediaItems(Collections.singletonList(mediaItem), /* startWindowIndex= */ 0, startPositionMs);
+    setMediaItems(ImmutableList.of(mediaItem), /* startIndex= */ 0, startPositionMs);
   }
 
   @Override
   public final void setMediaItem(MediaItem mediaItem, boolean resetPosition) {
-    setMediaItems(Collections.singletonList(mediaItem), resetPosition);
+    setMediaItems(ImmutableList.of(mediaItem), resetPosition);
   }
 
   @Override
@@ -54,12 +64,12 @@ public abstract class BasePlayer implements Player {
 
   @Override
   public final void addMediaItem(int index, MediaItem mediaItem) {
-    addMediaItems(index, Collections.singletonList(mediaItem));
+    addMediaItems(index, ImmutableList.of(mediaItem));
   }
 
   @Override
   public final void addMediaItem(MediaItem mediaItem) {
-    addMediaItems(Collections.singletonList(mediaItem));
+    addMediaItems(ImmutableList.of(mediaItem));
   }
 
   @Override
@@ -72,6 +82,12 @@ public abstract class BasePlayer implements Player {
     if (currentIndex != newIndex) {
       moveMediaItems(/* fromIndex= */ currentIndex, /* toIndex= */ currentIndex + 1, newIndex);
     }
+  }
+
+  @Override
+  public final void replaceMediaItem(int index, MediaItem mediaItem) {
+    replaceMediaItems(
+        /* fromIndex= */ index, /* toIndex= */ index + 1, ImmutableList.of(mediaItem));
   }
 
   @Override
@@ -92,7 +108,7 @@ public abstract class BasePlayer implements Player {
   /**
    * {@inheritDoc}
    *
-   * <p>BasePlayer and its descendents will return {@code true}.
+   * <p>BasePlayer and its descendants will return {@code true}.
    */
   @Override
   public final boolean canAdvertiseSession() {
@@ -118,35 +134,37 @@ public abstract class BasePlayer implements Player {
 
   @Override
   public final void seekToDefaultPosition() {
-    seekToDefaultPosition(getCurrentMediaItemIndex());
+    seekToDefaultPositionInternal(
+        getCurrentMediaItemIndex(), Player.COMMAND_SEEK_TO_DEFAULT_POSITION);
   }
 
   @Override
   public final void seekToDefaultPosition(int mediaItemIndex) {
-    seekTo(mediaItemIndex, /* positionMs= */ C.TIME_UNSET);
-  }
-
-  @Override
-  public final void seekTo(long positionMs) {
-    seekTo(getCurrentMediaItemIndex(), positionMs);
+    seekToDefaultPositionInternal(mediaItemIndex, Player.COMMAND_SEEK_TO_MEDIA_ITEM);
   }
 
   @Override
   public final void seekBack() {
-    seekToOffset(-getSeekBackIncrement());
+    seekToOffset(-getSeekBackIncrement(), Player.COMMAND_SEEK_BACK);
   }
 
   @Override
   public final void seekForward() {
-    seekToOffset(getSeekForwardIncrement());
+    seekToOffset(getSeekForwardIncrement(), Player.COMMAND_SEEK_FORWARD);
   }
 
+  /**
+   * @deprecated Use {@link #hasPreviousMediaItem()} instead.
+   */
   @Deprecated
   @Override
   public final boolean hasPrevious() {
     return hasPreviousMediaItem();
   }
 
+  /**
+   * @deprecated Use {@link #hasPreviousMediaItem()} instead.
+   */
   @Deprecated
   @Override
   public final boolean hasPreviousWindow() {
@@ -158,12 +176,18 @@ public abstract class BasePlayer implements Player {
     return getPreviousMediaItemIndex() != C.INDEX_UNSET;
   }
 
+  /**
+   * @deprecated Use {@link #seekToPreviousMediaItem()} instead.
+   */
   @Deprecated
   @Override
   public final void previous() {
     seekToPreviousMediaItem();
   }
 
+  /**
+   * @deprecated Use {@link #seekToPreviousMediaItem()} instead.
+   */
   @Deprecated
   @Override
   public final void seekToPreviousWindow() {
@@ -172,10 +196,7 @@ public abstract class BasePlayer implements Player {
 
   @Override
   public final void seekToPreviousMediaItem() {
-    int previousMediaItemIndex = getPreviousMediaItemIndex();
-    if (previousMediaItemIndex != C.INDEX_UNSET) {
-      seekToDefaultPosition(previousMediaItemIndex);
-    }
+    seekToPreviousMediaItemInternal(Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM);
   }
 
   @Override
@@ -187,21 +208,27 @@ public abstract class BasePlayer implements Player {
     boolean hasPreviousMediaItem = hasPreviousMediaItem();
     if (isCurrentMediaItemLive() && !isCurrentMediaItemSeekable()) {
       if (hasPreviousMediaItem) {
-        seekToPreviousMediaItem();
+        seekToPreviousMediaItemInternal(Player.COMMAND_SEEK_TO_PREVIOUS);
       }
     } else if (hasPreviousMediaItem && getCurrentPosition() <= getMaxSeekToPreviousPosition()) {
-      seekToPreviousMediaItem();
+      seekToPreviousMediaItemInternal(Player.COMMAND_SEEK_TO_PREVIOUS);
     } else {
-      seekTo(/* positionMs= */ 0);
+      seekToCurrentItem(/* positionMs= */ 0, Player.COMMAND_SEEK_TO_PREVIOUS);
     }
   }
 
+  /**
+   * @deprecated Use {@link #hasNextMediaItem()} instead.
+   */
   @Deprecated
   @Override
   public final boolean hasNext() {
     return hasNextMediaItem();
   }
 
+  /**
+   * @deprecated Use {@link #hasNextMediaItem()} instead.
+   */
   @Deprecated
   @Override
   public final boolean hasNextWindow() {
@@ -213,12 +240,18 @@ public abstract class BasePlayer implements Player {
     return getNextMediaItemIndex() != C.INDEX_UNSET;
   }
 
+  /**
+   * @deprecated Use {@link #seekToNextMediaItem()} instead.
+   */
   @Deprecated
   @Override
   public final void next() {
     seekToNextMediaItem();
   }
 
+  /**
+   * @deprecated Use {@link #seekToNextMediaItem()} instead.
+   */
   @Deprecated
   @Override
   public final void seekToNextWindow() {
@@ -227,10 +260,7 @@ public abstract class BasePlayer implements Player {
 
   @Override
   public final void seekToNextMediaItem() {
-    int nextMediaItemIndex = getNextMediaItemIndex();
-    if (nextMediaItemIndex != C.INDEX_UNSET) {
-      seekToDefaultPosition(nextMediaItemIndex);
-    }
+    seekToNextMediaItemInternal(Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM);
   }
 
   @Override
@@ -240,23 +270,59 @@ public abstract class BasePlayer implements Player {
       return;
     }
     if (hasNextMediaItem()) {
-      seekToNextMediaItem();
+      seekToNextMediaItemInternal(Player.COMMAND_SEEK_TO_NEXT);
     } else if (isCurrentMediaItemLive() && isCurrentMediaItemDynamic()) {
-      seekToDefaultPosition();
+      seekToDefaultPositionInternal(getCurrentMediaItemIndex(), Player.COMMAND_SEEK_TO_NEXT);
     }
   }
+
+  @Override
+  public final void seekTo(long positionMs) {
+    seekToCurrentItem(positionMs, Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM);
+  }
+
+  @Override
+  public final void seekTo(int mediaItemIndex, long positionMs) {
+    seekTo(
+        mediaItemIndex,
+        positionMs,
+        Player.COMMAND_SEEK_TO_MEDIA_ITEM,
+        /* isRepeatingCurrentItem= */ false);
+  }
+
+  /**
+   * Seeks to a position in the specified {@link MediaItem}.
+   *
+   * @param mediaItemIndex The index of the {@link MediaItem}.
+   * @param positionMs The seek position in the specified {@link MediaItem} in milliseconds, or
+   *     {@link C#TIME_UNSET} to seek to the media item's default position.
+   * @param seekCommand The {@link Player.Command} used to trigger the seek.
+   * @param isRepeatingCurrentItem Whether this seeks repeats the current item.
+   */
+  @VisibleForTesting(otherwise = PROTECTED)
+  public abstract void seekTo(
+      int mediaItemIndex,
+      long positionMs,
+      @Player.Command int seekCommand,
+      boolean isRepeatingCurrentItem);
 
   @Override
   public final void setPlaybackSpeed(float speed) {
     setPlaybackParameters(getPlaybackParameters().withSpeed(speed));
   }
 
+  /**
+   * @deprecated Use {@link #getCurrentMediaItemIndex()} instead.
+   */
   @Deprecated
   @Override
   public final int getCurrentWindowIndex() {
     return getCurrentMediaItemIndex();
   }
 
+  /**
+   * @deprecated Use {@link #getNextMediaItemIndex()} instead.
+   */
   @Deprecated
   @Override
   public final int getNextWindowIndex() {
@@ -272,6 +338,9 @@ public abstract class BasePlayer implements Player {
             getCurrentMediaItemIndex(), getRepeatModeForNavigation(), getShuffleModeEnabled());
   }
 
+  /**
+   * @deprecated Use {@link #getPreviousMediaItemIndex()} instead.
+   */
   @Deprecated
   @Override
   public final int getPreviousWindowIndex() {
@@ -324,6 +393,9 @@ public abstract class BasePlayer implements Player {
         : duration == 0 ? 100 : Util.constrainValue((int) ((position * 100) / duration), 0, 100);
   }
 
+  /**
+   * @deprecated Use {@link #isCurrentMediaItemDynamic()} instead.
+   */
   @Deprecated
   @Override
   public final boolean isCurrentWindowDynamic() {
@@ -336,6 +408,9 @@ public abstract class BasePlayer implements Player {
     return !timeline.isEmpty() && timeline.getWindow(getCurrentMediaItemIndex(), window).isDynamic;
   }
 
+  /**
+   * @deprecated Use {@link #isCurrentMediaItemLive()} instead.
+   */
   @Deprecated
   @Override
   public final boolean isCurrentWindowLive() {
@@ -362,6 +437,9 @@ public abstract class BasePlayer implements Player {
     return window.getCurrentUnixTimeMs() - window.windowStartTimeMs - getContentPosition();
   }
 
+  /**
+   * @deprecated Use {@link #isCurrentMediaItemSeekable()} instead.
+   */
   @Deprecated
   @Override
   public final boolean isCurrentWindowSeekable() {
@@ -387,13 +465,58 @@ public abstract class BasePlayer implements Player {
     return repeatMode == REPEAT_MODE_ONE ? REPEAT_MODE_OFF : repeatMode;
   }
 
-  private void seekToOffset(long offsetMs) {
+  private void seekToCurrentItem(long positionMs, @Player.Command int seekCommand) {
+    seekTo(
+        getCurrentMediaItemIndex(), positionMs, seekCommand, /* isRepeatingCurrentItem= */ false);
+  }
+
+  private void seekToOffset(long offsetMs, @Player.Command int seekCommand) {
     long positionMs = getCurrentPosition() + offsetMs;
     long durationMs = getDuration();
     if (durationMs != C.TIME_UNSET) {
       positionMs = min(positionMs, durationMs);
     }
     positionMs = max(positionMs, 0);
-    seekTo(positionMs);
+    seekToCurrentItem(positionMs, seekCommand);
+  }
+
+  private void seekToDefaultPositionInternal(int mediaItemIndex, @Player.Command int seekCommand) {
+    seekTo(
+        mediaItemIndex,
+        /* positionMs= */ C.TIME_UNSET,
+        seekCommand,
+        /* isRepeatingCurrentItem= */ false);
+  }
+
+  private void seekToNextMediaItemInternal(@Player.Command int seekCommand) {
+    int nextMediaItemIndex = getNextMediaItemIndex();
+    if (nextMediaItemIndex == C.INDEX_UNSET) {
+      return;
+    }
+    if (nextMediaItemIndex == getCurrentMediaItemIndex()) {
+      repeatCurrentMediaItem(seekCommand);
+    } else {
+      seekToDefaultPositionInternal(nextMediaItemIndex, seekCommand);
+    }
+  }
+
+  private void seekToPreviousMediaItemInternal(@Player.Command int seekCommand) {
+    int previousMediaItemIndex = getPreviousMediaItemIndex();
+    if (previousMediaItemIndex == C.INDEX_UNSET) {
+      return;
+    }
+    if (previousMediaItemIndex == getCurrentMediaItemIndex()) {
+      repeatCurrentMediaItem(seekCommand);
+    } else {
+      seekToDefaultPositionInternal(previousMediaItemIndex, seekCommand);
+    }
+  }
+
+  private void repeatCurrentMediaItem(@Player.Command int seekCommand) {
+    seekTo(
+        getCurrentMediaItemIndex(),
+        /* positionMs= */ C.TIME_UNSET,
+        seekCommand,
+        /* isRepeatingCurrentItem= */ true);
   }
 }

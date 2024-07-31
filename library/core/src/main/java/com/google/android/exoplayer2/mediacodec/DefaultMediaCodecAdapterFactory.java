@@ -17,11 +17,11 @@ package com.google.android.exoplayer2.mediacodec;
 
 import static java.lang.annotation.ElementType.TYPE_USE;
 
-import android.media.MediaCodec;
 import androidx.annotation.IntDef;
 import com.google.android.exoplayer2.util.Log;
 import com.google.android.exoplayer2.util.MimeTypes;
 import com.google.android.exoplayer2.util.Util;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
@@ -36,7 +36,13 @@ import java.lang.annotation.Target;
  * the default behavior is to create {@link SynchronousMediaCodecAdapter} instances. The factory
  * offers APIs to force the creation of {@link AsynchronousMediaCodecAdapter} (applicable for
  * devices with API &gt;= 23) or {@link SynchronousMediaCodecAdapter} instances.
+ *
+ * @deprecated com.google.android.exoplayer2 is deprecated. Please migrate to androidx.media3 (which
+ *     contains the same ExoPlayer code). See <a
+ *     href="https://developer.android.com/guide/topics/media/media3/getting-started/migration-guide">the
+ *     migration guide</a> for more details, including a script to help with the migration.
  */
+@Deprecated
 public final class DefaultMediaCodecAdapterFactory implements MediaCodecAdapter.Factory {
 
   @Documented
@@ -53,11 +59,9 @@ public final class DefaultMediaCodecAdapterFactory implements MediaCodecAdapter.
 
   private @Mode int asynchronousMode;
   private boolean enableSynchronizeCodecInteractionsWithQueueing;
-  private boolean enableImmediateCodecStartAfterFlush;
 
   public DefaultMediaCodecAdapterFactory() {
     asynchronousMode = MODE_DEFAULT;
-    enableImmediateCodecStartAfterFlush = true;
   }
 
   /**
@@ -67,6 +71,7 @@ public final class DefaultMediaCodecAdapterFactory implements MediaCodecAdapter.
    *
    * @return This factory, for convenience.
    */
+  @CanIgnoreReturnValue
   public DefaultMediaCodecAdapterFactory forceEnableAsynchronous() {
     asynchronousMode = MODE_ENABLED;
     return this;
@@ -77,6 +82,7 @@ public final class DefaultMediaCodecAdapterFactory implements MediaCodecAdapter.
    *
    * @return This factory, for convenience.
    */
+  @CanIgnoreReturnValue
   public DefaultMediaCodecAdapterFactory forceDisableAsynchronous() {
     asynchronousMode = MODE_DISABLED;
     return this;
@@ -94,27 +100,12 @@ public final class DefaultMediaCodecAdapterFactory implements MediaCodecAdapter.
     enableSynchronizeCodecInteractionsWithQueueing = enabled;
   }
 
-  /**
-   * Enable calling {@link MediaCodec#start} immediately after {@link MediaCodec#flush} on the
-   * playback thread, when operating the codec in asynchronous mode. If disabled, {@link
-   * MediaCodec#start} will be called by the callback thread after pending callbacks are handled.
-   *
-   * <p>By default, this feature is enabled.
-   *
-   * <p>This method is experimental, and will be renamed or removed in a future release.
-   *
-   * @param enabled Whether {@link MediaCodec#start()} will be called on the playback thread
-   *     immediately after {@link MediaCodec#flush}.
-   */
-  public void experimentalSetImmediateCodecStartAfterFlushEnabled(boolean enabled) {
-    enableImmediateCodecStartAfterFlush = enabled;
-  }
-
   @Override
   public MediaCodecAdapter createAdapter(MediaCodecAdapter.Configuration configuration)
       throws IOException {
-    if ((asynchronousMode == MODE_ENABLED && Util.SDK_INT >= 23)
-        || (asynchronousMode == MODE_DEFAULT && Util.SDK_INT >= 31)) {
+    if (Util.SDK_INT >= 23
+        && (asynchronousMode == MODE_ENABLED
+            || (asynchronousMode == MODE_DEFAULT && Util.SDK_INT >= 31))) {
       int trackType = MimeTypes.getTrackType(configuration.format.sampleMimeType);
       Log.i(
           TAG,
@@ -122,9 +113,7 @@ public final class DefaultMediaCodecAdapterFactory implements MediaCodecAdapter.
               + Util.getTrackTypeString(trackType));
       AsynchronousMediaCodecAdapter.Factory factory =
           new AsynchronousMediaCodecAdapter.Factory(
-              trackType,
-              enableSynchronizeCodecInteractionsWithQueueing,
-              enableImmediateCodecStartAfterFlush);
+              trackType, enableSynchronizeCodecInteractionsWithQueueing);
       return factory.createAdapter(configuration);
     }
     return new SynchronousMediaCodecAdapter.Factory().createAdapter(configuration);

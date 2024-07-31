@@ -17,9 +17,11 @@ package com.google.android.exoplayer2.audio;
 
 import static java.lang.annotation.ElementType.TYPE_USE;
 
+import android.media.AudioDeviceInfo;
 import android.media.AudioTrack;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 import com.google.android.exoplayer2.C;
 import com.google.android.exoplayer2.ExoPlaybackException;
 import com.google.android.exoplayer2.Format;
@@ -59,7 +61,13 @@ import java.nio.ByteBuffer;
  * reinitialized as required. For implementations that are not based on platform {@link
  * AudioTrack}s, calling methods relating to audio sessions, audio attributes, and tunneling may
  * have no effect.
+ *
+ * @deprecated com.google.android.exoplayer2 is deprecated. Please migrate to androidx.media3 (which
+ *     contains the same ExoPlayer code). See <a
+ *     href="https://developer.android.com/guide/topics/media/media3/getting-started/migration-guide">the
+ *     migration guide</a> for more details, including a script to help with the migration.
  */
+@Deprecated
 public interface AudioSink {
 
   /** Listener for audio sink events. */
@@ -104,13 +112,8 @@ public interface AudioSink {
     /** Called when the offload buffer has been partially emptied. */
     default void onOffloadBufferEmptying() {}
 
-    /**
-     * Called when the offload buffer has been filled completely.
-     *
-     * @param bufferEmptyingDeadlineMs Maximum time in milliseconds until {@link
-     *     #onOffloadBufferEmptying()} will be called.
-     */
-    default void onOffloadBufferFull(long bufferEmptyingDeadlineMs) {}
+    /** Called when the offload buffer has been filled completely. */
+    default void onOffloadBufferFull() {}
 
     /**
      * Called when {@link AudioSink} has encountered an error.
@@ -133,6 +136,9 @@ public interface AudioSink {
      *     a {@link WriteException}, or an {@link UnexpectedDiscontinuityException}.
      */
     default void onAudioSinkError(Exception audioSinkError) {}
+
+    /** Called when audio capabilities changed. */
+    default void onAudioCapabilitiesChanged() {}
   }
 
   /** Thrown when a failure occurs configuring the sink. */
@@ -188,6 +194,8 @@ public interface AudioSink {
               + audioTrackState
               + " "
               + ("Config(" + sampleRate + ", " + channelConfig + ", " + bufferSize + ")")
+              + " "
+              + format
               + (isRecoverable ? " (recoverable)" : ""),
           audioTrackException);
       this.audioTrackState = audioTrackState;
@@ -422,6 +430,23 @@ public interface AudioSink {
   void setAuxEffectInfo(AuxEffectInfo auxEffectInfo);
 
   /**
+   * Sets the preferred audio device.
+   *
+   * @param audioDeviceInfo The preferred {@linkplain AudioDeviceInfo audio device}, or null to
+   *     restore the default.
+   */
+  @RequiresApi(23)
+  default void setPreferredDevice(@Nullable AudioDeviceInfo audioDeviceInfo) {}
+
+  /**
+   * Sets the offset that is added to the media timestamp before it is passed as {@code
+   * presentationTimeUs} in {@link #handleBuffer(ByteBuffer, long, int)}.
+   *
+   * @param outputStreamOffsetUs The output stream offset in microseconds.
+   */
+  default void setOutputStreamOffsetUs(long outputStreamOffsetUs) {}
+
+  /**
    * Enables tunneling, if possible. The sink is reset if tunneling was previously disabled.
    * Enabling tunneling is only possible if the sink is based on a platform {@link AudioTrack}, and
    * requires platform API version 21 onwards.
@@ -467,4 +492,7 @@ public interface AudioSink {
 
   /** Resets the sink, releasing any resources that it currently holds. */
   void reset();
+
+  /** Releases the audio sink. */
+  default void release() {}
 }

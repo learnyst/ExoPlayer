@@ -19,17 +19,25 @@ import com.google.android.exoplayer2.C;
 import java.util.Collections;
 import java.util.List;
 
-/** Represents a set of interchangeable encoded versions of a media content component. */
+/**
+ * Represents a set of interchangeable encoded versions of a media content component.
+ *
+ * @deprecated com.google.android.exoplayer2 is deprecated. Please migrate to androidx.media3 (which
+ *     contains the same ExoPlayer code). See <a
+ *     href="https://developer.android.com/guide/topics/media/media3/getting-started/migration-guide">the
+ *     migration guide</a> for more details, including a script to help with the migration.
+ */
+@Deprecated
 public class AdaptationSet {
 
   /** Value of {@link #id} indicating no value is set.= */
-  public static final int ID_UNSET = -1;
+  public static final long ID_UNSET = -1;
 
   /**
    * A non-negative identifier for the adaptation set that's unique in the scope of its containing
    * period, or {@link #ID_UNSET} if not specified.
    */
-  public final int id;
+  public final long id;
 
   /** The {@link C.TrackType track type} of the adaptation set. */
   public final @C.TrackType int type;
@@ -56,7 +64,7 @@ public class AdaptationSet {
    * @param supplementalProperties Supplemental properties in the adaptation set.
    */
   public AdaptationSet(
-      int id,
+      long id,
       @C.TrackType int type,
       List<Representation> representations,
       List<Descriptor> accessibilityDescriptors,

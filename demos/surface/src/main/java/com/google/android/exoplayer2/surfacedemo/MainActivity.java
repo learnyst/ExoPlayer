@@ -19,6 +19,7 @@ import android.app.Activity;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.text.TextUtils;
 import android.view.Surface;
 import android.view.SurfaceControl;
 import android.view.SurfaceHolder;
@@ -42,12 +43,19 @@ import com.google.android.exoplayer2.ui.PlayerControlView;
 import com.google.android.exoplayer2.upstream.DataSource;
 import com.google.android.exoplayer2.upstream.DefaultDataSource;
 import com.google.android.exoplayer2.upstream.DefaultHttpDataSource;
-import com.google.android.exoplayer2.upstream.HttpDataSource;
 import com.google.android.exoplayer2.util.Assertions;
 import com.google.android.exoplayer2.util.Util;
 import java.util.UUID;
 
-/** Activity that demonstrates use of {@link SurfaceControl} with ExoPlayer. */
+/**
+ * Activity that demonstrates use of {@link SurfaceControl} with ExoPlayer.
+ *
+ * @deprecated com.google.android.exoplayer2 is deprecated. Please migrate to androidx.media3 (which
+ *     contains the same ExoPlayer code). See <a
+ *     href="https://developer.android.com/guide/topics/media/media3/getting-started/migration-guide">the
+ *     migration guide</a> for more details, including a script to help with the migration.
+ */
+@Deprecated
 public final class MainActivity extends Activity {
 
   private static final String DEFAULT_MEDIA_URI =
@@ -189,7 +197,7 @@ public final class MainActivity extends Activity {
       String drmScheme = Assertions.checkNotNull(intent.getStringExtra(DRM_SCHEME_EXTRA));
       String drmLicenseUrl = Assertions.checkNotNull(intent.getStringExtra(DRM_LICENSE_URL_EXTRA));
       UUID drmSchemeUuid = Assertions.checkNotNull(Util.getDrmUuid(drmScheme));
-      HttpDataSource.Factory licenseDataSourceFactory = new DefaultHttpDataSource.Factory();
+      DataSource.Factory licenseDataSourceFactory = new DefaultHttpDataSource.Factory();
       HttpMediaDrmCallback drmCallback =
           new HttpMediaDrmCallback(drmLicenseUrl, licenseDataSourceFactory);
       drmSessionManager =
@@ -202,13 +210,18 @@ public final class MainActivity extends Activity {
 
     DataSource.Factory dataSourceFactory = new DefaultDataSource.Factory(this);
     MediaSource mediaSource;
-    @C.ContentType int type = Util.inferContentType(uri, intent.getStringExtra(EXTENSION_EXTRA));
-    if (type == C.TYPE_DASH) {
+    @Nullable String fileExtension = intent.getStringExtra(EXTENSION_EXTRA);
+    @C.ContentType
+    int type =
+        TextUtils.isEmpty(fileExtension)
+            ? Util.inferContentType(uri)
+            : Util.inferContentTypeForExtension(fileExtension);
+    if (type == C.CONTENT_TYPE_DASH) {
       mediaSource =
           new DashMediaSource.Factory(dataSourceFactory)
               .setDrmSessionManagerProvider(unusedMediaItem -> drmSessionManager)
               .createMediaSource(MediaItem.fromUri(uri));
-    } else if (type == C.TYPE_OTHER) {
+    } else if (type == C.CONTENT_TYPE_OTHER) {
       mediaSource =
           new ProgressiveMediaSource.Factory(dataSourceFactory)
               .setDrmSessionManagerProvider(unusedMediaItem -> drmSessionManager)

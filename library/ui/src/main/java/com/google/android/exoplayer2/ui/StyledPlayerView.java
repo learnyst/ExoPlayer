@@ -15,9 +15,14 @@
  */
 package com.google.android.exoplayer2.ui;
 
+import static com.google.android.exoplayer2.Player.COMMAND_GET_CURRENT_MEDIA_ITEM;
+import static com.google.android.exoplayer2.Player.COMMAND_GET_METADATA;
 import static com.google.android.exoplayer2.Player.COMMAND_GET_TEXT;
+import static com.google.android.exoplayer2.Player.COMMAND_GET_TIMELINE;
+import static com.google.android.exoplayer2.Player.COMMAND_GET_TRACKS;
 import static com.google.android.exoplayer2.Player.COMMAND_SET_VIDEO_SURFACE;
 import static com.google.android.exoplayer2.util.Assertions.checkNotNull;
+import static com.google.android.exoplayer2.util.Util.getDrawable;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.annotation.SuppressLint;
@@ -43,6 +48,7 @@ import android.view.ViewGroup;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.TextView;
+import androidx.annotation.ColorInt;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
@@ -54,8 +60,8 @@ import com.google.android.exoplayer2.Player;
 import com.google.android.exoplayer2.Player.DiscontinuityReason;
 import com.google.android.exoplayer2.Timeline;
 import com.google.android.exoplayer2.Timeline.Period;
-import com.google.android.exoplayer2.TracksInfo;
-import com.google.android.exoplayer2.text.Cue;
+import com.google.android.exoplayer2.Tracks;
+import com.google.android.exoplayer2.text.CueGroup;
 import com.google.android.exoplayer2.ui.AspectRatioFrameLayout.ResizeMode;
 import com.google.android.exoplayer2.util.Assertions;
 import com.google.android.exoplayer2.util.ErrorMessageProvider;
@@ -84,10 +90,11 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
  * The following attributes can be set on a StyledPlayerView when used in a layout XML file:
  *
  * <ul>
- *   <li><b>{@code use_artwork}</b> - Whether artwork is used if available in audio streams.
+ *   <li><b>{@code artwork_display_mode}</b> - Whether artwork is used if available in audio streams
+ *       and {@link ArtworkDisplayMode how it is displayed}.
  *       <ul>
- *         <li>Corresponding method: {@link #setUseArtwork(boolean)}
- *         <li>Default: {@code true}
+ *         <li>Corresponding method: {@link #setArtworkDisplayMode(int)}
+ *         <li>Default: {@link #ARTWORK_DISPLAY_MODE_FIT}
  *       </ul>
  *   <li><b>{@code default_artwork}</b> - Default artwork to use if no artwork available in audio
  *       streams.
@@ -155,17 +162,68 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
  *       </ul>
  *   <li>All attributes that can be set on {@link StyledPlayerControlView} and {@link
  *       DefaultTimeBar} can also be set on a StyledPlayerView, and will be propagated to the
- *       inflated {@link StyledPlayerControlView} unless the layout is overridden to specify a
- *       custom {@code exo_controller}.
+ *       inflated {@link StyledPlayerControlView}.
  * </ul>
  *
  * <h2>Overriding drawables</h2>
  *
- * The drawables used by {@link StyledPlayerControlView} (with its default layout file) can be
- * overridden by drawables with the same names defined in your application. See the {@link
- * StyledPlayerControlView} documentation for a list of drawables that can be overridden.
+ * The drawables used by {@link StyledPlayerControlView} can be overridden by drawables with the
+ * same names defined in your application. See the {@link StyledPlayerControlView} documentation for
+ * a list of drawables that can be overridden.
+ *
+ * @deprecated com.google.android.exoplayer2 is deprecated. Please migrate to androidx.media3 (which
+ *     contains the same ExoPlayer code). See <a
+ *     href="https://developer.android.com/guide/topics/media/media3/getting-started/migration-guide">the
+ *     migration guide</a> for more details, including a script to help with the migration.
  */
+@Deprecated
 public class StyledPlayerView extends FrameLayout implements AdViewProvider {
+
+  /** Listener to be notified about changes of the visibility of the UI controls. */
+  public interface ControllerVisibilityListener {
+
+    /**
+     * Called when the visibility changes.
+     *
+     * @param visibility The new visibility. Either {@link View#VISIBLE} or {@link View#GONE}.
+     */
+    void onVisibilityChanged(int visibility);
+  }
+
+  /**
+   * Listener invoked when the fullscreen button is clicked. The implementation is responsible for
+   * changing the UI layout.
+   */
+  public interface FullscreenButtonClickListener {
+
+    /**
+     * Called when the fullscreen button is clicked.
+     *
+     * @param isFullScreen {@code true} if the video rendering surface should be fullscreen, {@code
+     *     false} otherwise.
+     */
+    void onFullscreenButtonClick(boolean isFullScreen);
+  }
+
+  /**
+   * Determines the artwork display mode. One of {@link #ARTWORK_DISPLAY_MODE_OFF}, {@link
+   * #ARTWORK_DISPLAY_MODE_FIT} or {@link #ARTWORK_DISPLAY_MODE_FILL}.
+   */
+  @Documented
+  @Retention(RetentionPolicy.SOURCE)
+  @Target(TYPE_USE)
+  @IntDef({ARTWORK_DISPLAY_MODE_OFF, ARTWORK_DISPLAY_MODE_FIT, ARTWORK_DISPLAY_MODE_FILL})
+  public @interface ArtworkDisplayMode {}
+
+  /** No artwork is shown. */
+  public static final int ARTWORK_DISPLAY_MODE_OFF = 0;
+  /** The artwork is fit into the player view and centered creating a letterbox style. */
+  public static final int ARTWORK_DISPLAY_MODE_FIT = 1;
+  /**
+   * The artwork covers the entire space of the player view. If the aspect ratio of the image is
+   * different than the player view some areas of the image are cropped.
+   */
+  public static final int ARTWORK_DISPLAY_MODE_FILL = 2;
 
   /**
    * Determines when the buffering view is shown. One of {@link #SHOW_BUFFERING_NEVER}, {@link
@@ -210,8 +268,18 @@ public class StyledPlayerView extends FrameLayout implements AdViewProvider {
 
   @Nullable private Player player;
   private boolean useController;
-  @Nullable private StyledPlayerControlView.VisibilityListener controllerVisibilityListener;
-  private boolean useArtwork;
+
+  // At most one of controllerVisibilityListener and legacyControllerVisibilityListener is non-null.
+  @Nullable private ControllerVisibilityListener controllerVisibilityListener;
+
+  @SuppressWarnings("deprecation")
+  @Nullable
+  private StyledPlayerControlView.VisibilityListener legacyControllerVisibilityListener;
+
+  @Nullable private FullscreenButtonClickListener fullscreenButtonClickListener;
+
+  private @ArtworkDisplayMode int artworkDisplayMode;
+
   @Nullable private Drawable defaultArtwork;
   private @ShowBuffering int showBuffering;
   private boolean keepContentOnPlayerReset;
@@ -223,8 +291,6 @@ public class StyledPlayerView extends FrameLayout implements AdViewProvider {
   private boolean controllerHideOnTouch;
   private int textureViewRotation;
   private boolean isTouching;
-  private static final int PICTURE_TYPE_FRONT_COVER = 3;
-  private static final int PICTURE_TYPE_NOT_SET = -1;
 
   public StyledPlayerView(Context context) {
     this(context, /* attrs= */ null);
@@ -254,9 +320,9 @@ public class StyledPlayerView extends FrameLayout implements AdViewProvider {
       overlayFrameLayout = null;
       ImageView logo = new ImageView(context);
       if (Util.SDK_INT >= 23) {
-        configureEditModeLogoV23(getResources(), logo);
+        configureEditModeLogoV23(context, getResources(), logo);
       } else {
-        configureEditModeLogo(getResources(), logo);
+        configureEditModeLogo(context, getResources(), logo);
       }
       addView(logo);
       return;
@@ -266,6 +332,7 @@ public class StyledPlayerView extends FrameLayout implements AdViewProvider {
     int shutterColor = 0;
     int playerLayoutId = R.layout.exo_styled_player_view;
     boolean useArtwork = true;
+    int artworkDisplayMode = ARTWORK_DISPLAY_MODE_FIT;
     int defaultArtworkId = 0;
     boolean useController = true;
     int surfaceType = SURFACE_TYPE_SURFACE_VIEW;
@@ -288,6 +355,8 @@ public class StyledPlayerView extends FrameLayout implements AdViewProvider {
         playerLayoutId =
             a.getResourceId(R.styleable.StyledPlayerView_player_layout_id, playerLayoutId);
         useArtwork = a.getBoolean(R.styleable.StyledPlayerView_use_artwork, useArtwork);
+        artworkDisplayMode =
+            a.getInt(R.styleable.StyledPlayerView_artwork_display_mode, artworkDisplayMode);
         defaultArtworkId =
             a.getResourceId(R.styleable.StyledPlayerView_default_artwork, defaultArtworkId);
         useController = a.getBoolean(R.styleable.StyledPlayerView_use_controller, useController);
@@ -382,7 +451,9 @@ public class StyledPlayerView extends FrameLayout implements AdViewProvider {
 
     // Artwork view.
     artworkView = findViewById(R.id.exo_artwork);
-    this.useArtwork = useArtwork && artworkView != null;
+    boolean isArtworkEnabled =
+        useArtwork && artworkDisplayMode != ARTWORK_DISPLAY_MODE_OFF && artworkView != null;
+    this.artworkDisplayMode = isArtworkEnabled ? artworkDisplayMode : ARTWORK_DISPLAY_MODE_OFF;
     if (defaultArtworkId != 0) {
       defaultArtwork = ContextCompat.getDrawable(getContext(), defaultArtworkId);
     }
@@ -433,6 +504,9 @@ public class StyledPlayerView extends FrameLayout implements AdViewProvider {
     if (controller != null) {
       controller.hideImmediately();
       controller.addVisibilityListener(/* listener= */ componentListener);
+    }
+    if (useController) {
+      setClickable(true);
     }
     updateContentDescription();
   }
@@ -492,10 +566,12 @@ public class StyledPlayerView extends FrameLayout implements AdViewProvider {
     @Nullable Player oldPlayer = this.player;
     if (oldPlayer != null) {
       oldPlayer.removeListener(componentListener);
-      if (surfaceView instanceof TextureView) {
-        oldPlayer.clearVideoTextureView((TextureView) surfaceView);
-      } else if (surfaceView instanceof SurfaceView) {
-        oldPlayer.clearVideoSurfaceView((SurfaceView) surfaceView);
+      if (oldPlayer.isCommandAvailable(COMMAND_SET_VIDEO_SURFACE)) {
+        if (surfaceView instanceof TextureView) {
+          oldPlayer.clearVideoTextureView((TextureView) surfaceView);
+        } else if (surfaceView instanceof SurfaceView) {
+          oldPlayer.clearVideoSurfaceView((SurfaceView) surfaceView);
+        }
       }
     }
     if (subtitleView != null) {
@@ -515,10 +591,14 @@ public class StyledPlayerView extends FrameLayout implements AdViewProvider {
         } else if (surfaceView instanceof SurfaceView) {
           player.setVideoSurfaceView((SurfaceView) surfaceView);
         }
-        updateAspectRatio();
+        if (!player.isCommandAvailable(COMMAND_GET_TRACKS)
+            || player.getCurrentTracks().isTypeSupported(C.TRACK_TYPE_VIDEO)) {
+          // If the player already is or was playing a video, onVideoSizeChanged isn't called.
+          updateAspectRatio();
+        }
       }
       if (subtitleView != null && player.isCommandAvailable(COMMAND_GET_TEXT)) {
-        subtitleView.setCues(player.getCurrentCues());
+        subtitleView.setCues(player.getCurrentCues().cues);
       }
       player.addListener(componentListener);
       maybeShowController(false);
@@ -552,22 +632,34 @@ public class StyledPlayerView extends FrameLayout implements AdViewProvider {
     return contentFrame.getResizeMode();
   }
 
-  /** Returns whether artwork is displayed if present in the media. */
+  /**
+   * @deprecated Use {@link #getArtworkDisplayMode()} instead.
+   */
+  @Deprecated
   public boolean getUseArtwork() {
-    return useArtwork;
+    return this.artworkDisplayMode != ARTWORK_DISPLAY_MODE_OFF;
   }
 
   /**
-   * Sets whether artwork is displayed if present in the media.
-   *
-   * @param useArtwork Whether artwork is displayed.
+   * @deprecated Use {@link #setArtworkDisplayMode(int)} instead.
    */
+  @Deprecated
   public void setUseArtwork(boolean useArtwork) {
-    Assertions.checkState(!useArtwork || artworkView != null);
-    if (this.useArtwork != useArtwork) {
-      this.useArtwork = useArtwork;
+    setArtworkDisplayMode(useArtwork ? ARTWORK_DISPLAY_MODE_OFF : ARTWORK_DISPLAY_MODE_FIT);
+  }
+
+  /** Sets whether and how artwork is displayed if present in the media. */
+  public void setArtworkDisplayMode(@ArtworkDisplayMode int artworkDisplayMode) {
+    Assertions.checkState(artworkDisplayMode == ARTWORK_DISPLAY_MODE_OFF || artworkView != null);
+    if (this.artworkDisplayMode != artworkDisplayMode) {
+      this.artworkDisplayMode = artworkDisplayMode;
       updateForCurrentTrackSelections(/* isNewPlayer= */ false);
     }
+  }
+
+  /** Returns the {@link ArtworkDisplayMode artwork display mode}. */
+  public @ArtworkDisplayMode int getArtworkDisplayMode() {
+    return artworkDisplayMode;
   }
 
   /** Returns the default artwork to display. */
@@ -598,10 +690,14 @@ public class StyledPlayerView extends FrameLayout implements AdViewProvider {
    * Sets whether the playback controls can be shown. If set to {@code false} the playback controls
    * are never visible and are disconnected from the player.
    *
+   * <p>This call will update whether the view is clickable. After the call, the view will be
+   * clickable if playback controls can be shown or if the view has a registered click listener.
+   *
    * @param useController Whether the playback controls can be shown.
    */
   public void setUseController(boolean useController) {
     Assertions.checkState(!useController || controller != null);
+    setClickable(useController || hasOnClickListeners());
     if (this.useController == useController) {
       return;
     }
@@ -620,7 +716,7 @@ public class StyledPlayerView extends FrameLayout implements AdViewProvider {
    *
    * @param color The background color.
    */
-  public void setShutterBackgroundColor(int color) {
+  public void setShutterBackgroundColor(@ColorInt int color) {
     if (shutterView != null) {
       shutterView.setBackgroundColor(color);
     }
@@ -694,7 +790,9 @@ public class StyledPlayerView extends FrameLayout implements AdViewProvider {
 
   @Override
   public boolean dispatchKeyEvent(KeyEvent event) {
-    if (player != null && player.isPlayingAd()) {
+    if (player != null
+        && player.isCommandAvailable(COMMAND_GET_CURRENT_MEDIA_ITEM)
+        && player.isPlayingAd()) {
       return super.dispatchKeyEvent(event);
     }
 
@@ -827,33 +925,80 @@ public class StyledPlayerView extends FrameLayout implements AdViewProvider {
   /**
    * Sets the {@link StyledPlayerControlView.VisibilityListener}.
    *
+   * <p>If {@code listener} is non-null then any listener set by {@link
+   * #setControllerVisibilityListener(StyledPlayerControlView.VisibilityListener)} is removed.
+   *
    * @param listener The listener to be notified about visibility changes, or null to remove the
    *     current listener.
    */
+  @SuppressWarnings("deprecation") // Clearing the legacy listener.
+  public void setControllerVisibilityListener(@Nullable ControllerVisibilityListener listener) {
+    this.controllerVisibilityListener = listener;
+    if (listener != null) {
+      setControllerVisibilityListener((StyledPlayerControlView.VisibilityListener) null);
+    }
+  }
+
+  /**
+   * Sets the {@link StyledPlayerControlView.VisibilityListener}.
+   *
+   * <p>If {@code listener} is non-null then any listener set by {@link
+   * #setControllerVisibilityListener(ControllerVisibilityListener)} is removed.
+   *
+   * @deprecated Use {@link #setControllerVisibilityListener(ControllerVisibilityListener)} instead.
+   */
+  @SuppressWarnings("deprecation")
+  @Deprecated
   public void setControllerVisibilityListener(
       @Nullable StyledPlayerControlView.VisibilityListener listener) {
     Assertions.checkStateNotNull(controller);
-    if (this.controllerVisibilityListener == listener) {
+    if (this.legacyControllerVisibilityListener == listener) {
       return;
     }
-    if (this.controllerVisibilityListener != null) {
-      controller.removeVisibilityListener(this.controllerVisibilityListener);
+
+    if (this.legacyControllerVisibilityListener != null) {
+      controller.removeVisibilityListener(this.legacyControllerVisibilityListener);
     }
-    this.controllerVisibilityListener = listener;
+    this.legacyControllerVisibilityListener = listener;
     if (listener != null) {
       controller.addVisibilityListener(listener);
+      setControllerVisibilityListener((ControllerVisibilityListener) null);
     }
+  }
+
+  /**
+   * Sets the {@link FullscreenButtonClickListener}.
+   *
+   * <p>Clears any listener set by {@link
+   * #setControllerOnFullScreenModeChangedListener(StyledPlayerControlView.OnFullScreenModeChangedListener)}.
+   *
+   * @param listener The listener to be notified when the fullscreen button is clicked, or null to
+   *     remove the current listener and hide the fullscreen button.
+   */
+  @SuppressWarnings(
+      "deprecation") // Calling the deprecated method on StyledPlayerControlView for now.
+  public void setFullscreenButtonClickListener(@Nullable FullscreenButtonClickListener listener) {
+    Assertions.checkStateNotNull(controller);
+    this.fullscreenButtonClickListener = listener;
+    controller.setOnFullScreenModeChangedListener(componentListener);
   }
 
   /**
    * Sets the {@link StyledPlayerControlView.OnFullScreenModeChangedListener}.
    *
+   * <p>Clears any listener set by {@link
+   * #setFullscreenButtonClickListener(FullscreenButtonClickListener)}.
+   *
    * @param listener The listener to be notified when the fullscreen button is clicked, or null to
    *     remove the current listener and hide the fullscreen button.
+   * @deprecated Use {@link #setFullscreenButtonClickListener(FullscreenButtonClickListener)}
+   *     instead.
    */
+  @Deprecated
   public void setControllerOnFullScreenModeChangedListener(
       @Nullable StyledPlayerControlView.OnFullScreenModeChangedListener listener) {
     Assertions.checkStateNotNull(controller);
+    this.fullscreenButtonClickListener = null;
     controller.setOnFullScreenModeChangedListener(listener);
   }
 
@@ -1021,29 +1166,9 @@ public class StyledPlayerView extends FrameLayout implements AdViewProvider {
   }
 
   @Override
-  public boolean onTouchEvent(MotionEvent event) {
-    if (!useController() || player == null) {
-      return false;
-    }
-    switch (event.getAction()) {
-      case MotionEvent.ACTION_DOWN:
-        isTouching = true;
-        return true;
-      case MotionEvent.ACTION_UP:
-        if (isTouching) {
-          isTouching = false;
-          return performClick();
-        }
-        return false;
-      default:
-        return false;
-    }
-  }
-
-  @Override
   public boolean performClick() {
-    super.performClick();
-    return toggleControllerVisibility();
+    toggleControllerVisibility();
+    return super.performClick();
   }
 
   @Override
@@ -1132,25 +1257,22 @@ public class StyledPlayerView extends FrameLayout implements AdViewProvider {
 
   @EnsuresNonNullIf(expression = "artworkView", result = true)
   private boolean useArtwork() {
-    if (useArtwork) {
+    if (artworkDisplayMode != ARTWORK_DISPLAY_MODE_OFF) {
       Assertions.checkStateNotNull(artworkView);
       return true;
     }
     return false;
   }
 
-  private boolean toggleControllerVisibility() {
+  private void toggleControllerVisibility() {
     if (!useController() || player == null) {
-      return false;
+      return;
     }
     if (!controller.isFullyVisible()) {
       maybeShowController(true);
-      return true;
     } else if (controllerHideOnTouch) {
       controller.hide();
-      return true;
     }
-    return false;
   }
 
   /** Shows the playback controls, but only if forced or shown indefinitely. */
@@ -1174,7 +1296,8 @@ public class StyledPlayerView extends FrameLayout implements AdViewProvider {
     }
     int playbackState = player.getPlaybackState();
     return controllerAutoShow
-        && !player.getCurrentTimeline().isEmpty()
+        && (!player.isCommandAvailable(COMMAND_GET_TIMELINE)
+            || !player.getCurrentTimeline().isEmpty())
         && (playbackState == Player.STATE_IDLE
             || playbackState == Player.STATE_ENDED
             || !checkNotNull(player).getPlayWhenReady());
@@ -1189,12 +1312,17 @@ public class StyledPlayerView extends FrameLayout implements AdViewProvider {
   }
 
   private boolean isPlayingAd() {
-    return player != null && player.isPlayingAd() && player.getPlayWhenReady();
+    return player != null
+        && player.isCommandAvailable(COMMAND_GET_CURRENT_MEDIA_ITEM)
+        && player.isPlayingAd()
+        && player.getPlayWhenReady();
   }
 
   private void updateForCurrentTrackSelections(boolean isNewPlayer) {
     @Nullable Player player = this.player;
-    if (player == null || player.getCurrentTracksInfo().getTrackGroupInfos().isEmpty()) {
+    if (player == null
+        || !player.isCommandAvailable(COMMAND_GET_TRACKS)
+        || player.getCurrentTracks().isEmpty()) {
       if (!keepContentOnPlayerReset) {
         hideArtwork();
         closeShutter();
@@ -1207,7 +1335,7 @@ public class StyledPlayerView extends FrameLayout implements AdViewProvider {
       closeShutter();
     }
 
-    if (player.getCurrentTracksInfo().isTypeSelected(C.TRACK_TYPE_VIDEO)) {
+    if (player.getCurrentTracks().isTypeSelected(C.TRACK_TYPE_VIDEO)) {
       // Video enabled, so artwork must be hidden. If the shutter is closed, it will be opened
       // in onRenderedFirstFrame().
       hideArtwork();
@@ -1218,7 +1346,7 @@ public class StyledPlayerView extends FrameLayout implements AdViewProvider {
     closeShutter();
     // Display artwork if enabled and available, else hide it.
     if (useArtwork()) {
-      if (setArtworkFromMediaMetadata(player.getMediaMetadata())) {
+      if (setArtworkFromMediaMetadata(player)) {
         return;
       }
       if (setDrawableArtwork(defaultArtwork)) {
@@ -1230,7 +1358,11 @@ public class StyledPlayerView extends FrameLayout implements AdViewProvider {
   }
 
   @RequiresNonNull("artworkView")
-  private boolean setArtworkFromMediaMetadata(MediaMetadata mediaMetadata) {
+  private boolean setArtworkFromMediaMetadata(Player player) {
+    if (!player.isCommandAvailable(COMMAND_GET_METADATA)) {
+      return false;
+    }
+    MediaMetadata mediaMetadata = player.getMediaMetadata();
     if (mediaMetadata.artworkData == null) {
       return false;
     }
@@ -1246,8 +1378,14 @@ public class StyledPlayerView extends FrameLayout implements AdViewProvider {
       int drawableWidth = drawable.getIntrinsicWidth();
       int drawableHeight = drawable.getIntrinsicHeight();
       if (drawableWidth > 0 && drawableHeight > 0) {
-        float artworkAspectRatio = (float) drawableWidth / drawableHeight;
-        onContentAspectRatioChanged(contentFrame, artworkAspectRatio);
+        float artworkLayoutAspectRatio = (float) drawableWidth / drawableHeight;
+        ImageView.ScaleType scaleStyle = ImageView.ScaleType.FIT_XY;
+        if (artworkDisplayMode == ARTWORK_DISPLAY_MODE_FILL) {
+          artworkLayoutAspectRatio = (float) getWidth() / getHeight();
+          scaleStyle = ImageView.ScaleType.CENTER_CROP;
+        }
+        onContentAspectRatioChanged(contentFrame, artworkLayoutAspectRatio);
+        artworkView.setScaleType(scaleStyle);
         artworkView.setImageDrawable(drawable);
         artworkView.setVisibility(VISIBLE);
         return true;
@@ -1353,13 +1491,14 @@ public class StyledPlayerView extends FrameLayout implements AdViewProvider {
   }
 
   @RequiresApi(23)
-  private static void configureEditModeLogoV23(Resources resources, ImageView logo) {
-    logo.setImageDrawable(resources.getDrawable(R.drawable.exo_edit_mode_logo, null));
+  private static void configureEditModeLogoV23(
+      Context context, Resources resources, ImageView logo) {
+    logo.setImageDrawable(getDrawable(context, resources, R.drawable.exo_edit_mode_logo));
     logo.setBackgroundColor(resources.getColor(R.color.exo_edit_mode_background_color, null));
   }
 
-  private static void configureEditModeLogo(Resources resources, ImageView logo) {
-    logo.setImageDrawable(resources.getDrawable(R.drawable.exo_edit_mode_logo));
+  private static void configureEditModeLogo(Context context, Resources resources, ImageView logo) {
+    logo.setImageDrawable(getDrawable(context, resources, R.drawable.exo_edit_mode_logo));
     logo.setBackgroundColor(resources.getColor(R.color.exo_edit_mode_background_color));
   }
 
@@ -1404,11 +1543,15 @@ public class StyledPlayerView extends FrameLayout implements AdViewProvider {
         || keyCode == KeyEvent.KEYCODE_DPAD_CENTER;
   }
 
+  // Implementing the deprecated StyledPlayerControlView.VisibilityListener and
+  // StyledPlayerControlView.OnFullScreenModeChangedListener for now.
+  @SuppressWarnings("deprecation")
   private final class ComponentListener
       implements Player.Listener,
           OnLayoutChangeListener,
           OnClickListener,
-          StyledPlayerControlView.VisibilityListener {
+          StyledPlayerControlView.VisibilityListener,
+          StyledPlayerControlView.OnFullScreenModeChangedListener {
 
     private final Period period;
     private @Nullable Object lastPeriodUidWithTracks;
@@ -1420,14 +1563,19 @@ public class StyledPlayerView extends FrameLayout implements AdViewProvider {
     // Player.Listener implementation
 
     @Override
-    public void onCues(List<Cue> cues) {
+    public void onCues(CueGroup cueGroup) {
       if (subtitleView != null) {
-        subtitleView.setCues(cues);
+        subtitleView.setCues(cueGroup.cues);
       }
     }
 
     @Override
     public void onVideoSizeChanged(VideoSize videoSize) {
+      if (videoSize.equals(VideoSize.UNKNOWN)
+          || player == null
+          || player.getPlaybackState() == Player.STATE_IDLE) {
+        return;
+      }
       updateAspectRatio();
     }
 
@@ -1439,15 +1587,19 @@ public class StyledPlayerView extends FrameLayout implements AdViewProvider {
     }
 
     @Override
-    public void onTracksInfoChanged(TracksInfo tracksInfo) {
+    public void onTracksChanged(Tracks tracks) {
       // Suppress the update if transitioning to an unprepared period within the same window. This
       // is necessary to avoid closing the shutter when such a transition occurs. See:
       // https://github.com/google/ExoPlayer/issues/5507.
       Player player = checkNotNull(StyledPlayerView.this.player);
-      Timeline timeline = player.getCurrentTimeline();
+      Timeline timeline =
+          player.isCommandAvailable(COMMAND_GET_TIMELINE)
+              ? player.getCurrentTimeline()
+              : Timeline.EMPTY;
       if (timeline.isEmpty()) {
         lastPeriodUidWithTracks = null;
-      } else if (!player.getCurrentTracksInfo().getTrackGroupInfos().isEmpty()) {
+      } else if (player.isCommandAvailable(COMMAND_GET_TRACKS)
+          && !player.getCurrentTracks().isEmpty()) {
         lastPeriodUidWithTracks =
             timeline.getPeriod(player.getCurrentPeriodIndex(), period, /* setIds= */ true).uid;
       } else if (lastPeriodUidWithTracks != null) {
@@ -1518,6 +1670,18 @@ public class StyledPlayerView extends FrameLayout implements AdViewProvider {
     @Override
     public void onVisibilityChange(int visibility) {
       updateContentDescription();
+      if (controllerVisibilityListener != null) {
+        controllerVisibilityListener.onVisibilityChanged(visibility);
+      }
+    }
+
+    // StyledPlayerControlView.OnFullScreenModeChangedListener implementation
+
+    @Override
+    public void onFullScreenModeChanged(boolean isFullScreen) {
+      if (fullscreenButtonClickListener != null) {
+        fullscreenButtonClickListener.onFullscreenButtonClick(isFullScreen);
+      }
     }
   }
 }

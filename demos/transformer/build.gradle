@@ -20,6 +20,7 @@ android {
     compileSdkVersion project.ext.compileSdkVersion
 
     compileOptions {
+        coreLibraryDesugaringEnabled true
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
     }
@@ -45,6 +46,27 @@ android {
         // This demo app isn't indexed and doesn't have translations.
         disable 'GoogleAppIndexingWarning','MissingTranslation'
     }
+
+    flavorDimensions "mediaPipe"
+
+    productFlavors {
+        noMediaPipe {
+            dimension "mediaPipe"
+        }
+        withMediaPipe {
+            dimension "mediaPipe"
+        }
+    }
+
+    // Ignore the withMediaPipe variant if the MediaPipe AAR is not present.
+    if (!project.file("libs/edge_detector_mediapipe_aar.aar").exists()) {
+        variantFilter { variant ->
+            def names = variant.flavors*.name
+            if (names.contains("withMediaPipe")) {
+                setIgnore(true)
+            }
+        }
+    }
 }
 
 dependencies {
@@ -55,7 +77,18 @@ dependencies {
     implementation 'androidx.constraintlayout:constraintlayout:' + androidxConstraintLayoutVersion
     implementation 'androidx.multidex:multidex:' + androidxMultidexVersion
     implementation 'com.google.android.material:material:' + androidxMaterialVersion
+    implementation project(modulePrefix + 'library-effect')
     implementation project(modulePrefix + 'library-core')
+    implementation project(modulePrefix + 'library-dash')
     implementation project(modulePrefix + 'library-transformer')
     implementation project(modulePrefix + 'library-ui')
+
+    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:1.1.5'
+
+    // For MediaPipe and its dependencies:
+    withMediaPipeImplementation fileTree(dir: 'libs', include: ['*.aar'])
+    withMediaPipeImplementation 'com.google.flogger:flogger:latest.release'
+    withMediaPipeImplementation 'com.google.flogger:flogger-system-backend:latest.release'
+    withMediaPipeImplementation 'com.google.code.findbugs:jsr305:latest.release'
+    withMediaPipeImplementation 'com.google.protobuf:protobuf-javalite:3.19.1'
 }

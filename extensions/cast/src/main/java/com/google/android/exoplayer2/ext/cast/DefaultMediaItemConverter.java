@@ -31,7 +31,15 @@ import java.util.UUID;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-/** Default {@link MediaItemConverter} implementation. */
+/**
+ * Default {@link MediaItemConverter} implementation.
+ *
+ * @deprecated com.google.android.exoplayer2 is deprecated. Please migrate to androidx.media3 (which
+ *     contains the same ExoPlayer code). See <a
+ *     href="https://developer.android.com/guide/topics/media/media3/getting-started/migration-guide">the
+ *     migration guide</a> for more details, including a script to help with the migration.
+ */
+@Deprecated
 public final class DefaultMediaItemConverter implements MediaItemConverter {
 
   private static final String KEY_MEDIA_ITEM = "mediaItem";
@@ -126,11 +134,14 @@ public final class DefaultMediaItemConverter implements MediaItemConverter {
     if (mediaItem.mediaMetadata.trackNumber != null) {
       metadata.putInt(MediaMetadata.KEY_TRACK_NUMBER, mediaItem.mediaMetadata.trackNumber);
     }
-
+    String contentUrl = mediaItem.localConfiguration.uri.toString();
+    String contentId =
+        mediaItem.mediaId.equals(MediaItem.DEFAULT_MEDIA_ID) ? contentUrl : mediaItem.mediaId;
     MediaInfo mediaInfo =
-        new MediaInfo.Builder(mediaItem.localConfiguration.uri.toString())
+        new MediaInfo.Builder(contentId)
             .setStreamType(MediaInfo.STREAM_TYPE_BUFFERED)
             .setContentType(mediaItem.localConfiguration.mimeType)
+            .setContentUrl(contentUrl)
             .setMetadata(metadata)
             .setCustomData(getCustomData(mediaItem))
             .build();

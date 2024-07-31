@@ -27,7 +27,15 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-/** Thrown when the requested DRM scheme is not supported. */
+/**
+ * Thrown when the requested DRM scheme is not supported.
+ *
+ * @deprecated com.google.android.exoplayer2 is deprecated. Please migrate to androidx.media3 (which
+ *     contains the same ExoPlayer code). See <a
+ *     href="https://developer.android.com/guide/topics/media/media3/getting-started/migration-guide">the
+ *     migration guide</a> for more details, including a script to help with the migration.
+ */
+@Deprecated
 public final class UnsupportedDrmException extends Exception {
 
   /**
@@ -52,7 +60,9 @@ public final class UnsupportedDrmException extends Exception {
   /** Either {@link #REASON_UNSUPPORTED_SCHEME} or {@link #REASON_INSTANTIATION_ERROR}. */
   public final @Reason int reason;
 
-  /** @param reason {@link #REASON_UNSUPPORTED_SCHEME} or {@link #REASON_INSTANTIATION_ERROR}. */
+  /**
+   * @param reason {@link #REASON_UNSUPPORTED_SCHEME} or {@link #REASON_INSTANTIATION_ERROR}.
+   */
   public UnsupportedDrmException(@Reason int reason) {
     this.reason = reason;
   }

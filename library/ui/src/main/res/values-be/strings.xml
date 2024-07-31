@@ -1,18 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Copyright (C) 2019 The Android Open Source Project
-
-     Licensed under the Apache License, Version 2.0 (the "License");
-     you may not use this file except in compliance with the License.
-     You may obtain a copy of the License at
-
-          http://www.apache.org/licenses/LICENSE-2.0
-
-     Unless required by applicable law or agreed to in writing, software
-     distributed under the License is distributed on an "AS IS" BASIS,
-     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-     See the License for the specific language governing permissions and
-     limitations under the License.
--->
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
   <string name="exo_controls_show">Паказаць элементы кіравання прайгравальніка</string>
   <string name="exo_controls_hide">Схаваць элементы кіравання прайгравальніка</string>
@@ -41,11 +27,11 @@
     <item quantity="many">Пераматаць уперад на %d секунд</item>
     <item quantity="other">Пераматаць уперад на %d секунды</item>
   </plurals>
-  <string name="exo_controls_repeat_off_description">Не паўтараць нічога</string>
-  <string name="exo_controls_repeat_one_description">Паўтарыць адзін элемент</string>
-  <string name="exo_controls_repeat_all_description">Паўтарыць усе</string>
-  <string name="exo_controls_shuffle_on_description">Перамешванне ўключана</string>
-  <string name="exo_controls_shuffle_off_description">Перамешванне выключана</string>
+  <string name="exo_controls_repeat_off_description">Цяпер: без паўтораў. Змяніць.</string>
+  <string name="exo_controls_repeat_one_description">Цяпер: паўтараць фрагмент. Змяніць.</string>
+  <string name="exo_controls_repeat_all_description">Цяпер: паўтараць усё. Змяніць.</string>
+  <string name="exo_controls_shuffle_on_description">Выключыць рэжым перамешвання</string>
+  <string name="exo_controls_shuffle_off_description">Уключыць рэжым перамешвання</string>
   <string name="exo_controls_vr_description">VR-рэжым</string>
   <string name="exo_controls_cc_enabled_description">Выключыць субцітры</string>
   <string name="exo_controls_cc_disabled_description">Уключыць субцітры</string>
@@ -74,7 +60,7 @@
   <string name="exo_track_role_alternate">Альтэрнатыўны запіс</string>
   <string name="exo_track_role_supplementary">Дадатковы запіс</string>
   <string name="exo_track_role_commentary">Каментарыі</string>
-  <string name="exo_track_role_closed_captions">Цітры</string>
+  <string name="exo_track_role_closed_captions">Субцітры</string>
   <string name="exo_track_bitrate">%1$.2f Мбіт/с</string>
   <string name="exo_item_list">%1$s, %2$s</string>
 </resources>

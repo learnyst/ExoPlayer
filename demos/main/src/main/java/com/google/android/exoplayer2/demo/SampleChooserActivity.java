@@ -15,10 +15,11 @@
  */
 package com.google.android.exoplayer2.demo;
 
-import static com.google.android.exoplayer2.util.Assertions.checkArgument;
-import static com.google.android.exoplayer2.util.Assertions.checkNotNull;
-import static com.google.android.exoplayer2.util.Assertions.checkState;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
+import android.Manifest;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -26,7 +27,9 @@ import android.content.pm.PackageManager;
 import android.content.res.AssetManager;
 import android.net.Uri;
 import android.os.AsyncTask;
+import android.os.Build;
 import android.os.Bundle;
+import android.text.TextUtils;
 import android.util.JsonReader;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -40,7 +43,9 @@ import android.widget.ExpandableListView.OnChildClickListener;
 import android.widget.ImageButton;
 import android.widget.TextView;
 import android.widget.Toast;
+import androidx.annotation.DoNotInline;
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
 import com.google.android.exoplayer2.MediaItem;
 import com.google.android.exoplayer2.MediaItem.ClippingConfiguration;
@@ -53,6 +58,7 @@ import com.google.android.exoplayer2.upstream.DataSourceUtil;
 import com.google.android.exoplayer2.upstream.DataSpec;
 import com.google.android.exoplayer2.util.Log;
 import com.google.android.exoplayer2.util.Util;
+import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
@@ -66,13 +72,22 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-/** An activity for selecting from a list of media samples. */
+/**
+ * An activity for selecting from a list of media samples.
+ *
+ * @deprecated com.google.android.exoplayer2 is deprecated. Please migrate to androidx.media3 (which
+ *     contains the same ExoPlayer code). See <a
+ *     href="https://developer.android.com/guide/topics/media/media3/getting-started/migration-guide">the
+ *     migration guide</a> for more details, including a script to help with the migration.
+ */
+@Deprecated
 public class SampleChooserActivity extends AppCompatActivity
     implements DownloadTracker.Listener, OnChildClickListener {
 
   private static final String TAG = "SampleChooserActivity";
   private static final String GROUP_POSITION_PREFERENCE_KEY = "sample_chooser_group_position";
   private static final String CHILD_POSITION_PREFERENCE_KEY = "sample_chooser_child_position";
+  private static final int POST_NOTIFICATION_PERMISSION_REQUEST_CODE = 100;
 
   private String[] uris;
   private boolean useExtensionRenderers;
@@ -80,6 +95,8 @@ public class SampleChooserActivity extends AppCompatActivity
   private SampleAdapter sampleAdapter;
   private MenuItem preferExtensionDecodersMenuItem;
   private ExpandableListView sampleListView;
+  @Nullable private MediaItem downloadMediaItemWaitingForNotificationPermission;
+  private boolean notificationPermissionToastShown;
 
   @Override
   public void onCreate(Bundle savedInstanceState) {
@@ -116,8 +133,11 @@ public class SampleChooserActivity extends AppCompatActivity
     useExtensionRenderers = DemoUtil.useExtensionRenderers();
     downloadTracker = DemoUtil.getDownloadTracker(/* context= */ this);
     loadSample();
+    startDownloadService();
+  }
 
-    // Start the download service if it should be running but it's not currently.
+  /** Start the download service if it should be running but it's not currently. */
+  private void startDownloadService() {
     // Starting the service in the foreground causes notification flicker if there is no scheduled
     // action. Starting it in the background throws an exception if the app is in the background too
     // (e.g. if device screen is locked).
@@ -165,12 +185,34 @@ public class SampleChooserActivity extends AppCompatActivity
   public void onRequestPermissionsResult(
       int requestCode, String[] permissions, int[] grantResults) {
     super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+    if (requestCode == POST_NOTIFICATION_PERMISSION_REQUEST_CODE) {
+      handlePostNotificationPermissionGrantResults(grantResults);
+    } else {
+      handleExternalStoragePermissionGrantResults(grantResults);
+    }
+  }
+
+  private void handlePostNotificationPermissionGrantResults(int[] grantResults) {
+    if (!notificationPermissionToastShown
+        && (grantResults.length == 0 || grantResults[0] != PackageManager.PERMISSION_GRANTED)) {
+      Toast.makeText(
+              getApplicationContext(), R.string.post_notification_not_granted, Toast.LENGTH_LONG)
+          .show();
+      notificationPermissionToastShown = true;
+    }
+    if (downloadMediaItemWaitingForNotificationPermission != null) {
+      // Download with or without permission to post notifications.
+      toggleDownload(downloadMediaItemWaitingForNotificationPermission);
+      downloadMediaItemWaitingForNotificationPermission = null;
+    }
+  }
+
+  private void handleExternalStoragePermissionGrantResults(int[] grantResults) {
     if (grantResults.length == 0) {
       // Empty results are triggered if a permission is requested while another request was already
       // pending and can be safely ignored in this case.
       return;
-    }
-    if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+    } else if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
       loadSample();
     } else {
       Toast.makeText(getApplicationContext(), R.string.sample_list_load_error, Toast.LENGTH_LONG)
@@ -237,13 +279,24 @@ public class SampleChooserActivity extends AppCompatActivity
     if (downloadUnsupportedStringId != 0) {
       Toast.makeText(getApplicationContext(), downloadUnsupportedStringId, Toast.LENGTH_LONG)
           .show();
+    } else if (!notificationPermissionToastShown
+        && Build.VERSION.SDK_INT >= 33
+        && checkSelfPermission(Api33.getPostNotificationPermissionString())
+            != PackageManager.PERMISSION_GRANTED) {
+      downloadMediaItemWaitingForNotificationPermission = playlistHolder.mediaItems.get(0);
+      requestPermissions(
+          new String[] {Api33.getPostNotificationPermissionString()},
+          /* requestCode= */ POST_NOTIFICATION_PERMISSION_REQUEST_CODE);
     } else {
-      RenderersFactory renderersFactory =
-          DemoUtil.buildRenderersFactory(
-              /* context= */ this, isNonNullAndChecked(preferExtensionDecodersMenuItem));
-      downloadTracker.toggleDownload(
-          getSupportFragmentManager(), playlistHolder.mediaItems.get(0), renderersFactory);
+      toggleDownload(playlistHolder.mediaItems.get(0));
     }
+  }
+
+  private void toggleDownload(MediaItem mediaItem) {
+    RenderersFactory renderersFactory =
+        DemoUtil.buildRenderersFactory(
+            /* context= */ this, isNonNullAndChecked(preferExtensionDecodersMenuItem));
+    downloadTracker.toggleDownload(getSupportFragmentManager(), mediaItem, renderersFactory);
   }
 
   private int getDownloadUnsupportedStringId(PlaylistHolder playlistHolder) {
@@ -436,7 +489,10 @@ public class SampleChooserActivity extends AppCompatActivity
       } else {
         @Nullable
         String adaptiveMimeType =
-            Util.getAdaptiveMimeTypeForContentType(Util.inferContentType(uri, extension));
+            Util.getAdaptiveMimeTypeForContentType(
+                TextUtils.isEmpty(extension)
+                    ? Util.inferContentType(uri)
+                    : Util.inferContentTypeForExtension(extension));
         mediaItem
             .setUri(uri)
             .setMediaMetadata(new MediaMetadata.Builder().setTitle(title).build())
@@ -447,7 +503,7 @@ public class SampleChooserActivity extends AppCompatActivity
               new MediaItem.DrmConfiguration.Builder(drmUuid)
                   .setLicenseUri(drmLicenseUri)
                   .setLicenseRequestHeaders(drmLicenseRequestHeaders)
-                  .forceSessionsForAudioAndVideoTracks(drmSessionForClearContent)
+                  .setForceSessionsForAudioAndVideoTracks(drmSessionForClearContent)
                   .setMultiSession(drmMultiSession)
                   .setForceDefaultLicenseUri(drmForceDefaultLicenseUri)
                   .build());
@@ -481,7 +537,7 @@ public class SampleChooserActivity extends AppCompatActivity
 
     private PlaylistGroup getGroup(String groupName, List<PlaylistGroup> groups) {
       for (int i = 0; i < groups.size(); i++) {
-        if (Util.areEqual(groupName, groups.get(i).title)) {
+        if (Objects.equal(groupName, groups.get(i).title)) {
           return groups.get(i);
         }
       }
@@ -617,6 +673,15 @@ public class SampleChooserActivity extends AppCompatActivity
     public PlaylistGroup(String title) {
       this.title = title;
       this.playlists = new ArrayList<>();
+    }
+  }
+
+  @RequiresApi(33)
+  private static class Api33 {
+
+    @DoNotInline
+    public static String getPostNotificationPermissionString() {
+      return Manifest.permission.POST_NOTIFICATIONS;
     }
   }
 }

@@ -22,6 +22,7 @@ import android.view.SurfaceView;
 import android.view.TextureView;
 import androidx.annotation.Nullable;
 import com.google.android.exoplayer2.BasePlayer;
+import com.google.android.exoplayer2.C;
 import com.google.android.exoplayer2.DeviceInfo;
 import com.google.android.exoplayer2.MediaItem;
 import com.google.android.exoplayer2.MediaMetadata;
@@ -29,12 +30,11 @@ import com.google.android.exoplayer2.PlaybackException;
 import com.google.android.exoplayer2.PlaybackParameters;
 import com.google.android.exoplayer2.Player;
 import com.google.android.exoplayer2.Timeline;
-import com.google.android.exoplayer2.TracksInfo;
+import com.google.android.exoplayer2.Tracks;
 import com.google.android.exoplayer2.audio.AudioAttributes;
-import com.google.android.exoplayer2.source.TrackGroupArray;
-import com.google.android.exoplayer2.text.Cue;
-import com.google.android.exoplayer2.trackselection.TrackSelectionArray;
+import com.google.android.exoplayer2.text.CueGroup;
 import com.google.android.exoplayer2.trackselection.TrackSelectionParameters;
+import com.google.android.exoplayer2.util.Size;
 import com.google.android.exoplayer2.video.VideoSize;
 import java.util.List;
 
@@ -70,6 +70,7 @@ public class StubPlayer extends BasePlayer {
   }
 
   @Override
+  @Nullable
   public PlaybackException getPlayerError() {
     throw new UnsupportedOperationException();
   }
@@ -96,6 +97,11 @@ public class StubPlayer extends BasePlayer {
 
   @Override
   public void moveMediaItems(int fromIndex, int toIndex, int newIndex) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public void replaceMediaItems(int fromIndex, int toIndex, List<MediaItem> mediaItems) {
     throw new UnsupportedOperationException();
   }
 
@@ -145,7 +151,11 @@ public class StubPlayer extends BasePlayer {
   }
 
   @Override
-  public void seekTo(int mediaItemIndex, long positionMs) {
+  public void seekTo(
+      int mediaItemIndex,
+      long positionMs,
+      @Player.Command int seekCommand,
+      boolean isRepeatingCurrentItem) {
     throw new UnsupportedOperationException();
   }
 
@@ -179,29 +189,13 @@ public class StubPlayer extends BasePlayer {
     throw new UnsupportedOperationException();
   }
 
-  @Deprecated
-  @Override
-  public void stop(boolean reset) {
-    throw new UnsupportedOperationException();
-  }
-
   @Override
   public void release() {
     throw new UnsupportedOperationException();
   }
 
   @Override
-  public TrackGroupArray getCurrentTrackGroups() {
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
-  public TrackSelectionArray getCurrentTrackSelections() {
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
-  public TracksInfo getCurrentTracksInfo() {
+  public Tracks getCurrentTracks() {
     throw new UnsupportedOperationException();
   }
 
@@ -356,7 +350,12 @@ public class StubPlayer extends BasePlayer {
   }
 
   @Override
-  public List<Cue> getCurrentCues() {
+  public Size getSurfaceSize() {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public CueGroup getCurrentCues() {
     throw new UnsupportedOperationException();
   }
 
@@ -375,23 +374,59 @@ public class StubPlayer extends BasePlayer {
     throw new UnsupportedOperationException();
   }
 
+  /**
+   * @deprecated Use {@link #setDeviceVolume(int, int)} instead.
+   */
+  @Deprecated
   @Override
   public void setDeviceVolume(int volume) {
     throw new UnsupportedOperationException();
   }
 
   @Override
+  public void setDeviceVolume(int volume, @C.VolumeFlags int flags) {
+    throw new UnsupportedOperationException();
+  }
+
+  /**
+   * @deprecated Use {@link #increaseDeviceVolume(int)} instead.
+   */
+  @Deprecated
+  @Override
   public void increaseDeviceVolume() {
     throw new UnsupportedOperationException();
   }
 
+  @Override
+  public void increaseDeviceVolume(@C.VolumeFlags int flags) {
+    throw new UnsupportedOperationException();
+  }
+
+  /**
+   * @deprecated Use {@link #decreaseDeviceVolume(int)} instead.
+   */
+  @Deprecated
   @Override
   public void decreaseDeviceVolume() {
     throw new UnsupportedOperationException();
   }
 
   @Override
+  public void decreaseDeviceVolume(@C.VolumeFlags int flags) {
+    throw new UnsupportedOperationException();
+  }
+
+  /**
+   * @deprecated Use {@link #setDeviceMuted(boolean, int)} instead.
+   */
+  @Deprecated
+  @Override
   public void setDeviceMuted(boolean muted) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public void setDeviceMuted(boolean muted, @C.VolumeFlags int flags) {
     throw new UnsupportedOperationException();
   }
 }

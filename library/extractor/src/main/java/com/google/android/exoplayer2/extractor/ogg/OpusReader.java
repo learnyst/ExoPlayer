@@ -15,7 +15,6 @@
  */
 package com.google.android.exoplayer2.extractor.ogg;
 
-import static com.google.android.exoplayer2.util.Assertions.checkState;
 import static com.google.android.exoplayer2.util.Assertions.checkStateNotNull;
 
 import androidx.annotation.Nullable;
@@ -31,7 +30,15 @@ import java.util.Arrays;
 import java.util.List;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
 
-/** {@link StreamReader} to extract Opus data out of Ogg byte stream. */
+/**
+ * {@link StreamReader} to extract Opus data out of Ogg byte stream.
+ *
+ * @deprecated com.google.android.exoplayer2 is deprecated. Please migrate to androidx.media3 (which
+ *     contains the same ExoPlayer code). See <a
+ *     href="https://developer.android.com/guide/topics/media/media3/getting-started/migration-guide">the
+ *     migration guide</a> for more details, including a script to help with the migration.
+ */
+@Deprecated
 /* package */ final class OpusReader extends StreamReader {
 
   private static final byte[] OPUS_ID_HEADER_SIGNATURE = {'O', 'p', 'u', 's', 'H', 'e', 'a', 'd'};
@@ -39,13 +46,23 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
     'O', 'p', 'u', 's', 'T', 'a', 'g', 's'
   };
 
+  private boolean firstCommentHeaderSeen;
+
   public static boolean verifyBitstreamType(ParsableByteArray data) {
     return peekPacketStartsWith(data, OPUS_ID_HEADER_SIGNATURE);
   }
 
   @Override
+  protected void reset(boolean headerData) {
+    super.reset(headerData);
+    if (headerData) {
+      firstCommentHeaderSeen = false;
+    }
+  }
+
+  @Override
   protected long preparePayload(ParsableByteArray packet) {
-    return convertTimeToGranule(getPacketDurationUs(packet.getData()));
+    return convertTimeToGranule(OpusUtil.getPacketDurationUs(packet.getData()));
   }
 
   @Override
@@ -57,9 +74,15 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
       int channelCount = OpusUtil.getChannelCount(headerBytes);
       List<byte[]> initializationData = OpusUtil.buildInitializationData(headerBytes);
 
-      // The ID header must come at the start of the file:
-      // https://datatracker.ietf.org/doc/html/rfc7845#section-3
-      checkState(setupData.format == null);
+      if (setupData.format != null) {
+        // setupData.format being non-null indicates we've already seen an ID header. Multiple ID
+        // headers are not permitted by the Opus spec [1], but have been observed in real files [2],
+        // so we just ignore all subsequent ones.
+        // [1] https://datatracker.ietf.org/doc/html/rfc7845#section-3 and
+        //     https://datatracker.ietf.org/doc/html/rfc7845#section-5
+        // [2] https://github.com/google/ExoPlayer/issues/10038
+        return true;
+      }
       setupData.format =
           new Format.Builder()
               .setSampleMimeType(MimeTypes.AUDIO_OPUS)
@@ -72,6 +95,15 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
       // The comment header must come immediately after the ID header, so the format will already
       // be populated: https://datatracker.ietf.org/doc/html/rfc7845#section-3
       checkStateNotNull(setupData.format);
+      if (firstCommentHeaderSeen) {
+        // Multiple comment headers are not permitted by the Opus spec [1], but have been observed
+        // in real files [2], so we just ignore all subsequent ones.
+        // [1] https://datatracker.ietf.org/doc/html/rfc7845#section-3 and
+        //     https://datatracker.ietf.org/doc/html/rfc7845#section-5
+        // [2] https://github.com/google/ExoPlayer/issues/10038
+        return true;
+      }
+      firstCommentHeaderSeen = true;
       packet.skipBytes(OPUS_COMMENT_HEADER_SIGNATURE.length);
       VorbisUtil.CommentHeader commentHeader =
           VorbisUtil.readVorbisCommentHeader(
@@ -95,42 +127,6 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
       checkStateNotNull(setupData.format);
       return false;
     }
-  }
-
-  /**
-   * Returns the duration of the given audio packet.
-   *
-   * @param packet Contains audio data.
-   * @return Returns the duration of the given audio packet.
-   */
-  private long getPacketDurationUs(byte[] packet) {
-    int toc = packet[0] & 0xFF;
-    int frames;
-    switch (toc & 0x3) {
-      case 0:
-        frames = 1;
-        break;
-      case 1:
-      case 2:
-        frames = 2;
-        break;
-      default:
-        frames = packet[1] & 0x3F;
-        break;
-    }
-
-    int config = toc >> 3;
-    int length = config & 0x3;
-    if (config >= 16) {
-      length = 2500 << length;
-    } else if (config >= 12) {
-      length = 10000 << (length & 0x1);
-    } else if (length == 3) {
-      length = 60000;
-    } else {
-      length = 10000 << length;
-    }
-    return (long) frames * length;
   }
 
   /**

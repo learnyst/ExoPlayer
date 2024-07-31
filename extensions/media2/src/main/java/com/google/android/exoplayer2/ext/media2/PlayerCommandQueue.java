@@ -19,6 +19,7 @@ import static com.google.android.exoplayer2.util.Util.postOrRun;
 import static java.lang.annotation.ElementType.TYPE_USE;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
+import android.annotation.SuppressLint;
 import android.os.Handler;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.IntDef;
@@ -40,7 +41,15 @@ import java.util.Deque;
 import java.util.List;
 import java.util.concurrent.Callable;
 
-/** Manages the queue of player actions and handles running them one by one. */
+/**
+ * Manages the queue of player actions and handles running them one by one.
+ *
+ * @deprecated com.google.android.exoplayer2 is deprecated. Please migrate to androidx.media3 (which
+ *     contains the same ExoPlayer code). See <a
+ *     href="https://developer.android.com/guide/topics/media/media3/getting-started/migration-guide">the
+ *     migration guide</a> for more details, including a script to help with the migration.
+ */
+@Deprecated
 /* package */ class PlayerCommandQueue {
 
   private static final String TAG = "PlayerCommandQueue";
@@ -155,6 +164,7 @@ import java.util.concurrent.Callable;
     pendingPlayerCommandQueue = new ArrayDeque<>();
   }
 
+  @SuppressLint("RestrictedApi")
   public void reset() {
     handler.removeCallbacksAndMessages(/* token= */ null);
     List<PlayerCommand> queue;
@@ -173,6 +183,7 @@ import java.util.concurrent.Callable;
     return addCommand(commandCode, command, /* tag= */ null);
   }
 
+  @SuppressLint("RestrictedApi")
   public ListenableFuture<PlayerResult> addCommand(
       @CommandCode int commandCode, Callable<Boolean> command, @Nullable Object tag) {
     SettableFuture<PlayerResult> result = SettableFuture.create();
@@ -210,6 +221,7 @@ import java.util.concurrent.Callable;
     return result;
   }
 
+  @SuppressLint("RestrictedApi")
   public void notifyCommandError() {
     postOrRun(
         handler,
@@ -231,6 +243,7 @@ import java.util.concurrent.Callable;
         });
   }
 
+  @SuppressLint("RestrictedApi")
   public void notifyCommandCompleted(@AsyncCommandCode int completedCommandCode) {
     if (DEBUG) {
       Log.d(TAG, "notifyCommandCompleted, completedCommandCode=" + completedCommandCode);
@@ -263,6 +276,7 @@ import java.util.concurrent.Callable;
     postOrRun(handler, this::processPendingCommandOnHandler);
   }
 
+  @SuppressLint("RestrictedApi")
   private void processPendingCommandOnHandler() {
     while (pendingAsyncPlayerCommandResult == null) {
       @Nullable PlayerCommand playerCommand;

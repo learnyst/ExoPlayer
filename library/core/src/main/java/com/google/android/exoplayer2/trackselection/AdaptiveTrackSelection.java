@@ -43,7 +43,13 @@ import org.checkerframework.checker.nullness.compatqual.NullableType;
 /**
  * A bandwidth based adaptive {@link ExoTrackSelection}, whose selected track is updated to be the
  * one of highest quality given the current network conditions and the state of the buffer.
+ *
+ * @deprecated com.google.android.exoplayer2 is deprecated. Please migrate to androidx.media3 (which
+ *     contains the same ExoPlayer code). See <a
+ *     href="https://developer.android.com/guide/topics/media/media3/getting-started/migration-guide">the
+ *     migration guide</a> for more details, including a script to help with the migration.
  */
+@Deprecated
 public class AdaptiveTrackSelection extends BaseTrackSelection {
 
   private static final String TAG = "AdaptiveTrackSelection";
@@ -317,6 +323,7 @@ public class AdaptiveTrackSelection extends BaseTrackSelection {
   private @C.SelectionReason int reason;
   private long lastBufferEvaluationMs;
   @Nullable private MediaChunk lastBufferEvaluationMediaChunk;
+  private long latestBitrateEstimate;
 
   /**
    * @param group The {@link TrackGroup}.
@@ -408,6 +415,7 @@ public class AdaptiveTrackSelection extends BaseTrackSelection {
     playbackSpeed = 1f;
     reason = C.SELECTION_REASON_UNKNOWN;
     lastBufferEvaluationMs = C.TIME_UNSET;
+    latestBitrateEstimate = Long.MIN_VALUE;
   }
 
   @CallSuper
@@ -455,7 +463,8 @@ public class AdaptiveTrackSelection extends BaseTrackSelection {
       previousReason = Iterables.getLast(queue).trackSelectionReason;
     }
     int newSelectedIndex = determineIdealSelectedIndex(nowMs, chunkDurationUs);
-    if (!isBlacklisted(previousSelectedIndex, nowMs)) {
+    if (newSelectedIndex != previousSelectedIndex
+        && !isTrackExcluded(previousSelectedIndex, nowMs)) {
       // Revert back to the previous selection if conditions are not suitable for switching.
       Format currentFormat = getFormat(previousSelectedIndex);
       Format selectedFormat = getFormat(newSelectedIndex);
@@ -540,6 +549,11 @@ public class AdaptiveTrackSelection extends BaseTrackSelection {
     return queueSize;
   }
 
+  @Override
+  public long getLatestBitrateEstimate() {
+    return latestBitrateEstimate;
+  }
+
   /**
    * Called when updating the selected track to determine whether a candidate track can be selected.
    *
@@ -590,7 +604,7 @@ public class AdaptiveTrackSelection extends BaseTrackSelection {
     long effectiveBitrate = getAllocatedBandwidth(chunkDurationUs);
     int lowestBitrateAllowedIndex = 0;
     for (int i = 0; i < length; i++) {
-      if (nowMs == Long.MIN_VALUE || !isBlacklisted(i, nowMs)) {
+      if (nowMs == Long.MIN_VALUE || !isTrackExcluded(i, nowMs)) {
         Format format = getFormat(i);
         if (canSelectFormat(format, format.bitrate, effectiveBitrate)) {
           return i;
@@ -678,8 +692,8 @@ public class AdaptiveTrackSelection extends BaseTrackSelection {
   }
 
   private long getTotalAllocatableBandwidth(long chunkDurationUs) {
-    long cautiousBandwidthEstimate =
-        (long) (bandwidthMeter.getBitrateEstimate() * bandwidthFraction);
+    latestBitrateEstimate = bandwidthMeter.getBitrateEstimate();
+    long cautiousBandwidthEstimate = (long) (latestBitrateEstimate * bandwidthFraction);
     long timeToFirstByteEstimateUs = bandwidthMeter.getTimeToFirstByteEstimateUs();
     if (timeToFirstByteEstimateUs == C.TIME_UNSET || chunkDurationUs == C.TIME_UNSET) {
       return (long) (cautiousBandwidthEstimate / playbackSpeed);
@@ -753,7 +767,8 @@ public class AdaptiveTrackSelection extends BaseTrackSelection {
       }
       trackBitrates[i] = new long[definition.tracks.length];
       for (int j = 0; j < definition.tracks.length; j++) {
-        trackBitrates[i][j] = definition.group.getFormat(definition.tracks[j]).bitrate;
+        long bitrate = definition.group.getFormat(definition.tracks[j]).bitrate;
+        trackBitrates[i][j] = bitrate == Format.NO_VALUE ? 0 : bitrate;
       }
       Arrays.sort(trackBitrates[i]);
     }
@@ -778,7 +793,8 @@ public class AdaptiveTrackSelection extends BaseTrackSelection {
       }
       double[] logBitrates = new double[trackBitrates[i].length];
       for (int j = 0; j < trackBitrates[i].length; j++) {
-        logBitrates[j] = trackBitrates[i][j] == Format.NO_VALUE ? 0 : Math.log(trackBitrates[i][j]);
+        logBitrates[j] =
+            trackBitrates[i][j] == Format.NO_VALUE ? 0 : Math.log((double) trackBitrates[i][j]);
       }
       double totalBitrateDiff = logBitrates[logBitrates.length - 1] - logBitrates[0];
       for (int j = 0; j < logBitrates.length - 1; j++) {

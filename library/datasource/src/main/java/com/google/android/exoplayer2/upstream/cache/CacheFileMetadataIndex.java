@@ -31,7 +31,15 @@ import java.util.Map;
 import java.util.Set;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
-/** Maintains an index of cache file metadata. */
+/**
+ * Maintains an index of cache file metadata.
+ *
+ * @deprecated com.google.android.exoplayer2 is deprecated. Please migrate to androidx.media3 (which
+ *     contains the same ExoPlayer code). See <a
+ *     href="https://developer.android.com/guide/topics/media/media3/getting-started/migration-guide">the
+ *     migration guide</a> for more details, including a script to help with the migration.
+ */
+@Deprecated
 /* package */ final class CacheFileMetadataIndex {
 
   private static final String TABLE_PREFIX = DatabaseProvider.TABLE_PREFIX + "CacheFileMetadata";
@@ -94,7 +102,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
   }
 
-  /** @param databaseProvider Provides the database in which the index is stored. */
+  /**
+   * @param databaseProvider Provides the database in which the index is stored.
+   */
   public CacheFileMetadataIndex(DatabaseProvider databaseProvider) {
     this.databaseProvider = databaseProvider;
   }
@@ -237,7 +247,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         .query(
             tableName,
             COLUMNS,
-            /* selection */ null,
+            /* selection= */ null,
             /* selectionArgs= */ null,
             /* groupBy= */ null,
             /* having= */ null,

@@ -24,6 +24,7 @@ import com.google.android.exoplayer2.Format;
 import com.google.android.exoplayer2.util.Util;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.HashMap;
 
 /**
@@ -31,7 +32,13 @@ import java.util.HashMap;
  *
  * <p>SDP messages encapsulate information on the media play back session, including session
  * configuration information, formats of each playable track, etc. SDP is defined in RFC4566.
+ *
+ * @deprecated com.google.android.exoplayer2 is deprecated. Please migrate to androidx.media3 (which
+ *     contains the same ExoPlayer code). See <a
+ *     href="https://developer.android.com/guide/topics/media/media3/getting-started/migration-guide">the
+ *     migration guide</a> for more details, including a script to help with the migration.
  */
+@Deprecated
 /* package */ final class SessionDescription {
 
   /** Builder class for {@link SessionDescription}. */
@@ -64,6 +71,7 @@ import java.util.HashMap;
      * @param sessionName The {@link SessionDescription#sessionName}.
      * @return This builder.
      */
+    @CanIgnoreReturnValue
     public Builder setSessionName(String sessionName) {
       this.sessionName = sessionName;
       return this;
@@ -75,6 +83,7 @@ import java.util.HashMap;
      * @param sessionInfo The {@link SessionDescription#sessionInfo}.
      * @return This builder.
      */
+    @CanIgnoreReturnValue
     public Builder setSessionInfo(String sessionInfo) {
       this.sessionInfo = sessionInfo;
       return this;
@@ -86,6 +95,7 @@ import java.util.HashMap;
      * @param uri The {@link SessionDescription#uri}.
      * @return This builder.
      */
+    @CanIgnoreReturnValue
     public Builder setUri(Uri uri) {
       this.uri = uri;
       return this;
@@ -99,6 +109,7 @@ import java.util.HashMap;
      * @param origin The {@link SessionDescription#origin}.
      * @return This builder.
      */
+    @CanIgnoreReturnValue
     public Builder setOrigin(String origin) {
       this.origin = origin;
       return this;
@@ -110,6 +121,7 @@ import java.util.HashMap;
      * @param connection The {@link SessionDescription#connection}.
      * @return This builder.
      */
+    @CanIgnoreReturnValue
     public Builder setConnection(String connection) {
       this.connection = connection;
       return this;
@@ -121,6 +133,7 @@ import java.util.HashMap;
      * @param bitrate The {@link SessionDescription#bitrate} in bits per second.
      * @return This builder.
      */
+    @CanIgnoreReturnValue
     public Builder setBitrate(int bitrate) {
       this.bitrate = bitrate;
       return this;
@@ -134,6 +147,7 @@ import java.util.HashMap;
      * @param timing The {@link SessionDescription#timing}.
      * @return This builder.
      */
+    @CanIgnoreReturnValue
     public Builder setTiming(String timing) {
       this.timing = timing;
       return this;
@@ -145,6 +159,7 @@ import java.util.HashMap;
      * @param key The {@link SessionDescription#key}.
      * @return This builder.
      */
+    @CanIgnoreReturnValue
     public Builder setKey(String key) {
       this.key = key;
       return this;
@@ -156,6 +171,7 @@ import java.util.HashMap;
      * @param emailAddress The {@link SessionDescription#emailAddress}.
      * @return This builder.
      */
+    @CanIgnoreReturnValue
     public Builder setEmailAddress(String emailAddress) {
       this.emailAddress = emailAddress;
       return this;
@@ -167,6 +183,7 @@ import java.util.HashMap;
      * @param phoneNumber The {@link SessionDescription#phoneNumber}.
      * @return This builder.
      */
+    @CanIgnoreReturnValue
     public Builder setPhoneNumber(String phoneNumber) {
       this.phoneNumber = phoneNumber;
       return this;
@@ -179,6 +196,7 @@ import java.util.HashMap;
      * @param attributeValue The value of the attribute.
      * @return This builder.
      */
+    @CanIgnoreReturnValue
     public Builder addAttribute(String attributeName, String attributeValue) {
       attributes.put(attributeName, attributeValue);
       return this;
@@ -190,6 +208,7 @@ import java.util.HashMap;
      * @param mediaDescription The {@link MediaDescription}.
      * @return This builder.
      */
+    @CanIgnoreReturnValue
     public Builder addMediaDescription(MediaDescription mediaDescription) {
       mediaDescriptionListBuilder.add(mediaDescription);
       return this;
@@ -199,13 +218,8 @@ import java.util.HashMap;
      * Builds a new {@link SessionDescription} instance.
      *
      * @return The newly built {@link SessionDescription} instance.
-     * @throws IllegalStateException When one or more of {@link #sessionName}, {@link #timing} and
-     *     {@link #origin} is not set.
      */
     public SessionDescription build() {
-      if (sessionName == null || origin == null || timing == null) {
-        throw new IllegalStateException("One of more mandatory SDP fields are not set.");
-      }
       return new SessionDescription(this);
     }
   }
@@ -237,11 +251,11 @@ import java.util.HashMap;
    */
   public final ImmutableList<MediaDescription> mediaDescriptionList;
   /** The name of a session. */
-  public final String sessionName;
+  @Nullable public final String sessionName;
   /** The origin sender info. */
-  public final String origin;
+  @Nullable public final String origin;
   /** The timing info. */
-  public final String timing;
+  @Nullable public final String timing;
   /** The estimated bitrate in bits per seconds. */
   public final int bitrate;
   /** The uri of a linked content. */
@@ -285,9 +299,9 @@ import java.util.HashMap;
     return bitrate == that.bitrate
         && attributes.equals(that.attributes)
         && mediaDescriptionList.equals(that.mediaDescriptionList)
-        && origin.equals(that.origin)
-        && sessionName.equals(that.sessionName)
-        && timing.equals(that.timing)
+        && Util.areEqual(origin, that.origin)
+        && Util.areEqual(sessionName, that.sessionName)
+        && Util.areEqual(timing, that.timing)
         && Util.areEqual(sessionInfo, that.sessionInfo)
         && Util.areEqual(uri, that.uri)
         && Util.areEqual(emailAddress, that.emailAddress)
@@ -301,9 +315,9 @@ import java.util.HashMap;
     int result = 7;
     result = 31 * result + attributes.hashCode();
     result = 31 * result + mediaDescriptionList.hashCode();
-    result = 31 * result + origin.hashCode();
-    result = 31 * result + sessionName.hashCode();
-    result = 31 * result + timing.hashCode();
+    result = 31 * result + (origin == null ? 0 : origin.hashCode());
+    result = 31 * result + (sessionName == null ? 0 : sessionName.hashCode());
+    result = 31 * result + (timing == null ? 0 : timing.hashCode());
     result = 31 * result + bitrate;
     result = 31 * result + (sessionInfo == null ? 0 : sessionInfo.hashCode());
     result = 31 * result + (uri == null ? 0 : uri.hashCode());

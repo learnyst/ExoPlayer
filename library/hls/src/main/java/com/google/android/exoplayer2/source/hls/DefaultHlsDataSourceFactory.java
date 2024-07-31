@@ -15,20 +15,31 @@
  */
 package com.google.android.exoplayer2.source.hls;
 
+import com.google.android.exoplayer2.C;
 import com.google.android.exoplayer2.upstream.DataSource;
 
-/** Default implementation of {@link HlsDataSourceFactory}. */
+/**
+ * Default implementation of {@link HlsDataSourceFactory}.
+ *
+ * @deprecated com.google.android.exoplayer2 is deprecated. Please migrate to androidx.media3 (which
+ *     contains the same ExoPlayer code). See <a
+ *     href="https://developer.android.com/guide/topics/media/media3/getting-started/migration-guide">the
+ *     migration guide</a> for more details, including a script to help with the migration.
+ */
+@Deprecated
 public final class DefaultHlsDataSourceFactory implements HlsDataSourceFactory {
 
   private final DataSource.Factory dataSourceFactory;
 
-  /** @param dataSourceFactory The {@link DataSource.Factory} to use for all data types. */
+  /**
+   * @param dataSourceFactory The {@link DataSource.Factory} to use for all data types.
+   */
   public DefaultHlsDataSourceFactory(DataSource.Factory dataSourceFactory) {
     this.dataSourceFactory = dataSourceFactory;
   }
 
   @Override
-  public DataSource createDataSource(int dataType) {
+  public DataSource createDataSource(@C.DataType int dataType) {
     return dataSourceFactory.createDataSource();
   }
 }

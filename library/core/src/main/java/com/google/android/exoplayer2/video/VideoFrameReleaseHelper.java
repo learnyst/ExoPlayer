@@ -46,7 +46,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  *   <li>Adjusts the {@link Surface} frame rate to inform the underlying platform of a fixed frame
  *       rate, when there is one.
  * </ul>
+ *
+ * @deprecated com.google.android.exoplayer2 is deprecated. Please migrate to androidx.media3 (which
+ *     contains the same ExoPlayer code). See <a
+ *     href="https://developer.android.com/guide/topics/media/media3/getting-started/migration-guide">the
+ *     migration guide</a> for more details, including a script to help with the migration.
  */
+@Deprecated
 public final class VideoFrameReleaseHelper {
 
   private static final String TAG = "VideoFrameReleaseHelper";
@@ -166,7 +172,7 @@ public final class VideoFrameReleaseHelper {
    * @param surface The new {@link Surface}, or {@code null} if the renderer does not have one.
    */
   public void onSurfaceChanged(@Nullable Surface surface) {
-    if (surface instanceof DummySurface) {
+    if (surface instanceof PlaceholderSurface) {
       // We don't care about dummy surfaces for release timing, since they're not visible.
       surface = null;
     }

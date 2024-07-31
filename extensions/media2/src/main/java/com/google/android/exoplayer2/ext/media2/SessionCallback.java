@@ -17,6 +17,7 @@ package com.google.android.exoplayer2.ext.media2;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
+import android.annotation.SuppressLint;
 import android.os.Bundle;
 import androidx.annotation.Nullable;
 import androidx.media2.common.MediaItem;
@@ -45,6 +46,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 
+@Deprecated
 /* package */ class SessionCallback extends MediaSession.SessionCallback {
   private static final String TAG = "SessionCallback";
 
@@ -135,6 +137,7 @@ import java.util.concurrent.TimeoutException;
     return mediaItemProvider.onCreateMediaItem(session, controller, mediaId);
   }
 
+  @SuppressLint("RestrictedApi")
   @Override
   public int onSetRating(
       MediaSession session, MediaSession.ControllerInfo controller, String mediaId, Rating rating) {
@@ -144,6 +147,7 @@ import java.util.concurrent.TimeoutException;
     return SessionResult.RESULT_ERROR_NOT_SUPPORTED;
   }
 
+  @SuppressLint("RestrictedApi")
   @Override
   public SessionResult onCustomCommand(
       MediaSession session,
@@ -156,6 +160,7 @@ import java.util.concurrent.TimeoutException;
     return new SessionResult(SessionResult.RESULT_ERROR_NOT_SUPPORTED, null);
   }
 
+  @SuppressLint("RestrictedApi")
   @Override
   public int onFastForward(MediaSession session, MediaSession.ControllerInfo controller) {
     if (fastForwardMs > 0) {
@@ -164,6 +169,7 @@ import java.util.concurrent.TimeoutException;
     return SessionResult.RESULT_ERROR_NOT_SUPPORTED;
   }
 
+  @SuppressLint("RestrictedApi")
   @Override
   public int onRewind(MediaSession session, MediaSession.ControllerInfo controller) {
     if (rewindMs > 0) {
@@ -172,6 +178,7 @@ import java.util.concurrent.TimeoutException;
     return SessionResult.RESULT_ERROR_NOT_SUPPORTED;
   }
 
+  @SuppressLint("RestrictedApi")
   @Override
   public int onSkipBackward(MediaSession session, MediaSession.ControllerInfo controller) {
     if (skipCallback != null) {
@@ -180,6 +187,7 @@ import java.util.concurrent.TimeoutException;
     return SessionResult.RESULT_ERROR_NOT_SUPPORTED;
   }
 
+  @SuppressLint("RestrictedApi")
   @Override
   public int onSkipForward(MediaSession session, MediaSession.ControllerInfo controller) {
     if (skipCallback != null) {
@@ -188,6 +196,7 @@ import java.util.concurrent.TimeoutException;
     return SessionResult.RESULT_ERROR_NOT_SUPPORTED;
   }
 
+  @SuppressLint("RestrictedApi")
   private int seekToOffset(long offsetMs) {
     long positionMs = sessionPlayer.getCurrentPosition() + offsetMs;
     long durationMs = sessionPlayer.getDuration();

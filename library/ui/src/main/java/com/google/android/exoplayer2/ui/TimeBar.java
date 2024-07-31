@@ -21,7 +21,13 @@ import androidx.annotation.Nullable;
 /**
  * Interface for time bar views that can display a playback position, buffered position, duration
  * and ad markers, and that have a listener for scrubbing (seeking) events.
+ *
+ * @deprecated com.google.android.exoplayer2 is deprecated. Please migrate to androidx.media3 (which
+ *     contains the same ExoPlayer code). See <a
+ *     href="https://developer.android.com/guide/topics/media/media3/getting-started/migration-guide">the
+ *     migration guide</a> for more details, including a script to help with the migration.
  */
+@Deprecated
 public interface TimeBar {
 
   /**
@@ -38,7 +44,9 @@ public interface TimeBar {
    */
   void removeListener(OnScrubListener listener);
 
-  /** @see View#isEnabled() */
+  /**
+   * @see View#isEnabled()
+   */
   void setEnabled(boolean enabled);
 
   /**

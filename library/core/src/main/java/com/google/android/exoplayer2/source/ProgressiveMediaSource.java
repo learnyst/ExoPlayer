@@ -34,6 +34,7 @@ import com.google.android.exoplayer2.upstream.DataSource;
 import com.google.android.exoplayer2.upstream.DefaultLoadErrorHandlingPolicy;
 import com.google.android.exoplayer2.upstream.LoadErrorHandlingPolicy;
 import com.google.android.exoplayer2.upstream.TransferListener;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 
 /**
  * Provides one period that loads data from a {@link Uri} and extracted using an {@link Extractor}.
@@ -45,7 +46,13 @@ import com.google.android.exoplayer2.upstream.TransferListener;
  * used to extract samples from the input stream.
  *
  * <p>Note that the built-in extractor for FLV streams does not support seeking.
+ *
+ * @deprecated com.google.android.exoplayer2 is deprecated. Please migrate to androidx.media3 (which
+ *     contains the same ExoPlayer code). See <a
+ *     href="https://developer.android.com/guide/topics/media/media3/getting-started/migration-guide">the
+ *     migration guide</a> for more details, including a script to help with the migration.
  */
+@Deprecated
 public final class ProgressiveMediaSource extends BaseMediaSource
     implements ProgressiveMediaPeriod.Listener {
 
@@ -59,14 +66,20 @@ public final class ProgressiveMediaSource extends BaseMediaSource
     private DrmSessionManagerProvider drmSessionManagerProvider;
     private LoadErrorHandlingPolicy loadErrorHandlingPolicy;
     private int continueLoadingCheckIntervalBytes;
-    @Nullable private String customCacheKey;
-    @Nullable private Object tag;
 
     /**
-     * Creates a new factory for {@link ProgressiveMediaSource}s, using the extractors provided by
-     * {@link DefaultExtractorsFactory}.
+     * Creates a new factory for {@link ProgressiveMediaSource}s.
      *
-     * @param dataSourceFactory A factory for {@link DataSource}s to read the media.
+     * <p>The factory will use the following default components:
+     *
+     * <ul>
+     *   <li>{@link DefaultExtractorsFactory}
+     *   <li>{@link DefaultDrmSessionManagerProvider}
+     *   <li>{@link DefaultLoadErrorHandlingPolicy}
+     * </ul>
+     *
+     * @param dataSourceFactory A factory for {@linkplain DataSource data sources} to read the
+     *     media.
      */
     public Factory(DataSource.Factory dataSourceFactory) {
       this(dataSourceFactory, new DefaultExtractorsFactory());
@@ -75,6 +88,18 @@ public final class ProgressiveMediaSource extends BaseMediaSource
     /**
      * Equivalent to {@link #Factory(DataSource.Factory, ProgressiveMediaExtractor.Factory) new
      * Factory(dataSourceFactory, () -> new BundledExtractorsAdapter(extractorsFactory)}.
+     *
+     * <p>The factory will use the following default components:
+     *
+     * <ul>
+     *   <li>{@link DefaultDrmSessionManagerProvider}
+     *   <li>{@link DefaultLoadErrorHandlingPolicy}
+     * </ul>
+     *
+     * @param dataSourceFactory A factory for {@linkplain DataSource data sources} to read the
+     *     media.
+     * @param extractorsFactory A factory for the {@linkplain Extractor extractors} used to extract
+     *     the media from its container.
      */
     public Factory(DataSource.Factory dataSourceFactory, ExtractorsFactory extractorsFactory) {
       this(dataSourceFactory, playerId -> new BundledExtractorsAdapter(extractorsFactory));
@@ -83,9 +108,17 @@ public final class ProgressiveMediaSource extends BaseMediaSource
     /**
      * Creates a new factory for {@link ProgressiveMediaSource}s.
      *
-     * @param dataSourceFactory A factory for {@link DataSource}s to read the media.
+     * <p>The factory will use the following default components:
+     *
+     * <ul>
+     *   <li>{@link DefaultDrmSessionManagerProvider}
+     *   <li>{@link DefaultLoadErrorHandlingPolicy}
+     * </ul>
+     *
+     * @param dataSourceFactory A factory for {@linkplain DataSource data sources} to read the
+     *     media.
      * @param progressiveMediaExtractorFactory A factory for the {@link ProgressiveMediaExtractor}
-     *     to extract media from its container.
+     *     to extract the media from its container.
      */
     public Factory(
         DataSource.Factory dataSourceFactory,
@@ -101,7 +134,8 @@ public final class ProgressiveMediaSource extends BaseMediaSource
     /**
      * Creates a new factory for {@link ProgressiveMediaSource}s.
      *
-     * @param dataSourceFactory A factory for {@link DataSource}s to read the media.
+     * @param dataSourceFactory A factory for {@linkplain DataSource data sources} to read the
+     *     media.
      * @param progressiveMediaExtractorFactory A factory for the {@link ProgressiveMediaExtractor}
      *     to extract media from its container.
      * @param drmSessionManagerProvider A provider to obtain a {@link DrmSessionManager} for a
@@ -124,19 +158,15 @@ public final class ProgressiveMediaSource extends BaseMediaSource
       this.continueLoadingCheckIntervalBytes = continueLoadingCheckIntervalBytes;
     }
 
-    /**
-     * Sets the {@link LoadErrorHandlingPolicy}. The default value is created by calling {@link
-     * DefaultLoadErrorHandlingPolicy#DefaultLoadErrorHandlingPolicy()}.
-     *
-     * @param loadErrorHandlingPolicy A {@link LoadErrorHandlingPolicy}.
-     * @return This factory, for convenience.
-     */
-    public Factory setLoadErrorHandlingPolicy(
-        @Nullable LoadErrorHandlingPolicy loadErrorHandlingPolicy) {
+    @CanIgnoreReturnValue
+    @Override
+    public Factory setLoadErrorHandlingPolicy(LoadErrorHandlingPolicy loadErrorHandlingPolicy) {
       this.loadErrorHandlingPolicy =
-          loadErrorHandlingPolicy != null
-              ? loadErrorHandlingPolicy
-              : new DefaultLoadErrorHandlingPolicy();
+          checkNotNull(
+              loadErrorHandlingPolicy,
+              "MediaSource.Factory#setLoadErrorHandlingPolicy no longer handles null by"
+                  + " instantiating a new DefaultLoadErrorHandlingPolicy. Explicitly construct and"
+                  + " pass an instance in order to retain the old behavior.");
       return this;
     }
 
@@ -150,18 +180,22 @@ public final class ProgressiveMediaSource extends BaseMediaSource
      *     MediaPeriod.Callback#onContinueLoadingRequested(SequenceableLoader)}.
      * @return This factory, for convenience.
      */
+    @CanIgnoreReturnValue
     public Factory setContinueLoadingCheckIntervalBytes(int continueLoadingCheckIntervalBytes) {
       this.continueLoadingCheckIntervalBytes = continueLoadingCheckIntervalBytes;
       return this;
     }
 
+    @CanIgnoreReturnValue
     @Override
     public Factory setDrmSessionManagerProvider(
-        @Nullable DrmSessionManagerProvider drmSessionManagerProvider) {
+        DrmSessionManagerProvider drmSessionManagerProvider) {
       this.drmSessionManagerProvider =
-          drmSessionManagerProvider != null
-              ? drmSessionManagerProvider
-              : new DefaultDrmSessionManagerProvider();
+          checkNotNull(
+              drmSessionManagerProvider,
+              "MediaSource.Factory#setDrmSessionManagerProvider no longer handles null by"
+                  + " instantiating a new DefaultDrmSessionManagerProvider. Explicitly construct"
+                  + " and pass an instance in order to retain the old behavior.");
       return this;
     }
 
@@ -175,16 +209,6 @@ public final class ProgressiveMediaSource extends BaseMediaSource
     @Override
     public ProgressiveMediaSource createMediaSource(MediaItem mediaItem) {
       checkNotNull(mediaItem.localConfiguration);
-      boolean needsTag = mediaItem.localConfiguration.tag == null && tag != null;
-      boolean needsCustomCacheKey =
-          mediaItem.localConfiguration.customCacheKey == null && customCacheKey != null;
-      if (needsTag && needsCustomCacheKey) {
-        mediaItem = mediaItem.buildUpon().setTag(tag).setCustomCacheKey(customCacheKey).build();
-      } else if (needsTag) {
-        mediaItem = mediaItem.buildUpon().setTag(tag).build();
-      } else if (needsCustomCacheKey) {
-        mediaItem = mediaItem.buildUpon().setCustomCacheKey(customCacheKey).build();
-      }
       return new ProgressiveMediaSource(
           mediaItem,
           dataSourceFactory,
@@ -195,8 +219,8 @@ public final class ProgressiveMediaSource extends BaseMediaSource
     }
 
     @Override
-    public int[] getSupportedTypes() {
-      return new int[] {C.TYPE_OTHER};
+    public @C.ContentType int[] getSupportedTypes() {
+      return new int[] {C.CONTENT_TYPE_OTHER};
     }
   }
 
@@ -246,9 +270,9 @@ public final class ProgressiveMediaSource extends BaseMediaSource
   @Override
   protected void prepareSourceInternal(@Nullable TransferListener mediaTransferListener) {
     transferListener = mediaTransferListener;
-    drmSessionManager.prepare();
     drmSessionManager.setPlayer(
         /* playbackLooper= */ checkNotNull(Looper.myLooper()), getPlayerId());
+    drmSessionManager.prepare();
     notifySourceInfoRefreshed();
   }
 

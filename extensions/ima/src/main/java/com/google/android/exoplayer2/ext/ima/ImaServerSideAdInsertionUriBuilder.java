@@ -28,6 +28,7 @@ import com.google.ads.interactivemedia.v3.api.StreamRequest.StreamFormat;
 import com.google.android.exoplayer2.C;
 import com.google.android.exoplayer2.C.ContentType;
 import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -35,7 +36,13 @@ import java.util.Map;
  * Builder for URI for IMA DAI streams. The resulting URI can be used to build a {@link
  * com.google.android.exoplayer2.MediaItem#fromUri(Uri) media item} that can be played by the {@link
  * ImaServerSideAdInsertionMediaSource}.
+ *
+ * @deprecated com.google.android.exoplayer2 is deprecated. Please migrate to androidx.media3 (which
+ *     contains the same ExoPlayer code). See <a
+ *     href="https://developer.android.com/guide/topics/media/media3/getting-started/migration-guide">the
+ *     migration guide</a> for more details, including a script to help with the migration.
  */
+@Deprecated
 public final class ImaServerSideAdInsertionUriBuilder {
 
   /** The default timeout for loading the video URI, in milliseconds. */
@@ -72,7 +79,7 @@ public final class ImaServerSideAdInsertionUriBuilder {
   public ImaServerSideAdInsertionUriBuilder() {
     adTagParameters = ImmutableMap.of();
     loadVideoTimeoutMs = DEFAULT_LOAD_VIDEO_TIMEOUT_MS;
-    format = C.TYPE_OTHER;
+    format = C.CONTENT_TYPE_OTHER;
   }
 
   /**
@@ -83,6 +90,7 @@ public final class ImaServerSideAdInsertionUriBuilder {
    * @param adsId The ads identifier.
    * @return This instance, for convenience.
    */
+  @CanIgnoreReturnValue
   public ImaServerSideAdInsertionUriBuilder setAdsId(String adsId) {
     this.adsId = adsId;
     return this;
@@ -94,6 +102,7 @@ public final class ImaServerSideAdInsertionUriBuilder {
    * @param assetKey Live stream asset key.
    * @return This instance, for convenience.
    */
+  @CanIgnoreReturnValue
   public ImaServerSideAdInsertionUriBuilder setAssetKey(@Nullable String assetKey) {
     this.assetKey = assetKey;
     return this;
@@ -107,6 +116,7 @@ public final class ImaServerSideAdInsertionUriBuilder {
    * @param authToken Live stream authorization token.
    * @return This instance, for convenience.
    */
+  @CanIgnoreReturnValue
   public ImaServerSideAdInsertionUriBuilder setAuthToken(@Nullable String authToken) {
     this.authToken = authToken;
     return this;
@@ -118,6 +128,7 @@ public final class ImaServerSideAdInsertionUriBuilder {
    * @param contentSourceId VOD stream content source id.
    * @return This instance, for convenience.
    */
+  @CanIgnoreReturnValue
   public ImaServerSideAdInsertionUriBuilder setContentSourceId(@Nullable String contentSourceId) {
     this.contentSourceId = contentSourceId;
     return this;
@@ -129,6 +140,7 @@ public final class ImaServerSideAdInsertionUriBuilder {
    * @param videoId VOD stream video id.
    * @return This instance, for convenience.
    */
+  @CanIgnoreReturnValue
   public ImaServerSideAdInsertionUriBuilder setVideoId(@Nullable String videoId) {
     this.videoId = videoId;
     return this;
@@ -137,11 +149,12 @@ public final class ImaServerSideAdInsertionUriBuilder {
   /**
    * Sets the format of the stream request.
    *
-   * @param format VOD or live stream type.
+   * @param format {@link C#TYPE_DASH} or {@link C#TYPE_HLS}.
    * @return This instance, for convenience.
    */
+  @CanIgnoreReturnValue
   public ImaServerSideAdInsertionUriBuilder setFormat(@ContentType int format) {
-    checkArgument(format == C.TYPE_DASH || format == C.TYPE_HLS);
+    checkArgument(format == C.CONTENT_TYPE_DASH || format == C.CONTENT_TYPE_HLS);
     this.format = format;
     return this;
   }
@@ -154,6 +167,7 @@ public final class ImaServerSideAdInsertionUriBuilder {
    * @param apiKey Stream api key.
    * @return This instance, for convenience.
    */
+  @CanIgnoreReturnValue
   public ImaServerSideAdInsertionUriBuilder setApiKey(@Nullable String apiKey) {
     this.apiKey = apiKey;
     return this;
@@ -167,6 +181,7 @@ public final class ImaServerSideAdInsertionUriBuilder {
    * @param streamActivityMonitorId ID for debugging the stream with the stream activity monitor.
    * @return This instance, for convenience.
    */
+  @CanIgnoreReturnValue
   public ImaServerSideAdInsertionUriBuilder setStreamActivityMonitorId(
       @Nullable String streamActivityMonitorId) {
     this.streamActivityMonitorId = streamActivityMonitorId;
@@ -185,6 +200,7 @@ public final class ImaServerSideAdInsertionUriBuilder {
    * @param adTagParameters A map of extra parameters to pass to the ad server.
    * @return This instance, for convenience.
    */
+  @CanIgnoreReturnValue
   public ImaServerSideAdInsertionUriBuilder setAdTagParameters(
       Map<String, String> adTagParameters) {
     this.adTagParameters = ImmutableMap.copyOf(adTagParameters);
@@ -198,6 +214,7 @@ public final class ImaServerSideAdInsertionUriBuilder {
    * @param manifestSuffix Stream manifest's suffix.
    * @return This instance, for convenience.
    */
+  @CanIgnoreReturnValue
   public ImaServerSideAdInsertionUriBuilder setManifestSuffix(@Nullable String manifestSuffix) {
     this.manifestSuffix = manifestSuffix;
     return this;
@@ -211,6 +228,7 @@ public final class ImaServerSideAdInsertionUriBuilder {
    * @param contentUrl Deep link to the content's screen.
    * @return This instance, for convenience.
    */
+  @CanIgnoreReturnValue
   public ImaServerSideAdInsertionUriBuilder setContentUrl(@Nullable String contentUrl) {
     this.contentUrl = contentUrl;
     return this;
@@ -224,6 +242,7 @@ public final class ImaServerSideAdInsertionUriBuilder {
    * @param loadVideoTimeoutMs The timeout after which to give up resolving the video URI.
    * @return This instance, for convenience.
    */
+  @CanIgnoreReturnValue
   public ImaServerSideAdInsertionUriBuilder setLoadVideoTimeoutMs(int loadVideoTimeoutMs) {
     this.loadVideoTimeoutMs = loadVideoTimeoutMs;
     return this;
@@ -243,7 +262,7 @@ public final class ImaServerSideAdInsertionUriBuilder {
             || (!TextUtils.isEmpty(assetKey)
                 && TextUtils.isEmpty(contentSourceId)
                 && TextUtils.isEmpty(videoId)));
-    checkState(format != C.TYPE_OTHER);
+    checkState(format != C.CONTENT_TYPE_OTHER);
     @Nullable String adsId = this.adsId;
     if (adsId == null) {
       adsId = assetKey != null ? assetKey : checkNotNull(videoId);
@@ -330,9 +349,9 @@ public final class ImaServerSideAdInsertionUriBuilder {
               .createVodStreamRequest(checkNotNull(contentSourceId), checkNotNull(videoId), apiKey);
     }
     int format = Integer.parseInt(uri.getQueryParameter(FORMAT));
-    if (format == C.TYPE_DASH) {
+    if (format == C.CONTENT_TYPE_DASH) {
       streamRequest.setFormat(StreamFormat.DASH);
-    } else if (format == C.TYPE_HLS) {
+    } else if (format == C.CONTENT_TYPE_HLS) {
       streamRequest.setFormat(StreamFormat.HLS);
     } else {
       throw new IllegalArgumentException("Unsupported stream format:" + format);
@@ -366,10 +385,6 @@ public final class ImaServerSideAdInsertionUriBuilder {
     if (streamActivityMonitorId != null) {
       streamRequest.setStreamActivityMonitorId(streamActivityMonitorId);
     }
-    checkState(
-        streamRequest.getFormat() != StreamFormat.DASH
-            || TextUtils.isEmpty(streamRequest.getAssetKey()),
-        "DASH live streams are not supported yet.");
     return streamRequest;
   }
 }

@@ -113,11 +113,11 @@ public final class AudioCapabilitiesReceiver {
     if (Build.VERSION.SDK_INT >= 34 && context.getApplicationInfo().targetSdkVersion >= 34) {
 stickyIntent =
           context.registerReceiver(
-              receiver, intentFilter, /* RECEIVER_EXPORTED*/  "2", handler);
+              hdmiAudioPlugBroadcastReceiver, intentFilter, /* RECEIVER_EXPORTED*/  "2", handler);
         } else {
 stickyIntent =
           context.registerReceiver(
-              receiver, intentFilter, /* broadcastPermission= */ null, handler);
+              hdmiAudioPlugBroadcastReceiver, intentFilter, /* broadcastPermission= */ null, handler);
         }
     }
     audioCapabilities = AudioCapabilities.getCapabilities(context, stickyIntent);

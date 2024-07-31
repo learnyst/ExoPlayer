@@ -32,6 +32,7 @@ import com.google.android.exoplayer2.util.Util;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import java.util.Arrays;
+import android.os.Build;
 
 /** Represents the set of audio formats that a device is capable of playing. */
 public final class AudioCapabilities {
@@ -76,9 +77,18 @@ public final class AudioCapabilities {
    */
   @SuppressWarnings("InlinedApi")
   public static AudioCapabilities getCapabilities(Context context) {
-    Intent intent =
+Intent intent;
+     if (Build.VERSION.SDK_INT >= 34 && context.getApplicationInfo().targetSdkVersion >= 34) {
+        intent =
+        context.registerReceiver(
+            /* receiver= */ null, new IntentFilter(AudioManager.ACTION_HDMI_AUDIO_PLUG),  /* RECEIVER_EXPORTED*/  2);
+
+        } else {
+  intent =
         context.registerReceiver(
             /* receiver= */ null, new IntentFilter(AudioManager.ACTION_HDMI_AUDIO_PLUG));
+        }
+   
     return getCapabilities(context, intent);
   }
 

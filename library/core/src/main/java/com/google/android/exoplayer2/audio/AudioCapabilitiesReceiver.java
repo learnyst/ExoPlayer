@@ -27,6 +27,7 @@ import android.os.Handler;
 import androidx.annotation.Nullable;
 import com.google.android.exoplayer2.util.Assertions;
 import com.google.android.exoplayer2.util.Util;
+import android.os.Build;
 
 /**
  * Receives broadcast events indicating changes to the device's audio capabilities, notifying a
@@ -91,9 +92,16 @@ public final class AudioCapabilitiesReceiver {
     Intent stickyIntent = null;
     if (receiver != null) {
       IntentFilter intentFilter = new IntentFilter(AudioManager.ACTION_HDMI_AUDIO_PLUG);
-      stickyIntent =
+
+    if (Build.VERSION.SDK_INT >= 34 && context.getApplicationInfo().targetSdkVersion >= 34) {
+stickyIntent =
+          context.registerReceiver(
+              receiver, intentFilter, /* RECEIVER_EXPORTED*/  "2", handler);
+        } else {
+stickyIntent =
           context.registerReceiver(
               receiver, intentFilter, /* broadcastPermission= */ null, handler);
+        }
     }
     audioCapabilities = AudioCapabilities.getCapabilities(context, stickyIntent);
     return audioCapabilities;

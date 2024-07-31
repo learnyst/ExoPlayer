@@ -66,6 +66,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import android.os.Build;
 
 /**
  * Starts, updates and cancels a media style notification reflecting the player state. The actions
@@ -1162,7 +1163,11 @@ public class PlayerNotificationManager {
     Notification notification = builder.build();
     notificationManager.notify(notificationId, notification);
     if (!isNotificationStarted) {
-      context.registerReceiver(notificationBroadcastReceiver, intentFilter);
+        if (Build.VERSION.SDK_INT >= 34 && context.getApplicationInfo().targetSdkVersion >= 34) {
+          context.registerReceiver(notificationBroadcastReceiver, intentFilter, /* RECEIVER_EXPORTED*/  2);
+        } else {
+ context.registerReceiver(notificationBroadcastReceiver, intentFilter);
+        }
     }
     if (notificationListener != null) {
       // Always pass true for ongoing with the first notification to tell a service to go into

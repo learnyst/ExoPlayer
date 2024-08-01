@@ -25,6 +25,7 @@ import androidx.annotation.Nullable;
 import com.google.android.exoplayer2.util.Assertions;
 import com.google.android.exoplayer2.util.Log;
 import com.google.android.exoplayer2.util.Util;
+import android.os.Build;
 
 /** A manager that wraps {@link AudioManager} to control/listen audio stream volume. */
 /* package */ final class StreamVolumeManager {
@@ -74,7 +75,12 @@ import com.google.android.exoplayer2.util.Util;
     VolumeChangeReceiver receiver = new VolumeChangeReceiver();
     IntentFilter filter = new IntentFilter(VOLUME_CHANGED_ACTION);
     try {
-      applicationContext.registerReceiver(receiver, filter);
+    if (Build.VERSION.SDK_INT >= 34 && context.getApplicationInfo().targetSdkVersion >= 34) {
+      applicationContext.registerReceiver(receiver, filter, /* RECEIVER_EXPORTED*/  2);
+
+        } else {
+         applicationContext.registerReceiver(receiver, filter);
+        }
       this.receiver = receiver;
     } catch (RuntimeException e) {
       Log.w(TAG, "Error registering stream volume receiver", e);

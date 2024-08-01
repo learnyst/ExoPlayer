@@ -21,6 +21,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.media.AudioManager;
 import android.os.Handler;
+import android.os.Build;
 
 /* package */ final class AudioBecomingNoisyManager {
 
@@ -46,8 +47,15 @@ import android.os.Handler;
    */
   public void setEnabled(boolean enabled) {
     if (enabled && !receiverRegistered) {
-      context.registerReceiver(
+    
+        if (Build.VERSION.SDK_INT >= 34 && context.getApplicationInfo().targetSdkVersion >= 34) {
+          context.registerReceiver(
+          receiver, new IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY), /* RECEIVER_EXPORTED*/  2);
+
+        } else {
+        context.registerReceiver(
           receiver, new IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY));
+        }
       receiverRegistered = true;
     } else if (!enabled && receiverRegistered) {
       context.unregisterReceiver(receiver);

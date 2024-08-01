@@ -40,6 +40,8 @@ import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import android.os.Build;
+
 
 /** Defines a set of device state requirements. */
 public final class Requirements implements Parcelable {
@@ -179,9 +181,17 @@ public final class Requirements implements Parcelable {
 
   private boolean isDeviceCharging(Context context) {
     @Nullable
-    Intent batteryStatus =
+     Intent batteryStatus;
+      if (Build.VERSION.SDK_INT >= 34 && context.getApplicationInfo().targetSdkVersion >= 34) {
+                batteryStatus =
+        context.registerReceiver(
+            /* receiver= */ null, new IntentFilter(Intent.ACTION_BATTERY_CHANGED), /* RECEIVER_EXPORTED*/  2);
+        } else {
+  batteryStatus =
         context.registerReceiver(
             /* receiver= */ null, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
+        }
+
     if (batteryStatus == null) {
       return false;
     }
@@ -198,11 +208,25 @@ public final class Requirements implements Parcelable {
         : Util.SDK_INT >= 20 ? !powerManager.isInteractive() : !powerManager.isScreenOn();
   }
 
-  private boolean isStorageNotLow(Context context) {
-    return context.registerReceiver(
-            /* receiver= */ null, new IntentFilter(Intent.ACTION_DEVICE_STORAGE_LOW))
-        == null;
-  }
+private boolean isStorageNotLow(Context context) {
+    Intent intent;
+
+    if (Build.VERSION.SDK_INT >= 34 && context.getApplicationInfo().targetSdkVersion >= 34) {
+        intent = context.registerReceiver(
+            /* receiver= */ null, 
+            new IntentFilter(Intent.ACTION_DEVICE_STORAGE_LOW),  
+            /* RECEIVER_EXPORTED*/ 2
+        );
+    } else {
+        intent = context.registerReceiver(
+            /* receiver= */ null, 
+            new IntentFilter(Intent.ACTION_DEVICE_STORAGE_LOW)
+        );
+    }
+
+    // If the intent is null, it means the receiver is not registered, hence storage is not low
+    return intent == null;
+}
 
   private static boolean isInternetConnectivityValidated(ConnectivityManager connectivityManager) {
     // It's possible to check NetworkCapabilities.NET_CAPABILITY_VALIDATED from API level 23, but

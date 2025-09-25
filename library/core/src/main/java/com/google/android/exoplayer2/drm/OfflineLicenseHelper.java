@@ -15,6 +15,7 @@
  */
 package com.google.android.exoplayer2.drm;
 
+import com.google.android.exoplayer2.C;
 import android.media.MediaDrm;
 import android.os.ConditionVariable;
 import android.os.Handler;
@@ -120,6 +121,26 @@ public final class OfflineLicenseHelper {
                 new HttpMediaDrmCallback(
                     defaultLicenseUrl, forceDefaultLicenseUrl, httpDataSourceFactory)),
         eventDispatcher);
+  }
+
+  //Sridhar added
+  public static OfflineLicenseHelper newWidevineInstance(
+      String defaultLicenseUrl,
+      boolean forceDefaultLicenseUrl,
+      HttpDataSource.Factory httpDataSourceFactory,
+      @Nullable Map<String, String> optionalKeyRequestParameters,
+      FrameworkMediaDrm mediaDrm,
+      DrmSessionEventListener.EventDispatcher eventDispatcher) {
+
+    DefaultDrmSessionManager drmSessionManager =
+        new DefaultDrmSessionManager.Builder()
+            .setUuidAndExoMediaDrmProvider(C.WIDEVINE_UUID, uuid -> mediaDrm)
+            .setKeyRequestParameters(optionalKeyRequestParameters)
+            .build(
+                new HttpMediaDrmCallback(
+                    defaultLicenseUrl, forceDefaultLicenseUrl, httpDataSourceFactory));
+
+    return new OfflineLicenseHelper(drmSessionManager, eventDispatcher);
   }
 
   /**

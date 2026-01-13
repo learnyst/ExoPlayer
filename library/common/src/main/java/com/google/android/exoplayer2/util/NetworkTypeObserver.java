@@ -16,7 +16,7 @@
 package com.google.android.exoplayer2.util;
 
 import static com.google.android.exoplayer2.util.Assertions.checkNotNull;
-
+import android.os.Build;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -111,7 +111,13 @@ public final class NetworkTypeObserver {
     networkType = C.NETWORK_TYPE_UNKNOWN;
     IntentFilter filter = new IntentFilter();
     filter.addAction(ConnectivityManager.CONNECTIVITY_ACTION);
-    context.registerReceiver(/* receiver= */ new Receiver(), filter);
+
+       if (Build.VERSION.SDK_INT >= 34 && context.getApplicationInfo().targetSdkVersion >= 34) {
+          context.registerReceiver(/* receiver= */ new Receiver(), filter,/* RECEIVER_EXPORTED*/  2 );
+
+        } else {
+          context.registerReceiver(/* receiver= */ new Receiver(), filter);
+        }
   }
 
   /**

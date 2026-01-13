@@ -30,6 +30,7 @@ import android.os.PowerManager;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import com.google.android.exoplayer2.util.Util;
+import android.os.Build;
 
 /**
  * Watches whether the {@link Requirements} are met and notifies the {@link Listener} on changes.
@@ -109,7 +110,12 @@ public final class RequirementsWatcher {
       filter.addAction(Intent.ACTION_DEVICE_STORAGE_OK);
     }
     receiver = new DeviceStatusChangeReceiver();
-    context.registerReceiver(receiver, filter, null, handler);
+  
+     if (Build.VERSION.SDK_INT >= 34 && context.getApplicationInfo().targetSdkVersion >= 34) {
+          context.registerReceiver(receiver, filter, /* RECEIVER_EXPORTED*/ "2", handler);
+    } else {
+         context.registerReceiver(receiver, filter, null, handler);
+    }
     return notMetRequirements;
   }
 
